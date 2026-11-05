@@ -2,7 +2,7 @@
 // All powers are enforced server-side by POST /api/admin; this is just the UI.
 (async () => {
   // ---- Global broadcast banner: Dylan's broadcast shows on EVERY game, for every player ----
-  // (Miner Cat 2 has its own built-in bar and doesn't load this file, so no double banner there.)
+  // (Mining Simulator has its own built-in bar and doesn't load this file, so no double banner there.)
   if (!document.getElementById('broadcast-bar') && !document.getElementById('arq-broadcast-bar')) {
     const bstyle = document.createElement('style');
     bstyle.textContent = `
@@ -74,7 +74,7 @@
     <button class="close" title="Close">✕</button>
     <h3>🔧 Admin panel</h3>
     <div class="who">Signed in as <b></b> — one account for the whole site. Each game has its own panel below.</div>
-    <h4>⛏️ Miner Cat 2</h4>
+    <h4>⛏️ Mining Simulator</h4>
     <div class="row">
       <button data-cmd="coins">+1M coins</button>
       <button data-cmd="gems">+100 gems</button>
@@ -152,7 +152,7 @@
     b.onclick = async () => {
       const cmd = b.dataset.cmd;
       const extra = cmd === 'coins' ? { amount: 1000000 } : cmd === 'gems' ? { amount: 100 } : cmd === 'upgrades' ? { pick: 50, armor: 50, bag: 50 } : {};
-      try { await admin(cmd, extra); status('✅ Done — Miner Cat 2 updated.'); }
+      try { await admin(cmd, extra); status('✅ Done — Mining Simulator updated.'); }
       catch (ex) { status('⚠️ ' + ex.message); }
     };
   });
