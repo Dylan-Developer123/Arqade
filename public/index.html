@@ -93,7 +93,7 @@
         out.onclick = async () => { await fetch('/api/signout', { method: 'POST' }); location.reload(); };
         document.getElementById('account-bar').appendChild(out);
       } else {
-        el.innerHTML = '👤 One account works for every game. <a href="/miner-cat-2" style="color:#f5c542;font-weight:bold;">Sign in or create yours in Miner Cat 2</a>';
+        el.innerHTML = '👤 One account works for every game. <a href="/miner-cat-2" style="color:#f5c542;font-weight:bold;">Sign in or create yours in Mining Simulator</a>';
       }
     } catch (e) {
       el.textContent = '';
@@ -113,10 +113,10 @@
       </div>
     </a>
     <a class="card" href="/miner-cat-2">
-      <div class="art" style="background:linear-gradient(135deg,#3a2b18,#6d4c1e);">🐱⛏️</div>
+      <div class="art" style="background:linear-gradient(135deg,#3a2b18,#6d4c1e);">👷⛏️</div>
       <div class="body">
         <span class="tag">MULTIPLAYER</span>
-        <h2>Miner Cat 2</h2>
+        <h2>Mining Simulator</h2>
         <p>Dig through 100 stages, collect coins and gems, buy enchants, and mine together in the shared multiplayer world. Accounts, autosave, and a live leaderboard.</p>
         <div class="play">▶ Play now</div>
       </div>
