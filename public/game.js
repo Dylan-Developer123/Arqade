@@ -1,5 +1,5 @@
 /* =========================================================================
- * Miner Cat 2 — standalone browser game
+ * Mining Simulator — standalone browser game
  * Canvas digging game: 25 stages (50 blocks each, stage 25 infinite),
  * 21-block-wide world, health/lava, upgrades, achievements, backpack.
  * Progress persists on the server (autosave every 60s).
@@ -660,7 +660,7 @@ function drawBlock(bx, by, type, t) {
   ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
 }
 
-function drawCat(t) {
+function drawMiner(t) {
   const s = TILE;
   const cx = S.px * s;
   const feetY = (S.py - camY) * s;
@@ -671,34 +671,34 @@ function drawCat(t) {
   const swing = S.swingAt && (performance.now() - S.swingAt < 220)
     ? Math.sin((performance.now() - S.swingAt) / 220 * Math.PI) * 0.9 : 0;
 
-  // tail
-  ctx.strokeStyle = '#e8933c'; ctx.lineWidth = 5 * u; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-11 * u, -14 * u);
-  ctx.quadraticCurveTo(-20 * u, -18 * u, -17 * u, -28 * u); ctx.stroke();
-  // body
-  ctx.fillStyle = '#f0a04b';
-  roundRect(-12 * u, -26 * u, 24 * u, 18 * u, 7 * u); ctx.fill();
-  // feet
-  ctx.fillStyle = '#d97f2e';
-  ctx.fillRect(-11 * u, -10 * u, 9 * u, 6 * u);
-  ctx.fillRect(2 * u, -10 * u, 9 * u, 6 * u);
-  // head
-  ctx.fillStyle = '#f0a04b';
-  roundRect(-10 * u, -42 * u, 24 * u, 19 * u, 6 * u); ctx.fill();
-  // ears
-  ctx.beginPath();
-  ctx.moveTo(-8 * u, -42 * u); ctx.lineTo(-5 * u, -50 * u); ctx.lineTo(0 * u, -43 * u); ctx.fill();
-  ctx.moveTo(8 * u, -42 * u); ctx.lineTo(11 * u, -50 * u); ctx.lineTo(14 * u, -43 * u); ctx.fill();
-  // eyes + nose
+  // legs (work pants)
+  ctx.fillStyle = '#33549e';
+  ctx.fillRect(-10 * u, -18 * u, 8 * u, 12 * u);
+  ctx.fillRect(3 * u, -18 * u, 8 * u, 12 * u);
+  // boots
+  ctx.fillStyle = '#4a3220';
+  ctx.fillRect(-11 * u, -7 * u, 10 * u, 6 * u);
+  ctx.fillRect(2 * u, -7 * u, 10 * u, 6 * u);
+  // body (work shirt + belt)
+  ctx.fillStyle = '#2e86ab';
+  roundRect(-12 * u, -30 * u, 24 * u, 14 * u, 5 * u); ctx.fill();
+  ctx.fillStyle = '#7a5230';
+  ctx.fillRect(-12 * u, -19 * u, 24 * u, 3 * u);
+  // head (skin)
+  ctx.fillStyle = '#f2c09a';
+  roundRect(-9 * u, -44 * u, 22 * u, 17 * u, 6 * u); ctx.fill();
+  // eyes + mouth
   ctx.fillStyle = '#2b2118';
-  ctx.beginPath(); ctx.arc(0 * u, -34 * u, 2.2 * u, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(9 * u, -34 * u, 2.2 * u, 0, 7); ctx.fill();
-  ctx.fillStyle = '#c96a6a';
-  ctx.fillRect(3.4 * u, -30 * u, 3 * u, 2.4 * u);
-  // stripes
-  ctx.fillStyle = 'rgba(180,100,30,0.6)';
-  ctx.fillRect(-6 * u, -42 * u, 3 * u, 6 * u);
-  ctx.fillRect(9 * u, -42 * u, 3 * u, 6 * u);
+  ctx.beginPath(); ctx.arc(1 * u, -36 * u, 2.2 * u, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(10 * u, -36 * u, 2.2 * u, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#b3764a'; ctx.lineWidth = 1.6 * u;
+  ctx.beginPath(); ctx.arc(6 * u, -31 * u, 3 * u, 0.3, Math.PI - 0.6); ctx.stroke();
+  // hard hat (yellow dome + brim + lamp)
+  ctx.fillStyle = '#f5c542';
+  ctx.beginPath(); ctx.arc(2 * u, -43 * u, 11.5 * u, Math.PI, 0); ctx.fill();
+  roundRect(-12 * u, -45.5 * u, 29 * u, 3.6 * u, 1.8 * u); ctx.fill();
+  ctx.fillStyle = '#fff6cf';
+  ctx.beginPath(); ctx.arc(11 * u, -46 * u, 2.6 * u, 0, 7); ctx.fill();
 
   // pickaxe (visible, swings when mining)
   ctx.save();
@@ -731,7 +731,7 @@ function render(t) {
   // Admin Lounge — draw the cozy room instead of blocks
   if (S.inLounge) {
     drawLounge(t);
-    drawCat(t);
+    drawMiner(t);
     drawMpPlayers();
     return;
   }
@@ -756,7 +756,7 @@ function render(t) {
     ctx.lineTo(fx + TILE * 0.9, fy - TILE * 1.35); ctx.lineTo(fx, fy - TILE * 1.1);
     ctx.closePath(); ctx.fill();
   }
-  drawCat(t);
+  drawMiner(t);
   drawMpPlayers();
 }
 
@@ -1490,23 +1490,20 @@ function drawMpPlayers() {
     if (p.stage !== myStage) continue;
     const sx = (p.x - camX) * TILE, sy = (p.y - camY) * TILE;
     if (sx < -50 || sy < -50 || sx > W + 50 || sy > H + 50) continue;
-    // Simple cat: orange body with name
-    ctx.fillStyle = '#e8a33d';
+    // Simple person (miner): pants, shirt, head + hard hat
+    ctx.fillStyle = '#33549e';
+    ctx.fillRect(sx - TILE * 0.13, sy - TILE * 0.22, TILE * 0.26, TILE * 0.22);
+    ctx.fillStyle = '#2e86ab';
+    ctx.fillRect(sx - TILE * 0.18, sy - TILE * 0.52, TILE * 0.36, TILE * 0.32);
+    ctx.fillStyle = '#f2c09a';
     ctx.beginPath();
-    ctx.arc(sx, sy - TILE * 0.3, TILE * 0.28, 0, Math.PI * 2);
+    ctx.arc(sx, sy - TILE * 0.66, TILE * 0.16, 0, Math.PI * 2);
     ctx.fill();
-    // Ears
-    ctx.fillStyle = '#e8a33d';
+    ctx.fillStyle = '#f5c542';
     ctx.beginPath();
-    ctx.moveTo(sx - TILE * 0.22, sy - TILE * 0.5);
-    ctx.lineTo(sx - TILE * 0.12, sy - TILE * 0.72);
-    ctx.lineTo(sx - TILE * 0.02, sy - TILE * 0.5);
+    ctx.arc(sx, sy - TILE * 0.70, TILE * 0.175, Math.PI, 0);
     ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(sx + TILE * 0.02, sy - TILE * 0.5);
-    ctx.lineTo(sx + TILE * 0.12, sy - TILE * 0.72);
-    ctx.lineTo(sx + TILE * 0.22, sy - TILE * 0.5);
-    ctx.fill();
+    ctx.fillRect(sx - TILE * 0.21, sy - TILE * 0.72, TILE * 0.42, TILE * 0.05);
     // Name
     ctx.fillStyle = '#fff';
     ctx.font = `bold ${Math.max(10, TILE * 0.28)}px sans-serif`;
