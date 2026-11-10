@@ -491,7 +491,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // Portal game scores — the Miner Cat account is the one site account.
   // -------------------------------------------------------------------------
-  const PORTAL_GAMES = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'blackjack', 'word', 'pursuit3d'];
+  const PORTAL_GAMES = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'blackjack', 'word', 'pursuit3d', 'turbo3d'];
   const isPortalGame = game => PORTAL_GAMES.includes(game) || /^micro-[a-z0-9-]{3,50}$/.test(game);
   app.post('/api/scores', requireAuth, async (req, res) => {
     const game = String((req.body || {}).game || '');
@@ -714,7 +714,7 @@ async function main() {
       case 'resetScore': {
         // Per-game admin: clear the caller's own best score in one game.
         const game = String(req.body.game || '');
-        const validGames = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'blackjack', 'word', 'pursuit3d'];
+        const validGames = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'blackjack', 'word', 'pursuit3d', 'turbo3d'];
         if (!validGames.includes(game)) return res.status(400).json({ error: 'Unknown game.' });
         await db.prepare('DELETE FROM scores WHERE user_id = ? AND game = ?').run(req.user.id, game);
         return res.json({ ok: true, game });
