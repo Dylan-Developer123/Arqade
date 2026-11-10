@@ -1,9 +1,17 @@
 // Arqade shared admin panel — appears on every game page for admin-tagged accounts.
 // All powers are enforced server-side by POST /api/admin; this is just the UI.
-// ---- Remember the last game played, for the portal's Continue button ----
+// ---- Remember the last games played, for the portal's Continue rows (up to 3) ----
 try {
   if (location.pathname.indexOf('/games/') === 0) {
-    localStorage.setItem('arq_last_game', JSON.stringify({ p: location.pathname.replace(/\.html$/, ''), t: document.title.replace(/ — Arqade$/, '') }));
+    var rp = location.pathname.replace(/\.html$/, '');
+    var rt = document.title.replace(/ — Arqade$/, '');
+    var rlist = [];
+    try { rlist = JSON.parse(localStorage.getItem('arq_recent_games') || '[]'); } catch (e) { rlist = []; }
+    if (!Array.isArray(rlist)) rlist = [];
+    if (!rlist.length) { try { var rold = JSON.parse(localStorage.getItem('arq_last_game') || 'null'); if (rold && rold.p) rlist = [rold]; } catch (e) {} }
+    rlist = rlist.filter(function (g) { return g && g.p !== rp; });
+    rlist.unshift({ p: rp, t: rt });
+    localStorage.setItem('arq_recent_games', JSON.stringify(rlist.slice(0, 3)));
   }
 } catch (e) {}
 (async () => {
