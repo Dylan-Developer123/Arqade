@@ -101,27 +101,42 @@
   })();
 </script>
 <main>
-  <div id="continueSlot"></div>
+  <div id="continueSlot" style="margin-bottom:18px;"></div>
   <script>
   (function () {
     var EMOJI = { '/games/racer': '🏎️', '/games/pursuit3d': '🚓', '/miner-cat-2': '👷', '/games/snake': '🐍', '/games/breakout': '🧱', '/games/flappy': '🐦', '/games/memory': '🃏', '/games/2048': '🔢', '/games/clicker': '🪙', '/games/pong': '🏓', '/games/minesweeper': '💣', '/games/invaders': '👾', '/games/lander': '🌕', '/games/blackjack': '🂡', '/games/word': '✏️' };
+    function loadList() {
+      var list = [];
+      try { list = JSON.parse(localStorage.getItem('arq_recent_games') || '[]'); } catch (e) { list = []; }
+      if (!Array.isArray(list)) list = [];
+      if (!list.length) { try { var old = JSON.parse(localStorage.getItem('arq_last_game') || 'null'); if (old && old.p) list = [old]; } catch (e) {} }
+      return list.filter(function (g) { return g && g.p && g.t; }).slice(0, 3);
+    }
+    function record(p, t) {
+      try {
+        var list = loadList().filter(function (g) { return g.p !== p; });
+        list.unshift({ p: p, t: t });
+        localStorage.setItem('arq_recent_games', JSON.stringify(list.slice(0, 3)));
+      } catch (e) {}
+    }
     try {
-      var last = JSON.parse(localStorage.getItem('arq_last_game') || 'null');
-      if (last && last.p && last.t) {
+      var slot = document.getElementById('continueSlot');
+      loadList().forEach(function (g) {
         var a = document.createElement('a');
-        a.href = last.p;
-        a.style.cssText = 'display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#3a2b18,#191920);border:2px solid #f5c542;border-radius:14px;padding:14px 18px;margin-bottom:26px;text-decoration:none;color:#ffe9a8;box-shadow:0 0 16px rgba(245,197,66,.35);';
-        var em = document.createElement('span'); em.style.fontSize = '26px'; em.textContent = EMOJI[last.p] || '🎮';
-        var nm = document.createElement('span'); nm.style.cssText = 'font-size:18px;font-weight:800;'; nm.textContent = 'Continue — ' + last.t;
+        a.href = g.p;
+        a.style.cssText = 'display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#3a2b18,#191920);border:2px solid #f5c542;border-radius:14px;padding:13px 18px;margin-bottom:8px;text-decoration:none;color:#ffe9a8;box-shadow:0 0 16px rgba(245,197,66,.35);';
+        var em = document.createElement('span'); em.style.fontSize = '25px'; em.textContent = EMOJI[g.p] || '🎮';
+        var nm = document.createElement('span'); nm.style.cssText = 'font-size:17px;font-weight:800;'; nm.textContent = 'Continue — ' + g.t;
         var pl = document.createElement('span'); pl.style.cssText = 'margin-left:auto;font-weight:800;color:#f5c542;'; pl.textContent = '▶ Play';
         a.appendChild(em); a.appendChild(nm); a.appendChild(pl);
-        document.getElementById('continueSlot').appendChild(a);
-      }
+        slot.appendChild(a);
+      });
     } catch (e) {}
     document.addEventListener('DOMContentLoaded', function () {
       document.querySelectorAll('a.card').forEach(function (cardEl) {
         cardEl.addEventListener('click', function () {
-          try { var h2 = cardEl.querySelector('h2'); localStorage.setItem('arq_last_game', JSON.stringify({ p: cardEl.getAttribute('href'), t: h2 ? h2.textContent : 'Game' })); } catch (e) {}
+          var h2 = cardEl.querySelector('h2');
+          record(cardEl.getAttribute('href'), h2 ? h2.textContent : 'Game');
         });
       });
     });
