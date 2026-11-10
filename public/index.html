@@ -104,7 +104,23 @@
   <div id="continueSlot" style="margin-bottom:18px;"></div>
   <script>
   (function () {
-    var EMOJI = { '/games/racer': '🏎️', '/games/pursuit3d': '🚓', '/miner-cat-2': '👷', '/games/snake': '🐍', '/games/breakout': '🧱', '/games/flappy': '🐦', '/games/memory': '🃏', '/games/2048': '🔢', '/games/clicker': '🪙', '/games/pong': '🏓', '/games/minesweeper': '💣', '/games/invaders': '👾', '/games/lander': '🌕', '/games/blackjack': '🂡', '/games/word': '✏️' };
+    var ART = {
+      '/games/racer': ['🏎️', 'linear-gradient(135deg,#7c2d5e,#e2603f)'],
+      '/games/pursuit3d': ['🚓', 'linear-gradient(135deg,#0b1026,#7f1d1d)'],
+      '/miner-cat-2': ['👷', 'linear-gradient(135deg,#3a2b18,#6d4c1e)'],
+      '/games/snake': ['🐍', 'linear-gradient(135deg,#14301a,#1f5230)'],
+      '/games/breakout': ['🧱', 'linear-gradient(135deg,#2b1740,#4a2470)'],
+      '/games/flappy': ['🐦', 'linear-gradient(135deg,#0f2f4a,#155e80)'],
+      '/games/memory': ['🃏', 'linear-gradient(135deg,#3b2f4a,#6d28d9)'],
+      '/games/2048': ['🔢', 'linear-gradient(135deg,#7c4a12,#d97706)'],
+      '/games/clicker': ['🪙', 'linear-gradient(135deg,#14532d,#b45309)'],
+      '/games/pong': ['🏓', 'linear-gradient(135deg,#111827,#374151)'],
+      '/games/minesweeper': ['💣', 'linear-gradient(135deg,#3f1d1d,#7f1d1d)'],
+      '/games/invaders': ['👾', 'linear-gradient(135deg,#0f2027,#2c5364)'],
+      '/games/lander': ['🌕', 'linear-gradient(135deg,#050510,#334155)'],
+      '/games/blackjack': ['🂡', 'linear-gradient(135deg,#14532d,#6b4423)'],
+      '/games/word': ['✏️', 'linear-gradient(135deg,#f5eeda,#d9c9a3)']
+    };
     function loadList() {
       var list = [];
       try { list = JSON.parse(localStorage.getItem('arq_recent_games') || '[]'); } catch (e) { list = []; }
@@ -121,16 +137,31 @@
     }
     try {
       var slot = document.getElementById('continueSlot');
-      loadList().forEach(function (g) {
-        var a = document.createElement('a');
-        a.href = g.p;
-        a.style.cssText = 'display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#3a2b18,#191920);border:2px solid #f5c542;border-radius:14px;padding:13px 18px;margin-bottom:8px;text-decoration:none;color:#ffe9a8;box-shadow:0 0 16px rgba(245,197,66,.35);';
-        var em = document.createElement('span'); em.style.fontSize = '25px'; em.textContent = EMOJI[g.p] || '🎮';
-        var nm = document.createElement('span'); nm.style.cssText = 'font-size:17px;font-weight:800;'; nm.textContent = 'Continue — ' + g.t;
-        var pl = document.createElement('span'); pl.style.cssText = 'margin-left:auto;font-weight:800;color:#f5c542;'; pl.textContent = '▶ Play';
-        a.appendChild(em); a.appendChild(nm); a.appendChild(pl);
-        slot.appendChild(a);
-      });
+      var recent = loadList();
+      if (recent.length) {
+        var head = document.createElement('div');
+        head.className = 'section-title';
+        head.textContent = 'Continue \u203A';
+        slot.appendChild(head);
+        var bar = document.createElement('div');
+        bar.style.cssText = 'display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;-webkit-overflow-scrolling:touch;';
+        recent.forEach(function (g) {
+          var art = ART[g.p] || ['🎮', 'linear-gradient(135deg,#26314a,#101828)'];
+          var a = document.createElement('a');
+          a.href = g.p;
+          a.style.cssText = 'flex:0 0 auto;width:148px;text-decoration:none;color:#eef;';
+          var pic = document.createElement('div');
+          pic.style.cssText = 'height:92px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:42px;border:1px solid rgba(255,255,255,.14);background:' + art[1] + ';';
+          pic.textContent = art[0];
+          var nm = document.createElement('div');
+          nm.style.cssText = 'margin-top:7px;font-size:14px;font-weight:700;line-height:1.25;';
+          nm.textContent = g.t;
+          a.appendChild(pic); a.appendChild(nm);
+          a.addEventListener('click', function () { record(g.p, g.t); });
+          bar.appendChild(a);
+        });
+        slot.appendChild(bar);
+      }
     } catch (e) {}
     document.addEventListener('DOMContentLoaded', function () {
       document.querySelectorAll('a.card').forEach(function (cardEl) {
