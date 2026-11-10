@@ -546,6 +546,7 @@ async function main() {
   // -------------------------------------------------------------------------
   const LIKE_GAMES = [...PORTAL_GAMES, 'mining'];
   app.get('/api/likes', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const rows = await db.prepare('SELECT game, COUNT(*) AS n FROM game_likes GROUP BY game').all();
     const counts = {};
     for (const r of rows) counts[r.game] = Number(r.n);
@@ -557,6 +558,7 @@ async function main() {
     res.json({ counts, mine });
   });
   app.post('/api/likes', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const game = String((req.body || {}).game || '');
     if (!LIKE_GAMES.includes(game)) return res.status(400).json({ error: 'Unknown game.' });
     const existing = await db.prepare('SELECT user_id FROM game_likes WHERE user_id = ? AND game = ?').get(req.user.id, game);
@@ -792,6 +794,7 @@ async function main() {
   const wss = new WebSocket.Server({ server: httpServer, path: '/ws' });
   const online = new Map(); // userId -> { ws, username, displayName, x, y, stage, tags }
   const pursuit = new Map(); // City Pursuit room: userId -> { ws, username, displayName, tags, state }
+  const lobby = new Map(); // Portal lobby room: userId -> { ws, displayName, tags, voiceOn, lastChat }
 
   function broadcast(msg, exceptId) {
     const data = JSON.stringify(msg);
@@ -823,6 +826,62 @@ async function main() {
     // ---- City Pursuit 3D room (?game=pursuit): relay car/foot state, keep out of the Miner Cat world ----
     let gameParam = '';
     try { gameParam = new URL(req.url, 'http://localhost').searchParams.get('game') || ''; } catch (e) {}
+    if (gameParam === 'lobby') {
+      const tags = user.hide_tags ? {} : {
+        owner: !!user.is_owner, admin: !!user.is_admin,
+        moderator: !!user.is_moderator, developer: !!user.is_developer,
+      };
+      const lp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, voiceOn: false, lastChat: 0 };
+      if (lobby.has(userId)) { try { lobby.get(userId).ws.close(); } catch (e) {} }
+      lobby.set(userId, lp);
+      const lothers = [...lobby.values()].filter((q) => q.id !== userId).map((q) => ({
+        id: q.id, displayName: q.displayName, tags: q.tags, voice: !!q.voiceOn,
+      }));
+      ws.send(JSON.stringify({ t: 'lwelcome', id: userId, players: lothers }));
+      const toLobby = (obj, except) => {
+        const data = JSON.stringify(obj);
+        for (const q of lobby.values()) {
+          if (q.id === except) continue;
+          if (q.ws.readyState === WebSocket.OPEN) q.ws.send(data);
+        }
+      };
+      for (const q of lobby.values()) {
+        if (q.id !== userId && q.ws.readyState === WebSocket.OPEN) {
+          q.ws.send(JSON.stringify({ t: 'ljoin', player: { id: lp.id, displayName: lp.displayName, tags: lp.tags, voice: false } }));
+        }
+      }
+      ws.on('message', (raw) => {
+        if (raw.length > 20000) return;
+        let msg;
+        try { msg = JSON.parse(raw); } catch (e) { return; }
+        const me = lobby.get(userId);
+        if (!me || me.ws !== ws) return;
+        if (msg.t === 'chat') {
+          const now = Date.now();
+          if (now - me.lastChat < 350) return;
+          const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, 200) : '';
+          if (!text) return;
+          me.lastChat = now;
+          toLobby({ t: 'chat', id: userId, displayName: me.displayName, text }, null);
+        } else if (msg.t === 'voice') {
+          me.voiceOn = !!msg.on;
+          toLobby({ t: 'voice', id: userId, displayName: me.displayName, on: me.voiceOn }, userId);
+        } else if (msg.t === 'rtc') {
+          const target = lobby.get(msg.to | 0);
+          if (target && target.ws.readyState === WebSocket.OPEN && msg.data && typeof msg.data === 'object') {
+            target.ws.send(JSON.stringify({ t: 'rtc', from: userId, displayName: me.displayName, data: msg.data }));
+          }
+        }
+      });
+      ws.on('close', () => {
+        if (lobby.get(userId)?.ws === ws) {
+          lobby.delete(userId);
+          toLobby({ t: 'lleave', id: userId });
+        }
+      });
+      return;
+    }
+
     if (gameParam === 'pursuit') {
       const tags = user.hide_tags ? {} : {
         owner: !!user.is_owner, admin: !!user.is_admin,
