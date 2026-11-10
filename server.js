@@ -166,6 +166,11 @@ const SCHEMA_SQLITE = `
     score   INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, game)
   );
+  CREATE TABLE IF NOT EXISTS game_likes (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game    TEXT NOT NULL,
+    PRIMARY KEY (user_id, game)
+  );
 `;
 
 const SCHEMA_PG = `
@@ -204,6 +209,11 @@ const SCHEMA_PG = `
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     game    TEXT NOT NULL,
     score   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, game)
+  );
+  CREATE TABLE IF NOT EXISTS game_likes (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game    TEXT NOT NULL,
     PRIMARY KEY (user_id, game)
   );
 `;
@@ -529,6 +539,37 @@ async function main() {
         },
       })),
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Portal game likes — one like per player per game; counts are public.
+  // -------------------------------------------------------------------------
+  const LIKE_GAMES = [...PORTAL_GAMES, 'mining'];
+  app.get('/api/likes', async (req, res) => {
+    const rows = await db.prepare('SELECT game, COUNT(*) AS n FROM game_likes GROUP BY game').all();
+    const counts = {};
+    for (const r of rows) counts[r.game] = Number(r.n);
+    let mine = [];
+    if (req.user) {
+      const my = await db.prepare('SELECT game FROM game_likes WHERE user_id = ?').all(req.user.id);
+      mine = my.map((r) => r.game);
+    }
+    res.json({ counts, mine });
+  });
+  app.post('/api/likes', requireAuth, async (req, res) => {
+    const game = String((req.body || {}).game || '');
+    if (!LIKE_GAMES.includes(game)) return res.status(400).json({ error: 'Unknown game.' });
+    const existing = await db.prepare('SELECT user_id FROM game_likes WHERE user_id = ? AND game = ?').get(req.user.id, game);
+    let liked;
+    if (existing) {
+      await db.prepare('DELETE FROM game_likes WHERE user_id = ? AND game = ?').run(req.user.id, game);
+      liked = false;
+    } else {
+      await db.prepare('INSERT INTO game_likes (user_id, game) VALUES (?, ?)').run(req.user.id, game);
+      liked = true;
+    }
+    const row = await db.prepare('SELECT COUNT(*) AS n FROM game_likes WHERE game = ?').get(game);
+    res.json({ ok: true, game, liked, count: Number(row ? row.n : 0) });
   });
 
   // -------------------------------------------------------------------------
