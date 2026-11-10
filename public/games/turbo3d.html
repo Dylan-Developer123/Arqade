@@ -256,7 +256,7 @@
       if (c.active) continue;
       c.active = true; c.passed = false; c.crashed = false; c.lc = null; c.spin = 0;
       c.x = LANES[laneIdx] + (Math.random() * 0.5 - 0.25); c.z = zPos;
-      c.speed = c.truck ? 11 + Math.random() * 5 : 13 + Math.random() * 11 + Math.min(6, elapsed * 0.03);
+      c.speed = c.truck ? 9 + Math.random() * 4 : 10 + Math.random() * 8 + Math.min(4, elapsed * 0.02);
       c.lcT = 3.5 + Math.random() * 7;
       c.g.visible = true; c.g.rotation.set(0, 0, 0);
       c.g.position.set(c.x, 0, c.z);
@@ -267,12 +267,16 @@
   }
   function trySpawn() {
     var lane = Math.floor(Math.random() * 3), i, c;
-    for (i = 0; i < traffic.length; i++) { c = traffic[i]; if (c.active && Math.abs(c.z + 430) < 24 && Math.abs(c.x - LANES[lane]) < 1.5) return; }
-    spawnCar(-430, lane);
+    var z0 = -(245 + Math.random() * 55);
+    for (i = 0; i < traffic.length; i++) { c = traffic[i]; if (c.active && Math.abs(c.z - z0) < 24 && Math.abs(c.x - LANES[lane]) < 1.5) return; }
+    spawnCar(z0, lane);
     if (state === 'play' && Math.random() < 0.24) {
       var lane2 = (lane + 1 + Math.floor(Math.random() * 2)) % 3;
-      spawnCar(-430 + (Math.random() * 14 - 7), lane2);
+      spawnCar(z0 + (Math.random() * 14 - 7), lane2);
     }
+  }
+  function scatterTraffic() {
+    for (var n = 0; n < 6; n++) spawnCar(-(55 + n * 38 + Math.random() * 12), Math.floor(Math.random() * 3));
   }
   function nearestLane(x) { var b = 0, bd = 1e9; for (var i = 0; i < 3; i++) { var d = Math.abs(LANES[i] - x); if (d < bd) { bd = d; b = i; } } return b; }
   function laneFree(li, z) { for (var i = 0; i < traffic.length; i++) { var o = traffic[i]; if (o.active && Math.abs(o.z - z) < 17 && Math.abs(o.x - LANES[li]) < 1.6) return false; } return true; }
@@ -389,6 +393,7 @@
   }
   function startGame() {
     for (var i = 0; i < traffic.length; i++) { traffic[i].active = false; traffic[i].g.visible = false; }
+    scatterTraffic();
     dist = 0; bonus = 0; lives = 3; combo = 0; comboT = 0; invT = 0; shake = 0; elapsed = 0; cruise = 20; speed = 20;
     spawnIn = 26; submitted = false; playerX = 0; targetX = 0;
     hudLives(); hud();
@@ -416,7 +421,7 @@
       if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
       if (invT > 0) invT -= dt;
       spawnIn -= speed * dt;
-      if (spawnIn <= 0) { trySpawn(); spawnIn = Math.max(30, 62 - elapsed * 0.14) + Math.random() * 14; }
+      if (spawnIn <= 0) { trySpawn(); spawnIn = Math.max(27, 56 - elapsed * 0.14) + Math.random() * 12; }
     } else if (state === 'wait') {
       speed += (16 - speed) * Math.min(1, dt * 1.5);
       spawnIn -= speed * dt;
@@ -426,7 +431,7 @@
     }
     // steering
     var dirIn = ((keys.right || tch.right) ? 1 : 0) - ((keys.left || tch.left) ? 1 : 0);
-    if (dirIn !== 0) targetX = Math.max(-5.35, Math.min(5.35, targetX + dirIn * dt * (13 + speed * 0.13)));
+    if (dirIn !== 0) targetX = Math.max(-5.35, Math.min(5.35, targetX + dirIn * dt * (16 + speed * 0.16)));
     playerX += (targetX - playerX) * Math.min(1, dt * 9);
     var steer = targetX - playerX;
     player.position.set(playerX, 0, 0);
@@ -469,6 +474,7 @@
     $('acct').innerHTML = ME ? '👤 Playing as <b>' + esc(ME.displayName) + '</b> — your best score saves to your account' : '👤 <a href="/miner-cat-2" style="color:#f5c542;">Sign in</a> to save scores to your account';
   }).catch(function () {});
   loadLb();
+  scatterTraffic();
   hudLives(); hud();
   animate();
 })();
