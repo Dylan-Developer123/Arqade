@@ -154,7 +154,9 @@ function mpConnect() {
       clearTimeout(mpTimer);
       clearTimeout(mpRetryT); mpRetryN = 0; // healthy again — reset the rejoin backoff
       mpOn = true;
-      for (const pl of m.players) { const r = spawnRemote(pl.id, pl.displayName, pl.tags); if (pl.state) setRemoteState(r, pl.state); }
+      myId = m.id;
+      for (const pl of m.players) { const r = spawnRemote(pl.id, pl.displayName, pl.tags); if (pl.state) setRemoteState(r, pl.state); if (pl.voice) voiceSet.add(pl.id); }
+      updateVoiceUi();
       mpUi();
       flash('🌐 Multiplayer ON — ' + (m.players.length + 1) + ' in the city');
     } else if (m.t === 'pjoin') {
@@ -167,6 +169,9 @@ function mpConnect() {
       if (!r) r = spawnRemote(m.id, m.displayName, m.tags);
       setRemoteState(r, m);
     } else if (m.t === 'pleave') {
+      voicePeerGone(m.id);
+      voiceSet.delete(m.id);
+      updateVoiceUi();
       removeRemote(m.id);
       flash('👋 A player left the city');
       mpUi();
@@ -176,6 +181,12 @@ function mpConnect() {
         if (rr && rr.pinT > 0.25 && playerCar && playerCar.isCop) { cash += 300; flash('🚔 YOUR BUST! ' + m.displayName + ' is going downtown +$300'); }
         else flash('🚔 ' + m.displayName + ' got BUSTED!');
       } else flash('💥 ' + m.displayName + ' got WASTED!');
+    } else if (m.t === 'chat') {
+      chatAddLine(m.displayName, m.text, m.id === myId);
+    } else if (m.t === 'voice') {
+      voiceRoster(m.id, m.on, m.displayName);
+    } else if (m.t === 'rtc') {
+      rtcHandle(m.from, m.data);
     }
   };
   ws.onclose = ev => {
@@ -183,6 +194,7 @@ function mpConnect() {
     const wasOn = mpOn;
     if (mpWs === ws) mpWs = null;
     mpOn = false;
+    voiceShutdown();
     for (const id of [...remotes.keys()]) removeRemote(id);
     mpUi();
     if (ev.code === 4001) {
@@ -392,13 +404,14 @@ function syncKeys() {
   keys.shift = !!(phys.ShiftLeft || phys.ShiftRight);
 }
 addEventListener('keydown', e => {
+  if (chatFocus) return;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
   phys[e.code] = true; syncKeys();
   if (e.code === 'KeyF' && state === 'play') { if (mode === 'drive') exitCar(); else enterCar(); }
   if (e.code === 'KeyM') toggleMap();
   if ((e.code === 'Space' || e.code === 'Enter') && state !== 'play') start();
 });
-addEventListener('keyup', e => { phys[e.code] = false; syncKeys(); });
+addEventListener('keyup', e => { if (chatFocus) return; phys[e.code] = false; syncKeys(); });
 addEventListener('blur', () => { for (const c in phys) phys[c] = false; syncKeys(); });
 const tch = {};
 const ptrBtn = new Map(); // pointerId -> {flag, id}: every finger currently down, tracked at window level
@@ -506,3 +519,187 @@ window.ARQ_GAME_ADMIN = { actions: [
   { label: '🚔 Clear wanted', run() { wanted = 0; heat = 0; bustTimer = 0; flash('🚔 Admin: wanted cleared'); return '🚔 Wanted cleared — the cops lost interest.'; } },
   { label: '🔧 Repair + heal', run() { health = 100; flash('🔧 Admin: good as new'); return '🔧 Health back to 100.'; } },
 ] };
+
+// ============================== CITY CHAT + VOICE CHAT ==============================
+let myId = null, chatFocus = false, chatOpen = false, chatUnread = 0, chatHintShown = false;
+let voiceOn = false, voiceMuted = false, localStream = null;
+const voiceSet = new Set();   // ids of players currently in voice (roster from the server)
+const voicePeers = new Map(); // id -> { pc, audio, pendingIce }
+function rtcSend(to, data) { if (mpWs && mpWs.readyState === 1) { try { mpWs.send(JSON.stringify({ t: 'rtc', to, data })); } catch (e) {} } }
+function chatAddLine(name, text, mine) {
+  const log = $('chatLog'); if (!log) return;
+  const line = document.createElement('div');
+  const nm = document.createElement('b'); nm.textContent = name + ': '; nm.style.color = mine ? '#7dd3fc' : '#f5c542';
+  line.appendChild(nm);
+  line.appendChild(document.createTextNode(text));
+  log.appendChild(line);
+  while (log.children.length > 60) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+  if (!chatOpen && !mine) { chatUnread++; const bd = $('chatBadge'); if (bd) { bd.textContent = chatUnread; bd.style.display = 'inline-block'; } }
+}
+function chatSendMsg() {
+  const inp = $('chatInput'); if (!inp) return;
+  const text = inp.value.trim(); if (!text) return;
+  if (!mpOn || !mpWs || mpWs.readyState !== 1) { flash('🌐 Join Multiplayer to chat'); return; }
+  try { mpWs.send(JSON.stringify({ t: 'chat', text: text.slice(0, 200) })); } catch (e) {}
+  inp.value = '';
+}
+function updateVoiceUi() {
+  const vb = $('voiceBtn');
+  if (vb) {
+    vb.textContent = voiceOn ? '🎙️ In voice — tap to leave' : '🎙️ Join voice';
+    vb.style.background = voiceOn ? '#16a34a' : '#191920';
+    vb.style.borderColor = voiceOn ? '#16a34a' : '#f5c542';
+    vb.style.color = voiceOn ? '#ffffff' : '#ffe9a8';
+  }
+  const mb = $('muteBtn');
+  if (mb) { mb.style.display = voiceOn ? '' : 'none'; mb.textContent = voiceMuted ? '🔇 Mic OFF' : '🎤 Mic ON'; }
+  const vl = $('chatVoiceLine');
+  if (vl) {
+    const names = [];
+    if (voiceOn) names.push('You');
+    for (const id of voiceSet) { if (id !== myId) { const r = remotes.get(id); names.push(r ? r.displayName : 'Player'); } }
+    vl.textContent = names.length ? '🎙️ In voice: ' + names.join(' • ') : '🎙️ Nobody in voice yet — tap Join voice';
+  }
+}
+function voicePeerGone(id) {
+  const e = voicePeers.get(id); if (!e) return;
+  voicePeers.delete(id);
+  try { e.pc.close(); } catch (err) {}
+  if (e.audio) { try { e.audio.srcObject = null; e.audio.remove(); } catch (err) {} }
+}
+function voiceCall(id) {
+  if (!voiceOn || voicePeers.has(id)) return;
+  const entry = makePc(id);
+  entry.pc.createOffer().then(offer => entry.pc.setLocalDescription(offer)).then(() => {
+    rtcSend(id, { kind: 'offer', sdp: entry.pc.localDescription });
+  }).catch(() => {});
+}
+function makePc(id) {
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  const entry = { pc, audio: null, pendingIce: [] };
+  voicePeers.set(id, entry);
+  if (localStream) for (const tr of localStream.getTracks()) { try { pc.addTrack(tr, localStream); } catch (e) {} }
+  pc.onicecandidate = e => { if (e.candidate) rtcSend(id, { kind: 'ice', candidate: e.candidate }); };
+  pc.ontrack = e => {
+    if (!entry.audio) {
+      const a = new Audio(); a.autoplay = true; entry.audio = a; document.body.appendChild(a);
+    }
+    entry.audio.srcObject = e.streams[0];
+    entry.audio.play().catch(() => {});
+  };
+  pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') { voicePeerGone(id); } };
+  return entry;
+}
+async function rtcHandle(from, data) {
+  if (!data) return;
+  if (data.kind === 'bye') { voicePeerGone(from); return; }
+  if (!voiceOn) return;
+  try {
+    if (data.kind === 'offer') {
+      let entry = voicePeers.get(from);
+      if (entry && entry.pc.signalingState === 'have-local-offer') {
+        if (myId !== null && myId < from) return; // glare: the lower id's offer wins
+        voicePeerGone(from); entry = null;
+      }
+      if (!entry) entry = makePc(from);
+      await entry.pc.setRemoteDescription(data.sdp);
+      for (const c of entry.pendingIce) { try { await entry.pc.addIceCandidate(c); } catch (e) {} }
+      entry.pendingIce = [];
+      const ans = await entry.pc.createAnswer();
+      await entry.pc.setLocalDescription(ans);
+      rtcSend(from, { kind: 'answer', sdp: entry.pc.localDescription });
+    } else if (data.kind === 'answer') {
+      const entry = voicePeers.get(from); if (!entry) return;
+      await entry.pc.setRemoteDescription(data.sdp);
+      for (const c of entry.pendingIce) { try { await entry.pc.addIceCandidate(c); } catch (e) {} }
+      entry.pendingIce = [];
+    } else if (data.kind === 'ice') {
+      const entry = voicePeers.get(from); if (!entry) return;
+      if (entry.pc.remoteDescription) { try { await entry.pc.addIceCandidate(data.candidate); } catch (e) {} }
+      else entry.pendingIce.push(data.candidate);
+    }
+  } catch (e) {}
+}
+function voiceRoster(id, on, name) {
+  if (on) {
+    voiceSet.add(id);
+    if (voiceOn && id !== myId) {
+      flash('🎙️ ' + (name || 'A player') + ' joined voice');
+      if (myId !== null && myId < id) setTimeout(() => { if (voiceOn && voiceSet.has(id) && !voicePeers.has(id)) voiceCall(id); }, 700);
+    }
+  } else {
+    voiceSet.delete(id);
+    if (voiceOn && id !== myId) flash('🎙️ ' + (name || 'A player') + ' left voice');
+    voicePeerGone(id);
+  }
+  updateVoiceUi();
+}
+async function voiceJoin() {
+  if (!mpOn || !mpWs || mpWs.readyState !== 1) { flash('🌐 Join Multiplayer first to use voice chat'); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { flash('🎙️ Voice chat is not supported in this browser'); return; }
+  try { localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) { flash('🎙️ Mic blocked — allow microphone access for this site to use voice chat'); return; }
+  if (voiceMuted) localStream.getAudioTracks().forEach(t => { t.enabled = false; });
+  voiceOn = true;
+  try { mpWs.send(JSON.stringify({ t: 'voice', on: true })); } catch (e) {}
+  for (const id of [...voiceSet]) if (id !== myId) voiceCall(id);
+  updateVoiceUi();
+  flash('🎙️ Voice chat ON — players in voice can hear you');
+}
+function voiceLeave(sendState) {
+  if (sendState && mpWs && mpWs.readyState === 1) { try { mpWs.send(JSON.stringify({ t: 'voice', on: false })); } catch (e) {} }
+  for (const id of [...voicePeers.keys()]) { rtcSend(id, { kind: 'bye' }); voicePeerGone(id); }
+  if (localStream) { for (const t of localStream.getTracks()) { try { t.stop(); } catch (e) {} } localStream = null; }
+  voiceOn = false;
+  updateVoiceUi();
+}
+function voiceShutdown() { // socket died: full reset, roster included
+  voiceLeave(false);
+  voiceSet.clear();
+  updateVoiceUi();
+}
+(function chatVoiceInit() {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;right:10px;bottom:78px;z-index:600;display:flex;flex-direction:column;align-items:flex-end;gap:8px;';
+  wrap.innerHTML =
+    '<div id="chatPanel" style="display:none;width:min(302px,80vw);background:rgba(13,13,20,.95);border:1.5px solid #f5c542;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5);">' +
+      '<div style="padding:8px 10px;font-weight:800;color:#ffe9a8;border-bottom:1px solid #26262f;">💬 City Chat</div>' +
+      '<div id="chatVoiceLine" style="padding:6px 10px;font-size:12px;color:#a7f3d0;border-bottom:1px solid #26262f;background:#101018;">🎙️ Nobody in voice yet — tap Join voice</div>' +
+      '<div id="chatLog" style="height:168px;overflow-y:auto;padding:8px 10px;font-size:13px;line-height:1.45;color:#e8e8f0;"></div>' +
+      '<div style="display:flex;border-top:1px solid #333;">' +
+        '<input id="chatInput" type="text" maxlength="200" placeholder="Message…" autocomplete="off" style="flex:1;min-width:0;background:#1a1a26;color:#fff;border:0;padding:10px;font-size:16px;outline:none;">' +
+        '<button id="chatSend" style="background:#f5c542;color:#191920;border:0;font-weight:800;padding:0 14px;cursor:pointer;">Send</button>' +
+      '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+      '<button id="muteBtn" style="display:none;border-radius:999px;padding:9px 13px;font-weight:800;font-size:13px;border:1.5px solid #f5c542;background:#191920;color:#ffe9a8;cursor:pointer;">🎤 Mic ON</button>' +
+      '<button id="voiceBtn" style="border-radius:999px;padding:9px 13px;font-weight:800;font-size:13px;border:1.5px solid #f5c542;background:#191920;color:#ffe9a8;cursor:pointer;">🎙️ Join voice</button>' +
+      '<button id="chatBtn" style="border-radius:999px;padding:9px 13px;font-weight:800;font-size:13px;border:1.5px solid #f5c542;background:#191920;color:#ffe9a8;cursor:pointer;">💬 Chat<span id="chatBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:0 6px;font-size:11px;margin-left:6px;"></span></button>' +
+    '</div>';
+  document.body.appendChild(wrap);
+  $('chatBtn').addEventListener('click', () => {
+    chatOpen = !chatOpen;
+    $('chatPanel').style.display = chatOpen ? '' : 'none';
+    if (chatOpen) {
+      chatUnread = 0; const bd = $('chatBadge'); if (bd) bd.style.display = 'none';
+      if (!mpOn && !chatHintShown) { chatHintShown = true; chatAddLine('Arqade', 'Join 🌐 Multiplayer mode to chat with other players in the city.', false); }
+      const log = $('chatLog'); if (log) log.scrollTop = log.scrollHeight;
+    }
+  });
+  $('chatSend').addEventListener('click', chatSendMsg);
+  const inp = $('chatInput');
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); chatSendMsg(); } });
+  inp.addEventListener('focus', () => { chatFocus = true; for (const c in phys) phys[c] = false; syncKeys(); });
+  inp.addEventListener('blur', () => { chatFocus = false; });
+  $('voiceBtn').addEventListener('click', () => { if (voiceOn) { voiceLeave(true); flash('🎙️ Voice chat OFF'); } else voiceJoin(); });
+  $('muteBtn').addEventListener('click', () => {
+    voiceMuted = !voiceMuted;
+    if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = !voiceMuted; });
+    updateVoiceUi();
+  });
+  document.addEventListener('pointerdown', () => { // browsers may hold remote audio until a tap
+    for (const e of voicePeers.values()) if (e.audio) e.audio.play().catch(() => {});
+  });
+  updateVoiceUi();
+})();
