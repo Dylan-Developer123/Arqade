@@ -544,7 +544,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // Portal game likes — one like per player per game; counts are public.
   // -------------------------------------------------------------------------
-  const LIKE_GAMES = [...PORTAL_GAMES, 'mining'];
+  const LIKE_GAMES = [...PORTAL_GAMES, 'mining', 'chat'];
   app.get('/api/likes', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const rows = await db.prepare('SELECT game, COUNT(*) AS n FROM game_likes GROUP BY game').all();
