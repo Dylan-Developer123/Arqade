@@ -13,12 +13,8 @@ function parkSign(x, z, text) {
   }
 }
 function parkedCar(x, z, ang) {
-  const g = new THREE.Group();
-  const col = [0xb91c1c, 0x1d4ed8, 0xd6d3cd, 0x374151, 0x0f766e][Math.floor(Math.random() * 5)];
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.65, 4.4), new THREE.MeshStandardMaterial({ color: col, roughness: 0.35, metalness: 0.5 }));
-  body.position.y = 0.55; body.castShadow = true; g.add(body);
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 2.2), new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.2, metalness: 0.4 }));
-  cab.position.set(0, 1.12, -0.2); cab.castShadow = true; g.add(cab);
+  const col = [0xb91c1c, 0x1d4ed8, 0x0f766e, 0xd97706, 0x6d28d9, 0x15803d, 0x374151][Math.floor(Math.random() * 7)];
+  const g = makeCarMesh(col);
   g.position.set(x, 0, z); g.rotation.y = ang; scene.add(g);
   const along = Math.abs(Math.sin(ang)) > 0.5;
   colliders.push({ x1: x - (along ? 2.4 : 1.1), z1: z - (along ? 1.1 : 2.4), x2: x + (along ? 2.4 : 1.1), z2: z + (along ? 1.1 : 2.4) });
