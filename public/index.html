@@ -362,7 +362,7 @@
         c.liked = !c.liked;
         c.count = Math.max(0, c.count + (c.liked ? 1 : -1));
         paint(c);
-        fetch('/api/likes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: key }) })
+        fetch('/api/likes', { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: key }) })
           .then(function (r) {
             if (r.status === 401) throw new Error('signin');
             if (!r.ok) throw new Error('bad');
@@ -376,13 +376,254 @@
           });
       });
     });
-    fetch('/api/likes').then(function (r) { return r.json(); }).then(function (d) {
+    fetch('/api/likes', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
       Object.keys(chips).forEach(function (key) {
         var c = chips[key];
         c.count = (d.counts && d.counts[key]) || 0;
         c.liked = !!(d.mine && d.mine.indexOf(key) >= 0);
         paint(c);
       });
+    }).catch(function () {});
+  })();
+  </script>
+  <script>
+  // 💬🎙️ Portal lobby chat + voice — everyone signed in on the home page shares one room.
+  (function () {
+    var ws = null, on = false, myId = null, signedIn = false, retryN = 0, retryT = null;
+    var members = {}; // id -> displayName
+    var chatOpen = false, unread = 0, hintShown = false;
+    var voiceOn = false, voiceMuted = false, localStream = null;
+    var voiceSet = new Set(), voicePeers = new Map();
+    function $(id) { return document.getElementById(id); }
+    var toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#191920;border:1.5px solid #f5c542;color:#ffe9a8;font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:950;';
+    document.body.appendChild(toast);
+    var toastT = null;
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.style.opacity = '1'; toast.style.transform = 'translateX(-50%) translateY(0)';
+      clearTimeout(toastT);
+      toastT = setTimeout(function () { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(20px)'; }, 2400);
+    }
+    function addLine(name, text, mine) {
+      var log = $('lchatLog'); if (!log) return;
+      var line = document.createElement('div');
+      var nm = document.createElement('b'); nm.textContent = name + ': '; nm.style.color = mine ? '#7dd3fc' : '#f5c542';
+      line.appendChild(nm);
+      line.appendChild(document.createTextNode(text));
+      log.appendChild(line);
+      while (log.children.length > 60) log.removeChild(log.firstChild);
+      log.scrollTop = log.scrollHeight;
+      if (!chatOpen && !mine) { unread++; var bd = $('lchatBadge'); if (bd) { bd.textContent = unread; bd.style.display = 'inline-block'; } }
+    }
+    function sendMsg() {
+      var inp = $('lchatInput'); if (!inp) return;
+      var text = inp.value.trim(); if (!text) return;
+      if (!signedIn) { showToast('🔒 Sign in to chat'); return; }
+      if (!on || !ws || ws.readyState !== 1) { showToast('💬 Chat is connecting… try again in a second'); return; }
+      try { ws.send(JSON.stringify({ t: 'chat', text: text.slice(0, 200) })); } catch (e) {}
+      inp.value = '';
+    }
+    function rtcSend(to, data) { if (ws && ws.readyState === 1) { try { ws.send(JSON.stringify({ t: 'rtc', to: to, data: data })); } catch (e) {} } }
+    function updateVoiceUi() {
+      var vb = $('lvoiceBtn');
+      if (vb) {
+        vb.textContent = voiceOn ? '🎙️ In voice — tap to leave' : '🎙️ Join voice';
+        vb.style.background = voiceOn ? '#16a34a' : '#191920';
+        vb.style.borderColor = voiceOn ? '#16a34a' : '#f5c542';
+        vb.style.color = voiceOn ? '#ffffff' : '#ffe9a8';
+      }
+      var mb = $('lmuteBtn');
+      if (mb) { mb.style.display = voiceOn ? '' : 'none'; mb.textContent = voiceMuted ? '🔇 Mic OFF' : '🎤 Mic ON'; }
+      var vl = $('lchatVoiceLine');
+      if (vl) {
+        var names = [];
+        if (voiceOn) names.push('You');
+        voiceSet.forEach(function (id) { if (id !== myId) names.push(members[id] || 'Player'); });
+        vl.textContent = names.length ? '🎙️ In voice: ' + names.join(' • ') : '🎙️ Nobody in voice yet — tap Join voice';
+      }
+      var hd = $('lchatHead');
+      if (hd) {
+        var n = Object.keys(members).length + (on ? 1 : 0);
+        hd.textContent = on ? '💬 Lobby Chat — ' + n + ' on the portal' : '💬 Lobby Chat';
+      }
+    }
+    function peerGone(id) {
+      var e = voicePeers.get(id); if (!e) return;
+      voicePeers.delete(id);
+      try { e.pc.close(); } catch (err) {}
+      if (e.audio) { try { e.audio.srcObject = null; e.audio.remove(); } catch (err) {} }
+    }
+    function makePc(id) {
+      var pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      var entry = { pc: pc, audio: null, pendingIce: [] };
+      voicePeers.set(id, entry);
+      if (localStream) localStream.getTracks().forEach(function (tr) { try { pc.addTrack(tr, localStream); } catch (e) {} });
+      pc.onicecandidate = function (e) { if (e.candidate) rtcSend(id, { kind: 'ice', candidate: e.candidate }); };
+      pc.ontrack = function (e) {
+        if (!entry.audio) { var a = new Audio(); a.autoplay = true; entry.audio = a; document.body.appendChild(a); }
+        entry.audio.srcObject = e.streams[0];
+        entry.audio.play().catch(function () {});
+      };
+      pc.onconnectionstatechange = function () { if (pc.connectionState === 'failed' || pc.connectionState === 'closed') peerGone(id); };
+      return entry;
+    }
+    function callPeer(id) {
+      if (!voiceOn || voicePeers.has(id)) return;
+      var entry = makePc(id);
+      entry.pc.createOffer().then(function (offer) { return entry.pc.setLocalDescription(offer); }).then(function () {
+        rtcSend(id, { kind: 'offer', sdp: entry.pc.localDescription });
+      }).catch(function () {});
+    }
+    async function rtcHandle(from, data) {
+      if (!data) return;
+      if (data.kind === 'bye') { peerGone(from); return; }
+      if (!voiceOn) return;
+      try {
+        if (data.kind === 'offer') {
+          var entry = voicePeers.get(from);
+          if (entry && entry.pc.signalingState === 'have-local-offer') {
+            if (myId !== null && myId < from) return;
+            peerGone(from); entry = null;
+          }
+          if (!entry) entry = makePc(from);
+          await entry.pc.setRemoteDescription(data.sdp);
+          for (var i = 0; i < entry.pendingIce.length; i++) { try { await entry.pc.addIceCandidate(entry.pendingIce[i]); } catch (e) {} }
+          entry.pendingIce = [];
+          var ans = await entry.pc.createAnswer();
+          await entry.pc.setLocalDescription(ans);
+          rtcSend(from, { kind: 'answer', sdp: entry.pc.localDescription });
+        } else if (data.kind === 'answer') {
+          var e2 = voicePeers.get(from); if (!e2) return;
+          await e2.pc.setRemoteDescription(data.sdp);
+          for (var j = 0; j < e2.pendingIce.length; j++) { try { await e2.pc.addIceCandidate(e2.pendingIce[j]); } catch (e) {} }
+          e2.pendingIce = [];
+        } else if (data.kind === 'ice') {
+          var e3 = voicePeers.get(from); if (!e3) return;
+          if (e3.pc.remoteDescription) { try { await e3.pc.addIceCandidate(data.candidate); } catch (e) {} }
+          else e3.pendingIce.push(data.candidate);
+        }
+      } catch (e) {}
+    }
+    function voiceRoster(id, onFlag, name) {
+      if (onFlag) {
+        voiceSet.add(id);
+        if (voiceOn && id !== myId) {
+          showToast('🎙️ ' + (name || 'A player') + ' joined voice');
+          if (myId !== null && myId < id) setTimeout(function () { if (voiceOn && voiceSet.has(id) && !voicePeers.has(id)) callPeer(id); }, 700);
+        }
+      } else {
+        voiceSet.delete(id);
+        if (voiceOn && id !== myId) showToast('🎙️ ' + (name || 'A player') + ' left voice');
+        peerGone(id);
+      }
+      updateVoiceUi();
+    }
+    async function voiceJoin() {
+      if (!signedIn) { showToast('🔒 Sign in to use voice chat'); return; }
+      if (!on || !ws || ws.readyState !== 1) { showToast('🎙️ Voice connects when chat does — give it a second'); return; }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showToast('🎙️ Voice chat is not supported in this browser'); return; }
+      try { localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (e) { showToast('🎙️ Mic blocked — allow microphone access for this site'); return; }
+      if (voiceMuted) localStream.getAudioTracks().forEach(function (t) { t.enabled = false; });
+      voiceOn = true;
+      try { ws.send(JSON.stringify({ t: 'voice', on: true })); } catch (e) {}
+      voiceSet.forEach(function (id) { if (id !== myId) callPeer(id); });
+      updateVoiceUi();
+      showToast('🎙️ Voice chat ON — players in voice can hear you');
+    }
+    function voiceLeave(sendState) {
+      if (sendState && ws && ws.readyState === 1) { try { ws.send(JSON.stringify({ t: 'voice', on: false })); } catch (e) {} }
+      voicePeers.forEach(function (e, id) { rtcSend(id, { kind: 'bye' }); });
+      voicePeers.forEach(function (e, id) { peerGone(id); });
+      if (localStream) { localStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); localStream = null; }
+      voiceOn = false;
+      updateVoiceUi();
+    }
+    function connect() {
+      if (ws && ws.readyState < 2) return;
+      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var sock = new WebSocket(proto + '//' + location.host + '/ws?game=lobby');
+      ws = sock;
+      sock.onmessage = function (ev) {
+        var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.t === 'lwelcome') {
+          on = true; retryN = 0; myId = m.id;
+          (m.players || []).forEach(function (pl) { members[pl.id] = pl.displayName; if (pl.voice) voiceSet.add(pl.id); });
+          updateVoiceUi();
+        } else if (m.t === 'ljoin') {
+          members[m.player.id] = m.player.displayName;
+          updateVoiceUi();
+        } else if (m.t === 'lleave') {
+          delete members[m.id];
+          peerGone(m.id); voiceSet.delete(m.id);
+          updateVoiceUi();
+        } else if (m.t === 'chat') {
+          addLine(m.displayName, m.text, m.id === myId);
+        } else if (m.t === 'voice') {
+          voiceRoster(m.id, m.on, m.displayName);
+        } else if (m.t === 'rtc') {
+          rtcHandle(m.from, m.data);
+        }
+      };
+      sock.onclose = function (ev) {
+        if (ws === sock) ws = null;
+        on = false;
+        voiceLeave(false); voiceSet.clear(); members = {};
+        updateVoiceUi();
+        if (ev.code === 4001) { signedIn = false; return; }
+        if (signedIn && retryN < 5) {
+          var delay = [1500, 4000, 8000, 15000, 30000][retryN] || 30000;
+          retryN++;
+          clearTimeout(retryT);
+          retryT = setTimeout(function () { if (signedIn && !ws) connect(); }, delay);
+        }
+      };
+      sock.onerror = function () { try { sock.close(); } catch (e) {} };
+    }
+    // ---- UI ----
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;right:10px;bottom:78px;z-index:600;display:flex;flex-direction:column;align-items:flex-end;gap:8px;';
+    wrap.innerHTML =
+      '<div id="lchatPanel" style="display:none;width:min(302px,80vw);background:rgba(13,13,20,.95);border:1.5px solid #f5c542;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5);">' +
+        '<div id="lchatHead" style="padding:8px 10px;font-weight:800;color:#ffe9a8;border-bottom:1px solid #26262f;">💬 Lobby Chat</div>' +
+        '<div id="lchatVoiceLine" style="padding:6px 10px;font-size:12px;color:#a7f3d0;border-bottom:1px solid #26262f;background:#101018;">🎙️ Nobody in voice yet — tap Join voice</div>' +
+        '<div id="lchatLog" style="height:168px;overflow-y:auto;padding:8px 10px;font-size:13px;line-height:1.45;color:#e8e8f0;"></div>' +
+        '<div style="display:flex;border-top:1px solid #333;">' +
+          '<input id="lchatInput" type="text" maxlength="200" placeholder="Message…" autocomplete="off" style="flex:1;min-width:0;background:#1a1a26;color:#fff;border:0;padding:10px;font-size:16px;outline:none;">' +
+          '<button id="lchatSend" style="background:#f5c542;color:#191920;border:0;font-weight:800;padding:0 14px;cursor:pointer;">Send</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button id="lmuteBtn" style="display:none;border-radius:999px;padding:9px 13px;font-weight:800;font-size:13px;border:1.5px solid #f5c542;background:#191920;color:#ffe9a8;cursor:pointer;">🎤 Mic ON</button>' +
+        '<button id="lvoiceBtn" style="border-radius:999px;padding:9px 13px;font-weight:800;font-size:13px;border:1.5px solid #f5c542;background:#191920;color:#ffe9a8;cursor:pointer;">🎙️ Join voice</button>' +
+        '<button id="lchatBtn" style="border-radius:999px;padding:9px 13px;font-weight:800;font-size:13px;border:1.5px solid #f5c542;background:#191920;color:#ffe9a8;cursor:pointer;">💬 Chat<span id="lchatBadge" style="display:none;background:#ef4444;color:#fff;border-radius:999px;padding:0 6px;font-size:11px;margin-left:6px;"></span></button>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    $('lchatBtn').addEventListener('click', function () {
+      chatOpen = !chatOpen;
+      $('lchatPanel').style.display = chatOpen ? '' : 'none';
+      if (chatOpen) {
+        unread = 0; var bd = $('lchatBadge'); if (bd) bd.style.display = 'none';
+        if (!signedIn && !hintShown) { hintShown = true; addLine('Arqade', 'Sign in to chat with everyone on the portal.', false); }
+        var log = $('lchatLog'); if (log) log.scrollTop = log.scrollHeight;
+      }
+    });
+    $('lchatSend').addEventListener('click', sendMsg);
+    var inp = $('lchatInput');
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendMsg(); } });
+    $('lvoiceBtn').addEventListener('click', function () { if (voiceOn) { voiceLeave(true); showToast('🎙️ Voice chat OFF'); } else voiceJoin(); });
+    $('lmuteBtn').addEventListener('click', function () {
+      voiceMuted = !voiceMuted;
+      if (localStream) localStream.getAudioTracks().forEach(function (t) { t.enabled = !voiceMuted; });
+      updateVoiceUi();
+    });
+    document.addEventListener('pointerdown', function () {
+      voicePeers.forEach(function (e) { if (e.audio) e.audio.play().catch(function () {}); });
+    });
+    updateVoiceUi();
+    fetch('/api/me', { cache: 'no-store' }).then(function (r) {
+      if (r.ok) { signedIn = true; connect(); }
     }).catch(function () {});
   })();
   </script>
