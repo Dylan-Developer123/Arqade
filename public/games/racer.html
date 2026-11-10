@@ -188,12 +188,12 @@
   });
   var postGeo = new THREE.BoxGeometry(0.16, 0.62, 0.16);
   var postMat = new THREE.MeshLambertMaterial({ color: 0x8f979e });
-  var reflMat = new THREE.MeshBasicMaterial({ color: 0xff5a3c });
+  var reflMat = new THREE.MeshBasicMaterial({ color: 0xff6a4a });
   [-7.1, 7.1].forEach(function (x) {
     for (var i = 0; i < 18; i++) {
       var p = new THREE.Mesh(postGeo, postMat);
-      var rf = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.07, 0.03), reflMat);
-      rf.position.set(0, 0.18, 0.1); p.add(rf);
+      var rf = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.11, 0.04), reflMat);
+      rf.position.set(0, 0.18, 0.11); p.add(rf);
       p.position.set(x, 0.31, 0); addMover(p, 24 * 18, -i * 24 + 16);
     }
   });
@@ -461,12 +461,21 @@
   var carBodyGeo = profileGeo([[-2.15, 0.28], [-2.18, 0.52], [-2.0, 0.62], [-1.15, 0.7], [0.6, 0.74], [1.9, 0.76], [2.16, 0.62], [2.18, 0.34], [2.05, 0.24], [-2.02, 0.24]], 1.72);
   var carGlassGeo = profileGeo([[-1.32, 0.7], [-0.42, 1.14], [0.42, 1.17], [1.22, 0.73], [1.05, 0.68], [-1.15, 0.68]], 1.56);
   var truckCabGeo = profileGeo([[-1.0, 0.3], [-1.05, 1.05], [-0.92, 1.52], [0.55, 1.56], [0.95, 1.0], [0.98, 0.3]], 1.85);
+  var spokeMat = new THREE.MeshLambertMaterial({ color: 0x2a2c31 });
   function makeWheel(r, w) {
     var pivot = new THREE.Group();
     var tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 14), tireMat);
     tire.rotation.z = Math.PI / 2; pivot.add(tire);
     var hub = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.55, r * 0.55, w + 0.02, 10), chromeMat);
     hub.rotation.z = Math.PI / 2; pivot.add(hub);
+    [-1, 1].forEach(function (sd) {
+      for (var k = 0; k < 3; k++) {
+        var spoke = new THREE.Mesh(new THREE.BoxGeometry(0.03, r * 1.5, r * 0.24), spokeMat);
+        spoke.position.x = sd * (w / 2 + 0.012);
+        spoke.rotation.x = k * Math.PI / 3;
+        pivot.add(spoke);
+      }
+    });
     return pivot;
   }
   function makeCar(color, truck) {
@@ -487,9 +496,9 @@
       [-0.85, 0.85].forEach(function (x) { var tl = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.05), rearMat); tl.position.set(x, 0.5, 3.72); g.add(tl); });
       var plate2 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.15, 0.03), plateMat); plate2.position.set(0, 0.88, 3.72); g.add(plate2);
       [-0.6, 0, 0.6].forEach(function (x) { var mk = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.03), new THREE.MeshBasicMaterial({ color: 0xffb020 })); mk.position.set(x, 2.56, 3.71); g.add(mk); });
-      addWheel(-0.88, -2.95, 0.42, 0.32); addWheel(0.88, -2.95, 0.42, 0.32);
-      addWheel(-0.88, 2.3, 0.42, 0.32); addWheel(0.88, 2.3, 0.42, 0.32);
-      addWheel(-0.88, 3.2, 0.42, 0.32); addWheel(0.88, 3.2, 0.42, 0.32);
+      addWheel(-0.93, -2.95, 0.42, 0.32); addWheel(0.93, -2.95, 0.42, 0.32);
+      addWheel(-0.93, 2.3, 0.42, 0.32); addWheel(0.93, 2.3, 0.42, 0.32);
+      addWheel(-0.93, 3.2, 0.42, 0.32); addWheel(0.93, 3.2, 0.42, 0.32);
       [-0.88, 0.88].forEach(function (x) { var flap = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.42, 0.04), trimMat); flap.position.set(x, 0.3, 3.66); g.add(flap); });
     } else {
       var body = new THREE.Mesh(carBodyGeo, paint); g.add(body);
@@ -502,8 +511,8 @@
       var plate = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.15, 0.03), plateMat); plate.position.set(0, 0.42, 2.19); g.add(plate);
       [-0.94, 0.94].forEach(function (x) { var mir = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.1, 0.07), paint); mir.position.set(x, 0.9, -1.02); g.add(mir); });
       [-0.52, 0.52].forEach(function (x) { var ex = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.14, 8), chromeMat); ex.rotation.x = Math.PI / 2; ex.position.set(x, 0.24, 2.2); g.add(ex); });
-      addWheel(-0.82, -1.38, 0.37, 0.27); addWheel(0.82, -1.38, 0.37, 0.27);
-      addWheel(-0.82, 1.38, 0.37, 0.27); addWheel(0.82, 1.38, 0.37, 0.27);
+      addWheel(-0.89, -1.38, 0.37, 0.27); addWheel(0.89, -1.38, 0.37, 0.27);
+      addWheel(-0.89, 1.38, 0.37, 0.27); addWheel(0.89, 1.38, 0.37, 0.27);
     }
     var blink = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.05), new THREE.MeshBasicMaterial({ color: 0xffb020 }));
     blink.position.set(0.95, 0.62, len / 2 + 0.03); blink.visible = false; g.add(blink);
