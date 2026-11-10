@@ -787,17 +787,17 @@ async function main() {
         owner: !!user.is_owner, admin: !!user.is_admin,
         moderator: !!user.is_moderator, developer: !!user.is_developer,
       };
-      const pp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, state: null };
+      const pp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, state: null, voiceOn: false, lastChat: 0 };
       if (pursuit.has(userId)) { try { pursuit.get(userId).ws.close(); } catch (e) {} }
       pursuit.set(userId, pp);
       console.log(`[ws-pursuit] ${pp.username} joined (${pursuit.size} in city)`);
       const others = [...pursuit.values()].filter((q) => q.id !== userId).map((q) => ({
-        id: q.id, displayName: q.displayName, tags: q.tags, state: q.state,
+        id: q.id, displayName: q.displayName, tags: q.tags, state: q.state, voice: !!q.voiceOn,
       }));
       ws.send(JSON.stringify({ t: 'pwelcome', id: userId, players: others }));
       for (const q of pursuit.values()) {
         if (q.id !== userId && q.ws.readyState === WebSocket.OPEN) {
-          q.ws.send(JSON.stringify({ t: 'pjoin', player: { id: pp.id, displayName: pp.displayName, tags: pp.tags, state: null } }));
+          q.ws.send(JSON.stringify({ t: 'pjoin', player: { id: pp.id, displayName: pp.displayName, tags: pp.tags, state: null, voice: false } }));
         }
       }
       const toRoom = (obj, except) => {
@@ -808,6 +808,7 @@ async function main() {
         }
       };
       ws.on('message', (raw) => {
+        if (raw.length > 20000) return;
         let msg;
         try { msg = JSON.parse(raw); } catch (e) { return; }
         const me = pursuit.get(userId);
@@ -821,6 +822,21 @@ async function main() {
           toRoom({ t: 'ppos', id: userId, displayName: me.displayName, tags: me.tags, ...me.state }, userId);
         } else if (msg.t === 'pevent' && (msg.kind === 'busted' || msg.kind === 'wasted')) {
           toRoom({ t: 'pevent', id: userId, displayName: me.displayName, kind: msg.kind }, userId);
+        } else if (msg.t === 'chat') {
+          const now = Date.now();
+          if (now - me.lastChat < 350) return;
+          const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, 200) : '';
+          if (!text) return;
+          me.lastChat = now;
+          toRoom({ t: 'chat', id: userId, displayName: me.displayName, text }, null);
+        } else if (msg.t === 'voice') {
+          me.voiceOn = !!msg.on;
+          toRoom({ t: 'voice', id: userId, displayName: me.displayName, on: me.voiceOn }, userId);
+        } else if (msg.t === 'rtc') {
+          const target = pursuit.get(msg.to | 0);
+          if (target && target.ws.readyState === WebSocket.OPEN && msg.data && typeof msg.data === 'object') {
+            target.ws.send(JSON.stringify({ t: 'rtc', from: userId, displayName: me.displayName, data: msg.data }));
+          }
         }
       });
       ws.on('close', () => {
