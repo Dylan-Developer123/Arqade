@@ -319,5 +319,72 @@
 </main>
 <footer>More games coming soon 🛠️</footer>
 <script src="/games/admin-panel.js"></script>
+  <script>
+  // 👍 Game likes — one per player per game; counts are public, liking needs an account.
+  (function () {
+    function keyFor(href) {
+      if (href === '/miner-cat-2') return 'mining';
+      if (href.indexOf('/games/') === 0) return href.slice(7);
+      return null;
+    }
+    var toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#191920;border:1.5px solid #f5c542;color:#ffe9a8;font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:900;';
+    document.body.appendChild(toast);
+    var toastT = null;
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.style.opacity = '1'; toast.style.transform = 'translateX(-50%) translateY(0)';
+      clearTimeout(toastT);
+      toastT = setTimeout(function () { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(20px)'; }, 2200);
+    }
+    var chips = {}; // game key -> {el, liked, count}
+    function paint(c) {
+      c.el.textContent = '👍 ' + c.count;
+      c.el.style.background = c.liked ? '#f5c542' : 'rgba(10,10,16,.78)';
+      c.el.style.color = c.liked ? '#191920' : '#cfd2dc';
+      c.el.style.borderColor = c.liked ? '#f5c542' : 'rgba(255,255,255,.28)';
+    }
+    document.querySelectorAll('a.card').forEach(function (card) {
+      var key = keyFor(card.getAttribute('href') || '');
+      if (!key) return;
+      var art = card.querySelector('.art');
+      if (!art) return;
+      art.style.position = 'relative';
+      var chip = document.createElement('span');
+      chip.textContent = '👍 0';
+      chip.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(10,10,16,.78);border:1.5px solid rgba(255,255,255,.28);border-radius:999px;padding:4px 11px;font-size:13.5px;font-weight:800;color:#cfd2dc;cursor:pointer;user-select:none;-webkit-user-select:none;';
+      art.appendChild(chip);
+      var c = { el: chip, liked: false, count: 0 };
+      chips[key] = c;
+      chip.addEventListener('click', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        var wasLiked = c.liked, wasCount = c.count;
+        c.liked = !c.liked;
+        c.count = Math.max(0, c.count + (c.liked ? 1 : -1));
+        paint(c);
+        fetch('/api/likes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: key }) })
+          .then(function (r) {
+            if (r.status === 401) throw new Error('signin');
+            if (!r.ok) throw new Error('bad');
+            return r.json();
+          })
+          .then(function (d) { c.liked = !!d.liked; c.count = d.count; paint(c); })
+          .catch(function (err) {
+            c.liked = wasLiked; c.count = wasCount; paint(c);
+            if (err && err.message === 'signin') showToast('🔒 Sign in to like games');
+            else showToast('⚠️ Like did not save — try again');
+          });
+      });
+    });
+    fetch('/api/likes').then(function (r) { return r.json(); }).then(function (d) {
+      Object.keys(chips).forEach(function (key) {
+        var c = chips[key];
+        c.count = (d.counts && d.counts[key]) || 0;
+        c.liked = !!(d.mine && d.mine.indexOf(key) >= 0);
+        paint(c);
+      });
+    }).catch(function () {});
+  })();
+  </script>
 </body>
 </html>
