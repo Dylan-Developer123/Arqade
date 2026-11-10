@@ -283,7 +283,7 @@
     ['🐍 Snake', 'snake'], ['🧱 Breakout', 'breakout'], ['🐤 Flappy Bird', 'flappy'],
     ['🃏 Memory Match', 'memory'], ['🔢 2048', '2048'], ['🪙 Coin Clicker', 'clicker'],
     ['🏓 Pong', 'pong'], ['💣 Minesweeper', 'minesweeper'], ['👾 Space Invaders', 'invaders'],
-    ['🌕 Lunar Lander', 'lander'], ['🏎️ Turbo Racer', 'racer'], ['🂡 Blackjack', 'blackjack'],
+    ['🌕 Lunar Lander', 'lander'], ['🏎️ Turbo Racer', 'racer'], ['🏎️ Turbo Racer 3D', 'turbo3d'], ['🂡 Blackjack', 'blackjack'],
     ['✏️ Word Guess', 'word'],
   ];
   const moreEl = panel.querySelector('#arq-more-games');
