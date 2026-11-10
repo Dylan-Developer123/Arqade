@@ -34,13 +34,87 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) checkBroadcast(); });
   }
 
+  // ---- Account required to play (Dylan's rule, 2026-11-09) ----
+  // Guests opening any game page get this sign-in / create-account gate.
+  // The portal stays open for browsing; Mining Simulator has its own gate and doesn't load this file.
+  function showPlayGate() {
+    if (document.getElementById('arq-play-gate')) return;
+    const style = document.createElement('style');
+    style.textContent = `
+  #arq-play-gate { position: fixed; inset: 0; z-index: 1000000; background: rgba(8,8,14,.88); display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; }
+  #arq-play-gate .card { background: #1e1e30; color: #eee; border: 2px solid #f5c542; border-radius: 16px; padding: 24px 22px; width: min(380px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
+  #arq-play-gate h2 { margin: 0 0 6px; font-size: 23px; }
+  #arq-play-gate p { margin: 0 0 14px; font-size: 14.5px; opacity: .85; line-height: 1.45; }
+  #arq-play-gate input { width: 100%; box-sizing: border-box; background: #12121c; color: #eee; border: 1px solid #55557a; border-radius: 9px; padding: 11px 12px; font-size: 16px; margin-bottom: 9px; }
+  #arq-play-gate button.go { width: 100%; background: #f5c542; color: #191920; border: none; border-radius: 9px; padding: 12px; font-size: 16.5px; font-weight: 800; cursor: pointer; }
+  #arq-play-gate button.go:disabled { opacity: .55; }
+  #arq-play-gate .switch { margin-top: 12px; font-size: 14px; }
+  #arq-play-gate .switch a, #arq-play-gate .back { color: #f5c542; cursor: pointer; text-decoration: underline; }
+  #arq-play-gate .err { color: #ff9a9a; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }
+  #arq-play-gate .back { display: inline-block; margin-top: 10px; font-size: 13.5px; opacity: .85; }
+  `;
+    document.head.appendChild(style);
+    const gate = document.createElement('div');
+    gate.id = 'arq-play-gate';
+    gate.innerHTML = `
+      <div class="card">
+        <h2>🔒 Sign in to play</h2>
+        <p>Arqade games need a free account. One account works for every game, and your scores save to the leaderboards.</p>
+        <input id="pg-user" type="text" placeholder="Username" autocomplete="username" maxlength="32">
+        <input id="pg-pass" type="password" placeholder="Password" autocomplete="current-password">
+        <input id="pg-name" type="text" placeholder="Display name (new accounts)" maxlength="24" style="display:none">
+        <div class="err" id="pg-err"></div>
+        <button class="go" id="pg-go">Sign in &amp; play</button>
+        <div class="switch" id="pg-switch">New here? <a id="pg-toggle">Create an account</a></div>
+        <a class="back" href="/">← Back to Arqade home</a>
+      </div>`;
+    document.body.appendChild(gate);
+    document.body.style.overflow = 'hidden';
+    let mode = 'signin';
+    const q = (sel) => gate.querySelector(sel);
+    const err = (m) => { q('#pg-err').textContent = m || ''; };
+    q('#pg-toggle').addEventListener('click', () => {
+      mode = mode === 'signin' ? 'signup' : 'signin';
+      q('#pg-name').style.display = mode === 'signup' ? 'block' : 'none';
+      q('#pg-go').textContent = mode === 'signup' ? 'Create account & play' : 'Sign in & play';
+      q('#pg-switch').firstChild.textContent = mode === 'signup' ? 'Already have an account? ' : 'New here? ';
+      q('#pg-toggle').textContent = mode === 'signup' ? 'Sign in' : 'Create an account';
+      err('');
+    });
+    const submit = async () => {
+      const username = q('#pg-user').value.trim();
+      const password = q('#pg-pass').value;
+      if (!username || !password) { err('Type your username and password.'); return; }
+      const btn = q('#pg-go'); btn.disabled = true; err('');
+      try {
+        const body = mode === 'signup'
+          ? { username, password, displayName: (q('#pg-name').value.trim() || username.slice(0, 24)) }
+          : { username, password };
+        const r = await fetch(mode === 'signup' ? '/api/signup' : '/api/signin', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { err(data.error || 'Something went wrong — try again.'); btn.disabled = false; return; }
+        location.reload();
+      } catch (e) { err('Network problem — check your connection and try again.'); btn.disabled = false; }
+    };
+    q('#pg-go').addEventListener('click', submit);
+    gate.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    const u = q('#pg-user'); if (u) u.focus();
+  }
+
   let user = null;
+  let guest = false;
   try {
     const r = await fetch('/api/me');
-    if (!r.ok) return;
-    user = (await r.json()).user;
-  } catch (e) { return; }
-  if (!user || !(user.isAdmin || user.isModerator || user.isDeveloper || user.isOwner)) return;
+    if (r.ok) user = (await r.json()).user;
+    else if (r.status === 401) guest = true;
+  } catch (e) { /* network hiccup — fail open, so a blip never locks a signed-in player out */ }
+  if (!user) {
+    if (guest && location.pathname.startsWith('/games/')) showPlayGate();
+    return;
+  }
+  if (!(user.isAdmin || user.isModerator || user.isDeveloper || user.isOwner)) return;
 
   const css = `
   #arq-admin-btn { position: fixed; right: 14px; bottom: 14px; z-index: 99998; background: #f5c542; color: #191920; border: none; border-radius: 24px; padding: 10px 16px; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.5); font-family: 'Segoe UI', system-ui, sans-serif; }
