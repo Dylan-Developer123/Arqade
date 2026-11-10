@@ -1,5 +1,11 @@
 // Arqade shared admin panel — appears on every game page for admin-tagged accounts.
 // All powers are enforced server-side by POST /api/admin; this is just the UI.
+// ---- Remember the last game played, for the portal's Continue button ----
+try {
+  if (location.pathname.indexOf('/games/') === 0) {
+    localStorage.setItem('arq_last_game', JSON.stringify({ p: location.pathname.replace(/\.html$/, ''), t: document.title.replace(/ — Arqade$/, '') }));
+  }
+} catch (e) {}
 (async () => {
   // ---- Global broadcast banner: Dylan's broadcast shows on EVERY game, for every player ----
   // (Mining Simulator has its own built-in bar and doesn't load this file, so no double banner there.)
