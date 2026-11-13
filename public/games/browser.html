@@ -83,7 +83,7 @@
     if (!text) return '';
     if (/^https?:\/\//i.test(text)) return text;
     if (text.indexOf(' ') >= 0 || text.indexOf('.') < 0) {
-      return 'https://marginalia-search.com/search?query=' + encodeURIComponent(text);
+      return 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(text);
     }
     return 'https://' + text;
   }
