@@ -59,7 +59,7 @@
   var addr = document.getElementById('addr');
   var current = '';
   var LINKS = [
-    { emo: '🔎', nm: 'Swisscows', ds: 'Search the web', url: 'https://swisscows.com/en/web' },
+    { emo: '🔎', nm: 'Web Search', ds: 'Marginalia Search', url: 'https://marginalia-search.com/' },
     { emo: '📖', nm: 'Wikipedia', ds: 'The free encyclopedia', url: 'https://en.wikipedia.org' },
     { emo: '🗺️', nm: 'World Map', ds: 'OpenStreetMap', url: 'https://www.openstreetmap.org/export/embed.html' },
     { emo: '📚', nm: 'Internet Archive', ds: 'Books, games & more', url: 'https://archive.org' },
@@ -82,7 +82,7 @@
     if (!text) return '';
     if (/^https?:\/\//i.test(text)) return text;
     if (text.indexOf(' ') >= 0 || text.indexOf('.') < 0) {
-      return 'https://swisscows.com/en/web?query=' + encodeURIComponent(text);
+      return 'https://marginalia-search.com/search?query=' + encodeURIComponent(text);
     }
     return 'https://' + text;
   }
