@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Settings — Arqade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #12121c; color: #eee; min-height: 100vh; }
+  header { background: linear-gradient(90deg, #1d1d30, #26264a); padding: 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #f5c542; }
+  header a { color: #f5c542; text-decoration: none; font-weight: 700; font-size: 15px; }
+  header h1 { font-size: 21px; }
+  main { max-width: 640px; margin: 0 auto; padding: 22px 16px 60px; display: flex; flex-direction: column; gap: 18px; }
+  .panel { background: #1e1e30; border: 2px solid #2c2c48; border-radius: 14px; padding: 18px; }
+  .panel h2 { font-size: 18px; margin-bottom: 4px; }
+  .panel .sub { font-size: 13px; opacity: 0.65; margin-bottom: 14px; line-height: 1.45; }
+  label { display: block; font-size: 13px; font-weight: 700; opacity: 0.85; margin: 12px 0 5px; }
+  label:first-of-type { margin-top: 0; }
+  input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 2px solid #2c2c48; background: #12121c; color: #eee; font-size: 15px; }
+  input:focus { outline: none; border-color: #f5c542; }
+  .seg { display: flex; gap: 8px; }
+  .seg button { flex: 1; padding: 11px 6px; border-radius: 10px; border: 2px solid #2c2c48; background: #262640; color: #eee; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+  .seg button.on { background: #f5c542; color: #191920; border-color: #f5c542; }
+  .wide { width: 100%; padding: 12px; border-radius: 10px; border: 2px solid #2c2c48; background: #262640; color: #eee; font-size: 15px; font-weight: 800; cursor: pointer; margin-top: 14px; }
+  .wide.gold { background: #f5c542; color: #191920; border-color: #f5c542; }
+  .wide.red { background: #c62828; border-color: #a02020; color: #fff; }
+  .msg { font-size: 14px; margin-top: 12px; min-height: 18px; }
+  .msg.err { color: #ff8a80; }
+  .msg.ok { color: #81c784; }
+  .who { font-size: 14px; opacity: 0.85; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">← Arqade</a>
+  <h1>⚙️ Settings</h1>
+</header>
+<main>
+  <div class="panel">
+    <h2>👤 Account</h2>
+    <p class="sub">One account for every game on Arqade.</p>
+    <div class="who" id="who">Checking your account…</div>
+    <form id="acct-form">
+      <label for="set-displayname">Display name</label>
+      <input id="set-displayname" type="text" maxlength="24">
+      <label for="set-username">Username</label>
+      <input id="set-username" type="text" maxlength="32">
+      <label for="set-newpassword">New password (leave blank to keep)</label>
+      <input id="set-newpassword" type="password" placeholder="••••••••" autocomplete="new-password">
+      <label for="set-currentpassword">Current password (required to save)</label>
+      <input id="set-currentpassword" type="password" placeholder="••••••••" autocomplete="current-password">
+      <button type="submit" class="wide gold">Save account changes</button>
+      <div class="msg" id="acct-msg"></div>
+    </form>
+    <label>Tags next to your name</label>
+    <div class="seg"><button type="button" id="tags-btn">🏷️ Show tags: ON</button></div>
+    <button type="button" class="wide red" id="btn-signout">↩ Log out</button>
+  </div>
+
+  <div class="panel">
+    <h2>⛏️ Mining Simulator</h2>
+    <p class="sub">Applies the next time you open the game.</p>
+    <label>Theme</label>
+    <div class="seg">
+      <button type="button" id="theme-light">☀️ Light</button>
+      <button type="button" id="theme-dark">🌙 Dark</button>
+    </div>
+    <label>Graphics quality</label>
+    <div class="seg">
+      <button type="button" id="gfx-low">🥔 Low</button>
+      <button type="button" id="gfx-med">⚙️ Medium</button>
+      <button type="button" id="gfx-high">✨ High</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>🚓 City Pursuit 3D</h2>
+    <p class="sub">Applies the next time you open the game.</p>
+    <label>Name tags — OFF also hides you from other players' maps (stealth)</label>
+    <div class="seg"><button type="button" id="cp-tags-btn">🏷️ Name Tags: ON</button></div>
+  </div>
+
+  <p style="text-align:center;opacity:.55;font-size:13px;">Every setting on Arqade lives here now — the games don't have their own settings tabs anymore.</p>
+</main>
+<script>
+  function $(id) { return document.getElementById(id); }
+  var me = null;
+
+  // ---------- Account ----------
+  fetch('/api/me', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d || !d.user) { $('who').textContent = 'Not signed in.'; return; }
+    me = d.user;
+    $('who').textContent = 'Signed in as ' + (me.displayName || me.username) + ' (@' + me.username + ')';
+    $('set-displayname').value = me.displayName || '';
+    $('set-username').value = me.username || '';
+    paintTags();
+  }).catch(function () { $('who').textContent = 'Could not load your account.'; });
+
+  function paintTags() {
+    var hide = me && me.hideTags;
+    $('tags-btn').textContent = hide ? '🏷️ Show tags: OFF' : '🏷️ Show tags: ON';
+    $('tags-btn').className = hide ? '' : 'on';
+  }
+  $('tags-btn').addEventListener('click', function () {
+    if (!me) return;
+    var hide = !me.hideTags;
+    fetch('/api/toggle-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hide: hide }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.user) { me = d.user; paintTags(); } })
+      .catch(function () {});
+  });
+
+  $('acct-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var msg = $('acct-msg');
+    msg.textContent = ''; msg.className = 'msg';
+    fetch('/api/account', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        displayName: $('set-displayname').value.trim(),
+        username: $('set-username').value.trim(),
+        newPassword: $('set-newpassword').value || undefined,
+        currentPassword: $('set-currentpassword').value
+      })
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.error || 'Could not save.');
+        me = res.d.user;
+        $('who').textContent = 'Signed in as ' + (me.displayName || me.username) + ' (@' + me.username + ')';
+        $('set-newpassword').value = ''; $('set-currentpassword').value = '';
+        msg.textContent = '✅ Account updated!'; msg.className = 'msg ok';
+      })
+      .catch(function (ex) { msg.textContent = ex.message; msg.className = 'msg err'; });
+  });
+
+  $('btn-signout').addEventListener('click', function () {
+    if (!confirm('Log out?')) return;
+    fetch('/api/signout', { method: 'POST' }).then(function () { location.href = '/'; });
+  });
+
+  // ---------- Mining Simulator: theme + graphics (localStorage the game reads on load) ----------
+  function paintTheme() {
+    var dark = false;
+    try { dark = localStorage.getItem('mc2-theme') === 'dark'; } catch (e) {}
+    $('theme-light').className = dark ? '' : 'on';
+    $('theme-dark').className = dark ? 'on' : '';
+  }
+  $('theme-light').addEventListener('click', function () { try { localStorage.setItem('mc2-theme', 'light'); } catch (e) {} paintTheme(); });
+  $('theme-dark').addEventListener('click', function () { try { localStorage.setItem('mc2-theme', 'dark'); } catch (e) {} paintTheme(); });
+  paintTheme();
+
+  function paintGfx() {
+    var q = 'high';
+    try { q = localStorage.getItem('mc2-gfx') || 'high'; } catch (e) {}
+    $('gfx-low').className = q === 'low' ? 'on' : '';
+    $('gfx-med').className = q === 'med' ? 'on' : '';
+    $('gfx-high').className = q === 'high' ? 'on' : '';
+  }
+  [['gfx-low', 'low'], ['gfx-med', 'med'], ['gfx-high', 'high']].forEach(function (pair) {
+    $(pair[0]).addEventListener('click', function () { try { localStorage.setItem('mc2-gfx', pair[1]); } catch (e) {} paintGfx(); });
+  });
+  paintGfx();
+
+  // ---------- City Pursuit 3D: name tags (localStorage the game reads on load) ----------
+  function paintCpTags() {
+    var hide = false;
+    try { hide = localStorage.getItem('cp_hidename') === '1'; } catch (e) {}
+    $('cp-tags-btn').textContent = hide ? '🏷️ Name Tags: OFF' : '🏷️ Name Tags: ON';
+    $('cp-tags-btn').className = hide ? '' : 'on';
+  }
+  $('cp-tags-btn').addEventListener('click', function () {
+    var hide = false;
+    try { hide = localStorage.getItem('cp_hidename') === '1'; } catch (e) {}
+    try { localStorage.setItem('cp_hidename', hide ? '0' : '1'); } catch (e) {}
+    paintCpTags();
+  });
+  paintCpTags();
+</script>
+<script src="/games/admin-panel.js"></script>
+</body>
+</html>
