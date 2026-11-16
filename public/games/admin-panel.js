@@ -18,11 +18,12 @@ try {
 // Stored in localStorage (arq_bg / arq_accent / arq_glass) and applied on every page
 // that loads this file — the portal and all games. Mining Simulator has its own copy.
 function arqApplyAppearance() {
-  var bg = '', accent = '', glass = false;
+  var bg = '', accent = '', glass = false, mode = 'dark';
   try {
     bg = localStorage.getItem('arq_bg') || '';
     accent = localStorage.getItem('arq_accent') || '';
     glass = localStorage.getItem('arq_glass') === '1';
+    mode = localStorage.getItem('arq_mode') || 'dark';
   } catch (e) {}
   var old = document.getElementById('arq-appearance');
   if (old) old.remove();
@@ -35,7 +36,9 @@ function arqApplyAppearance() {
     candy: 'linear-gradient(160deg,#33102b,#6d2055)'
   };
   var css = '';
-  if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
+  var isPhoto = !!(bg && bg.indexOf('data:image') === 0);
+  if (mode === 'light' && !isPhoto) css += 'body{background:linear-gradient(160deg,#f4f6fb,#dde3ee) !important;background-attachment:fixed !important;}\n';
+  else if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
   else if (bg && bg.charAt(0) === '#') css += 'body{background:' + bg + ' !important;}\n';
   else if (bg && bg.indexOf('data:image') === 0) css += 'body{background-color:#12121c !important;background-image:url("' + bg + '") !important;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important;background-attachment:scroll !important;}\n';
   if (accent) {
@@ -47,8 +50,20 @@ function arqApplyAppearance() {
     css += '#arq-broadcast-bar{border-color:' + accent + ' !important;}#arq-broadcast-bar .from{color:' + accent + ' !important;}\n';
     css += '#arq-play-gate .card{border-color:' + accent + ' !important;}\n';
   }
+  if (mode === 'light') {
+    css += 'body{color:#1d1d28 !important;}\n';
+    css += '.card,.panel,header,#account-bar,.modal{background:#ffffff !important;color:#1d1d28 !important;border-color:#d4d8e2 !important;}\n';
+    css += 'h2,h3{color:#14141f !important;}\n';
+    css += '.sub,.who,.muted{color:#4a4a5c !important;opacity:1 !important;}\n';
+    css += 'label{color:#2a2a3a !important;}\n';
+    css += 'input,select,textarea{background:#ffffff !important;color:#1d1d28 !important;border-color:#c6cbda !important;}\n';
+    css += '.seg button{background:#e6e9f2 !important;color:#1d1d28 !important;border-color:#c6cbda !important;}\n';
+    css += '.seg button.on{color:#191920 !important;}\n';
+    css += '#arq-broadcast-bar{background:#fff8e1 !important;color:#5c4a00 !important;}\n';
+  }
   if (glass) {
-    css += '.card,.panel,header,#account-bar,.modal,#arq-play-gate .card,#arq-broadcast-bar{background:rgba(28,28,46,.52) !important;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);border-color:rgba(255,255,255,.22) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 28px rgba(0,0,0,.35) !important;}\n';
+    if (mode === 'light') css += '.card,.panel,header,#account-bar,.modal,#arq-play-gate .card,#arq-broadcast-bar{background:rgba(255,255,255,.55) !important;color:#1d1d28 !important;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);border-color:rgba(255,255,255,.65) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 28px rgba(30,40,80,.18) !important;}\n';
+    else css += '.card,.panel,header,#account-bar,.modal,#arq-play-gate .card,#arq-broadcast-bar{background:rgba(28,28,46,.52) !important;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);border-color:rgba(255,255,255,.22) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 28px rgba(0,0,0,.35) !important;}\n';
     css += 'button,.btn,.action,.modeBtn{backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);}\n';
   }
   if (!css) return;
