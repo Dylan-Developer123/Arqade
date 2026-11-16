@@ -52,7 +52,6 @@
     <div class="top-actions">
       <button id="btn-save" class="btn small" title="Save now">💾 Save</button>
       <button id="btn-spawn" class="btn small" title="Teleport to spawn (auto-sells backpack)">🏠 Spawn</button>
-      <button id="btn-settings" class="btn small" title="Account settings">⚙️</button>
       <button id="btn-mp" class="btn small" title="Join multiplayer world">🌐 Multiplayer</button>
       <button id="btn-solo" class="btn small" title="Back to single player">👤 Single player</button>
       <button id="btn-lounge" class="btn small hidden" title="Admin lounge (admins only)">🛋️ Lounge</button>
@@ -177,45 +176,6 @@
   </div>
 </div>
 
-<!-- ============ SETTINGS MODAL ============ -->
-<div id="settings-overlay" class="overlay hidden">
-  <div class="panel modal">
-    <h2>Account settings</h2>
-    <div id="settings-error" class="error hidden"></div>
-    <form id="settings-form">
-      <label for="set-displayname">Display name</label>
-      <input id="set-displayname" type="text" maxlength="24">
-      <label for="set-username">Username</label>
-      <input id="set-username" type="text" maxlength="32">
-      <label for="set-newpassword">New password <span class="muted">(leave blank to keep)</span></label>
-      <input id="set-newpassword" type="password" placeholder="••••••••" autocomplete="new-password">
-      <label for="set-currentpassword">Current password <span class="muted">(required)</span></label>
-      <input id="set-currentpassword" type="password" placeholder="••••••••" autocomplete="current-password">
-      <label>Theme</label>
-      <div class="row" style="margin-bottom:12px;">
-        <button type="button" id="theme-light" class="btn small" style="flex:1;">☀️ Light</button>
-        <button type="button" id="theme-dark" class="btn small" style="flex:1;">🌙 Dark</button>
-      </div>
-      <label>Graphics quality</label>
-      <div class="row" style="margin-bottom:12px;">
-        <button type="button" id="gfx-low" class="btn small" style="flex:1;">🥔 Low</button>
-        <button type="button" id="gfx-med" class="btn small" style="flex:1;">⚙️ Medium</button>
-        <button type="button" id="gfx-high" class="btn small" style="flex:1;">✨ High</button>
-      </div>
-      <label>Tags</label>
-      <div class="row" style="margin-bottom:12px;">
-        <button type="button" id="btn-tags" class="btn small" style="flex:1;">🏷️ Show tags: ON</button>
-      </div>
-      <div class="row">
-        <button type="submit" class="btn primary">Save changes</button>
-      </div>
-      <div class="row" style="margin-top:12px;">
-        <button type="button" id="btn-signout" class="btn wide" style="background:#c62828;border-color:#a02020;color:#fff;">↩ Log out</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script src="game.js?v=49"></script>
+<script src="game.js?v=50"></script>
 </body>
 </html>
