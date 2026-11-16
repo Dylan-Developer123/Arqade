@@ -75,6 +75,12 @@
       <button type="button" class="sw" data-bg="space" style="background:linear-gradient(160deg,#050510,#141433)" title="Space"></button>
       <button type="button" class="sw" data-bg="candy" style="background:linear-gradient(160deg,#33102b,#6d2055)" title="Candy"></button>
       <input type="color" id="bg-custom" value="#12121c" title="Custom color">
+      <label class="sw photo" for="bg-photo" title="Your photo" style="display:flex;align-items:center;justify-content:center;font-size:22px;background:#23233c">📷</label>
+      <input type="file" id="bg-photo" accept="image/*" style="display:none">
+    </div>
+    <div id="photo-row" style="display:none;margin-top:10px;align-items:center;gap:10px">
+      <img id="photo-preview" alt="Your background photo" style="width:76px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #2c2c48">
+      <button type="button" id="photo-remove" class="wide danger" style="width:auto;padding:8px 14px;margin:0">✖ Remove photo</button>
     </div>
     <label>Theme color</label>
     <div class="swatches" id="accent-swatches">
@@ -230,6 +236,7 @@
     var css = '';
     if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
     else if (bg && bg.charAt(0) === '#') css += 'body{background:' + bg + ' !important;}\n';
+    else if (bg && bg.indexOf('data:image') === 0) css += 'body{background-color:#12121c !important;background-image:url("' + bg + '") !important;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important;background-attachment:fixed !important;}\n';
     if (accent) {
       css += 'header{border-bottom-color:' + accent + ' !important;}\n';
       css += 'header h1{color:' + accent + ' !important;}\n';
@@ -262,12 +269,12 @@
     b.addEventListener('click', function () {
       var v = b.getAttribute('data-bg') || '';
       try { if (v) localStorage.setItem('arq_bg', v); else localStorage.removeItem('arq_bg'); } catch (e) {}
-      paintBg(); applyAppearance();
+      paintBg(); paintPhoto(); applyAppearance();
     });
   });
   $('bg-custom').addEventListener('input', function () {
     try { localStorage.setItem('arq_bg', $('bg-custom').value); } catch (e) {}
-    paintBg(); applyAppearance();
+    paintBg(); paintPhoto(); applyAppearance();
   });
 
   function paintAccent() {
@@ -297,7 +304,47 @@
     paintGlass(); applyAppearance();
   });
 
-  paintBg(); paintAccent(); paintGlass(); applyAppearance();
+  function paintPhoto() {
+    var bg = '';
+    try { bg = localStorage.getItem('arq_bg') || ''; } catch (e) {}
+    var isPhoto = bg.indexOf('data:image') === 0;
+    var chip = document.querySelector('#bg-swatches .sw.photo');
+    if (chip) chip.classList.toggle('on', isPhoto);
+    $('photo-row').style.display = isPhoto ? 'flex' : 'none';
+    if (isPhoto) $('photo-preview').src = bg;
+  }
+  $('bg-photo').addEventListener('change', function () {
+    var f = $('bg-photo').files && $('bg-photo').files[0];
+    if (!f) return;
+    var url = URL.createObjectURL(f);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var max = 1440;
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        var scale = Math.min(1, max / Math.max(w, h));
+        var cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(w * scale));
+        cv.height = Math.max(1, Math.round(h * scale));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        var data = cv.toDataURL('image/jpeg', 0.82);
+        try { localStorage.setItem('arq_bg', data); }
+        catch (e) { setMsg('⚠️ That photo is too big to save as a background — try a smaller one.'); return; }
+        paintBg(); paintPhoto(); applyAppearance();
+        setMsg('✅ Photo background set — it shows on the portal and in every game.');
+      } catch (err) { setMsg('⚠️ Could not use that photo.'); }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); setMsg('⚠️ Could not read that photo.'); };
+    img.src = url;
+    $('bg-photo').value = '';
+  });
+  $('photo-remove').addEventListener('click', function () {
+    try { localStorage.removeItem('arq_bg'); } catch (e) {}
+    paintBg(); paintPhoto(); applyAppearance();
+  });
+
+  paintBg(); paintPhoto(); paintAccent(); paintGlass(); applyAppearance();
 </script>
 <script src="/games/admin-panel.js"></script>
 </body>
