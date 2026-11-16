@@ -28,6 +28,11 @@
   .msg.err { color: #ff8a80; }
   .msg.ok { color: #81c784; }
   .who { font-size: 14px; opacity: 0.85; margin-bottom: 6px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .sw { width: 46px; height: 46px; border-radius: 12px; border: 2px solid #2c2c48; cursor: pointer; padding: 0; flex: none; }
+  .sw.on { border-color: #fff; box-shadow: 0 0 0 2px #f5c542; }
+  .sw.dot { border-radius: 50%; }
+  input[type="color"] { width: 46px; height: 46px; padding: 2px; border-radius: 12px; cursor: pointer; flex: none; }
 </style>
 </head>
 <body>
@@ -55,6 +60,34 @@
     <label>Tags next to your name</label>
     <div class="seg"><button type="button" id="tags-btn">🏷️ Show tags: ON</button></div>
     <button type="button" class="wide red" id="btn-signout">↩ Log out</button>
+  </div>
+
+  <div class="panel">
+    <h2>🎨 Appearance</h2>
+    <p class="sub">For the whole site — the portal and every game.</p>
+    <label>Background</label>
+    <div class="swatches" id="bg-swatches">
+      <button type="button" class="sw" data-bg="" style="background:#12121c" title="Midnight (default)"></button>
+      <button type="button" class="sw" data-bg="ocean" style="background:linear-gradient(160deg,#041e33,#0a3d5c)" title="Ocean"></button>
+      <button type="button" class="sw" data-bg="sunset" style="background:linear-gradient(160deg,#2b0a1e,#7a2d2d)" title="Sunset"></button>
+      <button type="button" class="sw" data-bg="forest" style="background:linear-gradient(160deg,#06231a,#0d4630)" title="Forest"></button>
+      <button type="button" class="sw" data-bg="purple" style="background:linear-gradient(160deg,#1b1035,#3b2070)" title="Purple Haze"></button>
+      <button type="button" class="sw" data-bg="space" style="background:linear-gradient(160deg,#050510,#141433)" title="Space"></button>
+      <button type="button" class="sw" data-bg="candy" style="background:linear-gradient(160deg,#33102b,#6d2055)" title="Candy"></button>
+      <input type="color" id="bg-custom" value="#12121c" title="Custom color">
+    </div>
+    <label>Theme color</label>
+    <div class="swatches" id="accent-swatches">
+      <button type="button" class="sw dot" data-accent="#f5c542" style="background:#f5c542" title="Gold"></button>
+      <button type="button" class="sw dot" data-accent="#4fc3f7" style="background:#4fc3f7" title="Sky"></button>
+      <button type="button" class="sw dot" data-accent="#81c784" style="background:#81c784" title="Green"></button>
+      <button type="button" class="sw dot" data-accent="#f48fb1" style="background:#f48fb1" title="Pink"></button>
+      <button type="button" class="sw dot" data-accent="#ffb74d" style="background:#ffb74d" title="Orange"></button>
+      <button type="button" class="sw dot" data-accent="#ba68c8" style="background:#ba68c8" title="Purple"></button>
+      <button type="button" class="sw dot" data-accent="#ef5350" style="background:#ef5350" title="Red"></button>
+    </div>
+    <label>Liquid glass — frosted, see-through panels and buttons everywhere it fits</label>
+    <div class="seg"><button type="button" id="glass-btn">💧 Liquid Glass: OFF</button></div>
   </div>
 
   <div class="panel">
@@ -175,6 +208,96 @@
     paintCpTags();
   });
   paintCpTags();
+
+  // ---------- Appearance: background, theme color, liquid glass (whole site) ----------
+  function applyAppearance() {
+    var bg = '', accent = '', glass = false;
+    try {
+      bg = localStorage.getItem('arq_bg') || '';
+      accent = localStorage.getItem('arq_accent') || '';
+      glass = localStorage.getItem('arq_glass') === '1';
+    } catch (e) {}
+    var old = document.getElementById('arq-appearance');
+    if (old) old.remove();
+    var BGS = {
+      ocean: 'linear-gradient(160deg,#041e33,#0a3d5c)',
+      sunset: 'linear-gradient(160deg,#2b0a1e,#571d3a 60%,#7a2d2d)',
+      forest: 'linear-gradient(160deg,#06231a,#0d4630)',
+      purple: 'linear-gradient(160deg,#1b1035,#3b2070)',
+      space: 'linear-gradient(160deg,#050510,#141433)',
+      candy: 'linear-gradient(160deg,#33102b,#6d2055)'
+    };
+    var css = '';
+    if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
+    else if (bg && bg.charAt(0) === '#') css += 'body{background:' + bg + ' !important;}\n';
+    if (accent) {
+      css += 'header{border-bottom-color:' + accent + ' !important;}\n';
+      css += 'header h1{color:' + accent + ' !important;}\n';
+      css += '.play{background:' + accent + ' !important;}\n';
+      css += '.card:hover{border-color:' + accent + ' !important;}\n';
+      css += '.seg button.on,.wide.gold{background:' + accent + ' !important;border-color:' + accent + ' !important;}\n';
+      css += '#arq-broadcast-bar{border-color:' + accent + ' !important;}#arq-broadcast-bar .from{color:' + accent + ' !important;}\n';
+      css += '#arq-play-gate .card{border-color:' + accent + ' !important;}\n';
+    }
+    if (glass) {
+      css += '.card,.panel,header,#account-bar,.modal,#arq-play-gate .card,#arq-broadcast-bar{background:rgba(28,28,46,.52) !important;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);border-color:rgba(255,255,255,.22) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 28px rgba(0,0,0,.35) !important;}\n';
+      css += 'button,.btn,.action,.modeBtn{backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);}\n';
+    }
+    if (!css) return;
+    var st = document.createElement('style');
+    st.id = 'arq-appearance';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  function paintBg() {
+    var bg = '';
+    try { bg = localStorage.getItem('arq_bg') || ''; } catch (e) {}
+    document.querySelectorAll('#bg-swatches .sw').forEach(function (b) {
+      b.classList.toggle('on', (b.getAttribute('data-bg') || '') === bg);
+    });
+    if (bg.charAt(0) === '#') $('bg-custom').value = bg;
+  }
+  document.querySelectorAll('#bg-swatches .sw').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.getAttribute('data-bg') || '';
+      try { if (v) localStorage.setItem('arq_bg', v); else localStorage.removeItem('arq_bg'); } catch (e) {}
+      paintBg(); applyAppearance();
+    });
+  });
+  $('bg-custom').addEventListener('input', function () {
+    try { localStorage.setItem('arq_bg', $('bg-custom').value); } catch (e) {}
+    paintBg(); applyAppearance();
+  });
+
+  function paintAccent() {
+    var a = '';
+    try { a = localStorage.getItem('arq_accent') || ''; } catch (e) {}
+    document.querySelectorAll('#accent-swatches .sw').forEach(function (b) {
+      b.classList.toggle('on', (b.getAttribute('data-accent') || '') === a);
+    });
+  }
+  document.querySelectorAll('#accent-swatches .sw').forEach(function (b) {
+    b.addEventListener('click', function () {
+      try { localStorage.setItem('arq_accent', b.getAttribute('data-accent')); } catch (e) {}
+      paintAccent(); applyAppearance();
+    });
+  });
+
+  function paintGlass() {
+    var on = false;
+    try { on = localStorage.getItem('arq_glass') === '1'; } catch (e) {}
+    $('glass-btn').textContent = on ? '💧 Liquid Glass: ON' : '💧 Liquid Glass: OFF';
+    $('glass-btn').className = on ? 'on' : '';
+  }
+  $('glass-btn').addEventListener('click', function () {
+    var on = false;
+    try { on = localStorage.getItem('arq_glass') === '1'; } catch (e) {}
+    try { localStorage.setItem('arq_glass', on ? '0' : '1'); } catch (e) {}
+    paintGlass(); applyAppearance();
+  });
+
+  paintBg(); paintAccent(); paintGlass(); applyAppearance();
 </script>
 <script src="/games/admin-panel.js"></script>
 </body>
