@@ -176,6 +176,39 @@
   </div>
 </div>
 
+<script>
+// Appearance (background / theme color / liquid glass) set in the portal's Settings
+// game — this page doesn't load admin-panel.js, so it carries its own copy.
+(function () {
+  var bg = '', accent = '', glass = false;
+  try {
+    bg = localStorage.getItem('arq_bg') || '';
+    accent = localStorage.getItem('arq_accent') || '';
+    glass = localStorage.getItem('arq_glass') === '1';
+  } catch (e) {}
+  var BGS = {
+    ocean: 'linear-gradient(160deg,#041e33,#0a3d5c)',
+    sunset: 'linear-gradient(160deg,#2b0a1e,#571d3a 60%,#7a2d2d)',
+    forest: 'linear-gradient(160deg,#06231a,#0d4630)',
+    purple: 'linear-gradient(160deg,#1b1035,#3b2070)',
+    space: 'linear-gradient(160deg,#050510,#141433)',
+    candy: 'linear-gradient(160deg,#33102b,#6d2055)'
+  };
+  var css = '';
+  if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
+  else if (bg && bg.charAt(0) === '#') css += 'body{background:' + bg + ' !important;}\n';
+  if (accent) css += '.btn.primary{background:' + accent + ' !important;border-color:' + accent + ' !important;color:#191920 !important;}\n';
+  if (glass) {
+    css += '.panel,.modal,#arq-broadcast-bar{background:rgba(28,28,46,.52) !important;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);border-color:rgba(255,255,255,.22) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 28px rgba(0,0,0,.35) !important;}\n';
+    css += 'button,.btn{backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);}\n';
+  }
+  if (!css) return;
+  var st = document.createElement('style');
+  st.id = 'arq-appearance';
+  st.textContent = css;
+  document.head.appendChild(st);
+})();
+</script>
 <script src="game.js?v=50"></script>
 </body>
 </html>
