@@ -1124,90 +1124,14 @@ window.addEventListener('keydown', (e) => {
   }
 });
 $('btn-save').onclick = () => saveNow(false);
-$('btn-signout').onclick = async () => {
-  if (!confirm('Log out?')) return;
-  await saveNow(true); await api.signout(); location.reload();
-};
-$('btn-settings').onclick = () => {
-  $('set-displayname').value = S.user.displayName;
-  $('set-username').value = S.user.username;
-  $('set-newpassword').value = '';
-  $('set-currentpassword').value = '';
-  $('settings-error').classList.add('hidden');
-  $('settings-overlay').classList.remove('hidden');
-};
-// Click outside the settings modal to close it
-$('settings-overlay').addEventListener('click', (e) => {
-  if (e.target.id === 'settings-overlay') $('settings-overlay').classList.add('hidden');
-});
-// Theme changer (light/dark), persisted in localStorage
-function setTheme(dark) {
-  document.body.classList.toggle('dark', dark);
-  try { localStorage.setItem('mc2-theme', dark ? 'dark' : 'light'); } catch (e) {}
-}
-document.getElementById('theme-light').addEventListener('click', () => setTheme(false));
-document.getElementById('theme-dark').addEventListener('click', () => setTheme(true));
+// Settings live in the portal's Settings game now (Arqade → Settings) — this game
+// only READS the saved theme + graphics choices when it loads.
 try { if (localStorage.getItem('mc2-theme') === 'dark') document.body.classList.add('dark'); } catch (e) {}
 // Graphics quality: low / medium / high
 let GFX = 'high';
 try { GFX = localStorage.getItem('mc2-gfx') || 'high'; } catch (e) {}
-function setGfx(q) {
-  GFX = q;
-  try { localStorage.setItem('mc2-gfx', q); } catch (e) {}
-  updateGfxButtons();
-  toast('Graphics: ' + q);
-}
-function updateGfxButtons() {
-  const map = { low: 'gfx-low', med: 'gfx-med', high: 'gfx-high' };
-  for (const [k, id] of Object.entries(map)) {
-    document.getElementById(id).classList.toggle('in-world', GFX === k);
-  }
-}
-document.getElementById('gfx-low').addEventListener('click', () => setGfx('low'));
-document.getElementById('gfx-med').addEventListener('click', () => setGfx('med'));
-document.getElementById('gfx-high').addEventListener('click', () => setGfx('high'));
-updateGfxButtons();
-// Show/hide tags toggle
-async function updateTagsBtn() {
-  const hide = S.user && S.user.hideTags;
-  document.getElementById('btn-tags').textContent = hide ? '🏷️ Show tags: OFF' : '🏷️ Show tags: ON';
-}
-document.getElementById('btn-tags').addEventListener('click', async () => {
-  const hide = !(S.user && S.user.hideTags);
-  try {
-    const res = await fetch('/api/toggle-tags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hide }),
-    });
-    const data = await res.json();
-    if (data.user) {
-      S.user = data.user;
-      updatePlayerTag();
-      refreshLeaderboard();
-      updateTagsBtn();
-      toast(hide ? 'Tags hidden' : 'Tags shown');
-    }
-  } catch (e) { toast('Failed to update.'); }
-});
-$('settings-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const err = $('settings-error');
-  err.classList.add('hidden');
-  try {
-    const { user } = await api.updateAccount({
-      displayName: $('set-displayname').value.trim(),
-      username: $('set-username').value.trim(),
-      newPassword: $('set-newpassword').value || undefined,
-      currentPassword: $('set-currentpassword').value,
-    });
-    S.user = user;
-    updatePlayerTag();
-    $('settings-overlay').classList.add('hidden');
-    toast('Account updated!');
-    refreshLeaderboard();
-  } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
-});
+// Kept as a no-op: older flows still call it after login/leaderboard refreshes.
+async function updateTagsBtn() {}
 
 // admin buttons
 document.querySelectorAll('[data-admin]').forEach((btn) => {
