@@ -37,7 +37,7 @@ function arqApplyAppearance() {
   var css = '';
   if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
   else if (bg && bg.charAt(0) === '#') css += 'body{background:' + bg + ' !important;}\n';
-  else if (bg && bg.indexOf('data:image') === 0) css += 'body{background-color:#12121c !important;background-image:url("' + bg + '") !important;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important;background-attachment:fixed !important;}\n';
+  else if (bg && bg.indexOf('data:image') === 0) css += 'body{background-color:#12121c !important;background-image:url("' + bg + '") !important;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important;background-attachment:scroll !important;}\n';
   if (accent) {
     css += 'header{border-bottom-color:' + accent + ' !important;}\n';
     css += 'header h1{color:' + accent + ' !important;}\n';
