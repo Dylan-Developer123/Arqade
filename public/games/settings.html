@@ -79,6 +79,9 @@
       <button type="button" class="sw" data-bg="purple" style="background:linear-gradient(160deg,#1b1035,#3b2070)" title="Purple Haze"></button>
       <button type="button" class="sw" data-bg="space" style="background:linear-gradient(160deg,#050510,#141433)" title="Space"></button>
       <button type="button" class="sw" data-bg="candy" style="background:linear-gradient(160deg,#33102b,#6d2055)" title="Candy"></button>
+      <button type="button" class="sw pic" data-pic="lake" title="Mountain Lake"></button>
+      <button type="button" class="sw pic" data-pic="orbs" title="Blue Glass"></button>
+      <button type="button" class="sw pic" data-pic="waves" title="Silk Waves"></button>
       <input type="color" id="bg-custom" value="#12121c" title="Custom color">
       <label class="sw photo" for="bg-photo" title="Your photo" style="display:flex;align-items:center;justify-content:center;font-size:22px;background:#23233c">📷</label>
       <input type="file" id="bg-photo" accept="image/*" style="display:none">
@@ -126,6 +129,9 @@
 
   <p style="text-align:center;opacity:.55;font-size:13px;">Every setting on Arqade lives here now — the games don't have their own settings tabs anymore.</p>
 </main>
+<script src="/games/bg-lake.js"></script>
+<script src="/games/bg-orbs.js"></script>
+<script src="/games/bg-waves.js"></script>
 <script>
   function $(id) { return document.getElementById(id); }
   var me = null;
@@ -280,7 +286,7 @@
   function paintBg() {
     var bg = '';
     try { bg = localStorage.getItem('arq_bg') || ''; } catch (e) {}
-    document.querySelectorAll('#bg-swatches .sw').forEach(function (b) {
+    document.querySelectorAll('#bg-swatches button.sw[data-bg]').forEach(function (b) {
       b.classList.toggle('on', (b.getAttribute('data-bg') || '') === bg);
     });
     if (bg.charAt(0) === '#') $('bg-custom').value = bg;
@@ -324,15 +330,30 @@
     paintGlass(); applyAppearance();
   });
 
+  function presetData(k) { return (window.ARQ_BG_PRESETS && window.ARQ_BG_PRESETS[k]) || ''; }
+  function presetKeyFor(d) { var P = window.ARQ_BG_PRESETS || {}; for (var k in P) { if (P[k] === d) return k; } return ''; }
   function paintPhoto() {
     var bg = '';
     try { bg = localStorage.getItem('arq_bg') || ''; } catch (e) {}
     var isPhoto = bg.indexOf('data:image') === 0;
     var chip = document.querySelector('#bg-swatches .sw.photo');
-    if (chip) chip.classList.toggle('on', isPhoto);
+    if (chip) chip.classList.toggle('on', isPhoto && !presetKeyFor(bg));
+    document.querySelectorAll('#bg-swatches .sw.pic').forEach(function (b) {
+      b.classList.toggle('on', isPhoto && presetData(b.getAttribute('data-pic')) === bg);
+    });
     $('photo-row').style.display = isPhoto ? 'flex' : 'none';
     if (isPhoto) $('photo-preview').src = bg;
   }
+  document.querySelectorAll('#bg-swatches .sw.pic').forEach(function (b) {
+    var d = presetData(b.getAttribute('data-pic'));
+    if (d) { b.style.backgroundImage = 'url(' + d + ')'; b.style.backgroundSize = 'cover'; b.style.backgroundPosition = 'center'; }
+    b.addEventListener('click', function () {
+      var dd = presetData(b.getAttribute('data-pic'));
+      if (!dd) return;
+      try { localStorage.setItem('arq_bg', dd); } catch (e) {}
+      paintBg(); paintPhoto(); applyAppearance();
+    });
+  });
   $('bg-photo').addEventListener('change', function () {
     var f = $('bg-photo').files && $('bg-photo').files[0];
     if (!f) return;
