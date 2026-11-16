@@ -258,19 +258,9 @@ $('carBtn').onclick = changeCar;
 carUi();
 
 let hideName = false;
+// Name Tags is a setting now — it lives in the portal's Settings game, which
+// writes cp_hidename; this game only reads it when it loads.
 try { hideName = localStorage.getItem('cp_hidename') === '1'; } catch (e) {}
-function tagUi() {
-  $('tagBtn').textContent = hideName ? '🏷️ Name Tags: OFF' : '🏷️ Name Tags: ON';
-  $('tagBtn').style.background = hideName ? '#6b7280' : '#2563eb';
-}
-$('tagBtn').onclick = () => {
-  hideName = !hideName;
-  try { localStorage.setItem('cp_hidename', hideName ? '1' : '0'); } catch (e) {}
-  tagUi();
-  mpSendT = 0; // tell the room right away
-  flash(hideName ? '🏷️ Stealth ON — your name tag AND map dot are hidden from everyone' : '🏷️ Name tags shown');
-};
-tagUi();
 const _mb = $('mpBtn'); if (_mb) _mb.onclick = mpConnect;
 // tapping a mode applies it right away: Multiplayer connects on the spot, any other mode disconnects
 const _pickModeBase = pickMode;
