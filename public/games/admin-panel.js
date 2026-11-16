@@ -14,6 +14,49 @@ try {
     localStorage.setItem('arq_recent_games', JSON.stringify(rlist.slice(0, 3)));
   }
 } catch (e) {}
+// ---- Appearance: background, theme color and liquid glass, set in the Settings game ----
+// Stored in localStorage (arq_bg / arq_accent / arq_glass) and applied on every page
+// that loads this file — the portal and all games. Mining Simulator has its own copy.
+function arqApplyAppearance() {
+  var bg = '', accent = '', glass = false;
+  try {
+    bg = localStorage.getItem('arq_bg') || '';
+    accent = localStorage.getItem('arq_accent') || '';
+    glass = localStorage.getItem('arq_glass') === '1';
+  } catch (e) {}
+  var old = document.getElementById('arq-appearance');
+  if (old) old.remove();
+  var BGS = {
+    ocean: 'linear-gradient(160deg,#041e33,#0a3d5c)',
+    sunset: 'linear-gradient(160deg,#2b0a1e,#571d3a 60%,#7a2d2d)',
+    forest: 'linear-gradient(160deg,#06231a,#0d4630)',
+    purple: 'linear-gradient(160deg,#1b1035,#3b2070)',
+    space: 'linear-gradient(160deg,#050510,#141433)',
+    candy: 'linear-gradient(160deg,#33102b,#6d2055)'
+  };
+  var css = '';
+  if (bg && BGS[bg]) css += 'body{background:' + BGS[bg] + ' !important;background-attachment:fixed !important;}\n';
+  else if (bg && bg.charAt(0) === '#') css += 'body{background:' + bg + ' !important;}\n';
+  if (accent) {
+    css += 'header{border-bottom-color:' + accent + ' !important;}\n';
+    css += 'header h1{color:' + accent + ' !important;}\n';
+    css += '.play{background:' + accent + ' !important;}\n';
+    css += '.card:hover{border-color:' + accent + ' !important;}\n';
+    css += '.seg button.on,.wide.gold{background:' + accent + ' !important;border-color:' + accent + ' !important;}\n';
+    css += '#arq-broadcast-bar{border-color:' + accent + ' !important;}#arq-broadcast-bar .from{color:' + accent + ' !important;}\n';
+    css += '#arq-play-gate .card{border-color:' + accent + ' !important;}\n';
+  }
+  if (glass) {
+    css += '.card,.panel,header,#account-bar,.modal,#arq-play-gate .card,#arq-broadcast-bar{background:rgba(28,28,46,.52) !important;backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);border-color:rgba(255,255,255,.22) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 28px rgba(0,0,0,.35) !important;}\n';
+    css += 'button,.btn,.action,.modeBtn{backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);}\n';
+  }
+  if (!css) return;
+  var st = document.createElement('style');
+  st.id = 'arq-appearance';
+  st.textContent = css;
+  document.head.appendChild(st);
+}
+try { arqApplyAppearance(); } catch (e) {}
 (async () => {
   // ---- Global broadcast banner: Dylan's broadcast shows on EVERY game, for every player ----
   // (Mining Simulator has its own built-in bar and doesn't load this file, so no double banner there.)
