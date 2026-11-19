@@ -35,6 +35,24 @@
   #inputRow { display: flex; border-top: 1px solid #2c2c48; }
   #chatInput { flex: 1; min-width: 0; background: #14141f; color: #fff; border: 0; padding: 13px 14px; font-size: 16px; outline: none; font-family: inherit; }
   #chatSend { background: #f5c542; color: #191920; border: 0; font-weight: 800; font-size: 15px; padding: 0 20px; cursor: pointer; font-family: inherit; }
+  .pvBtn { margin-top: 7px; margin-left: 7px; background: #262640; color: #eef; border: 1.5px solid #3a3a5c; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  .sendBtn { margin-top: 7px; margin-left: 7px; background: #155e80; color: #fff; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  .sendBtn:disabled { opacity: .55; cursor: default; }
+  #reviewBar { display: none; padding: 10px 16px; background: #2e2a1a; border-bottom: 1px solid #f5c542; font-size: 14px; }
+  #reviewBar .reqRow { display: flex; align-items: center; gap: 9px; margin-top: 8px; flex-wrap: wrap; }
+  #reviewBar .reqRow .who2 { font-weight: 700; }
+  #reviewBar button { background: #f5c542; color: #191920; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  #previewModal { display: none; position: fixed; inset: 0; background: rgba(6,6,12,.78); z-index: 60; align-items: center; justify-content: center; padding: 14px; }
+  #previewModal.open { display: flex; }
+  .pvCard { background: #1e1e30; border: 2px solid #3a3a5c; border-radius: 16px; width: min(860px, 97vw); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+  .pvHead { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid #2c2c48; font-weight: 800; font-size: 15px; }
+  .pvHead button { margin-left: auto; background: #262640; color: #eef; border: 1.5px solid #3a3a5c; border-radius: 8px; font-weight: 800; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  #pvFrame { width: 100%; height: 62vh; border: 0; background: #fff; }
+  .pvActions { display: none; gap: 9px; padding: 11px 14px; border-top: 1px solid #2c2c48; }
+  .pvActions.show { display: flex; }
+  #pvApprove { background: #22c55e; color: #08130c; border: 0; border-radius: 9px; font-weight: 800; font-size: 14px; padding: 9px 16px; cursor: pointer; font-family: inherit; }
+  #pvDeny { background: #3a1520; color: #fda4af; border: 1.5px solid #7f1d2d; border-radius: 9px; font-weight: 800; font-size: 14px; padding: 9px 16px; cursor: pointer; font-family: inherit; }
+  .pvActions button:disabled { opacity: .55; cursor: default; }
 </style>
 </head>
 <body>
@@ -52,11 +70,23 @@
       <button class="modeBtn hidden" id="modeCode">💻 Code</button>
     </div>
   </div>
+  <div id="reviewBar"></div>
   <div id="chatLog"></div>
   <div id="chips"></div>
   <div id="inputRow">
     <input id="chatInput" type="text" placeholder="Ask Meteor anything…" maxlength="500" autocomplete="off">
     <button id="chatSend">Send</button>
+  </div>
+</div>
+
+<div id="previewModal">
+  <div class="pvCard">
+    <div class="pvHead"><span id="pvTitle">Preview</span><button id="pvClose">✖ Close</button></div>
+    <iframe id="pvFrame" sandbox="allow-scripts"></iframe>
+    <div class="pvActions" id="pvActions">
+      <button id="pvApprove">✅ Approve &amp; publish</button>
+      <button id="pvDeny">✖ Deny</button>
+    </div>
   </div>
 </div>
 
@@ -70,11 +100,27 @@
   var modeCodeBtn = document.getElementById('modeCode');
   var mode = 'chat';
   var isOwner = false;
+  var canCode = false;
+  var canPublish = false;
   var pushAvailable = false;
   var myName = 'friend';
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function scrollDown() { log.scrollTop = log.scrollHeight; }
+
+  function armButton(btn, label, armedLabel, fn) {
+    var armed = false, timer = null;
+    btn.addEventListener('click', function () {
+      if (!armed) {
+        armed = true;
+        btn.textContent = armedLabel;
+        timer = setTimeout(function () { armed = false; btn.textContent = label; }, 3500);
+        return;
+      }
+      clearTimeout(timer);
+      fn();
+    });
+  }
 
   function addMsg(cls, who, text, code, pushSlug) {
     var d = document.createElement('div');
@@ -82,7 +128,11 @@
     var html = '<span class="who">' + esc(who) + '</span>' + esc(text);
     if (code) {
       html += '<pre>' + esc(code) + '</pre><button class="copyBtn">📋 Copy code</button>';
-      if (pushSlug && pushAvailable) html += '<button class="pushBtn">🚀 Push to site</button>';
+      if (pushSlug) {
+        html += '<button class="pvBtn">👁 Preview</button>';
+        if (canPublish && pushAvailable) html += '<button class="pushBtn">🚀 Push to site</button>';
+        if (!canPublish) html += '<button class="sendBtn">📨 Send to Dylan</button>';
+      }
     }
     d.innerHTML = html;
     if (code) {
@@ -92,17 +142,11 @@
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, done);
         else done();
       });
+      var pvBtn = d.querySelector('.pvBtn');
+      if (pvBtn) pvBtn.addEventListener('click', function () { openPreview('👁 Preview — /games/' + pushSlug, code, null); });
       var pushBtn = d.querySelector('.pushBtn');
       if (pushBtn) {
-        var armed = false, armTimer = null;
-        pushBtn.addEventListener('click', function () {
-          if (!armed) {
-            armed = true;
-            pushBtn.textContent = 'Tap again to publish 🚀';
-            armTimer = setTimeout(function () { armed = false; pushBtn.textContent = '🚀 Push to site'; }, 3500);
-            return;
-          }
-          clearTimeout(armTimer);
+        armButton(pushBtn, '🚀 Push to site', 'Tap again to publish 🚀', function () {
           pushBtn.disabled = true;
           pushBtn.textContent = '🚀 Publishing…';
           fetch('/api/meteor/publish', {
@@ -127,9 +171,126 @@
           });
         });
       }
+      var sendBtn = d.querySelector('.sendBtn');
+      if (sendBtn) {
+        armButton(sendBtn, '📨 Send to Dylan', 'Tap again to send 📨', function () {
+          sendBtn.disabled = true;
+          sendBtn.textContent = '📨 Sending…';
+          fetch('/api/meteor/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: pushSlug, code: code })
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+          }).then(function (res) {
+            if (res.ok) {
+              sendBtn.textContent = '✅ Sent!';
+              botSay('Sent to Dylan! 📨 He gets a live preview of the page and can approve it — if he does, it goes live at /games/' + pushSlug + '. Check "My requests" any time to see the status.', null, 400);
+            } else {
+              sendBtn.disabled = false;
+              sendBtn.textContent = '📨 Send to Dylan';
+              botSay('⚠️ Couldn\'t send: ' + (res.j.error || 'something went wrong.'), null, 300);
+            }
+          }).catch(function () {
+            sendBtn.disabled = false;
+            sendBtn.textContent = '📨 Send to Dylan';
+            botSay('⚠️ Couldn\'t send: no connection. Try again in a bit.', null, 300);
+          });
+        });
+      }
     }
     log.appendChild(d);
     scrollDown();
+  }
+
+  /* ---------------- live preview + owner review ---------------- */
+  var pvModal = document.getElementById('previewModal');
+  var pvFrame = document.getElementById('pvFrame');
+  var pvTitle = document.getElementById('pvTitle');
+  var pvActions = document.getElementById('pvActions');
+  var pvApprove = document.getElementById('pvApprove');
+  var pvDeny = document.getElementById('pvDeny');
+  var pvCurrent = null; // { onApprove, onDeny } when reviewing a request
+
+  function stripForPreview(code) {
+    return code.replace(/<script[^>]*src="\/games\/admin-panel\.js"[^>]*><\/script>/g, '<!-- preview: site scripts off -->');
+  }
+  function openPreview(title, code, actions) {
+    pvTitle.textContent = title;
+    pvCurrent = actions || null;
+    pvActions.classList.toggle('show', !!actions);
+    pvApprove.disabled = false; pvDeny.disabled = false;
+    pvApprove.textContent = '✅ Approve & publish';
+    pvDeny.textContent = '✖ Deny';
+    pvFrame.srcdoc = stripForPreview(code);
+    pvModal.classList.add('open');
+  }
+  function closePreview() { pvModal.classList.remove('open'); pvFrame.srcdoc = ''; pvCurrent = null; }
+  document.getElementById('pvClose').addEventListener('click', closePreview);
+  pvApprove.addEventListener('click', function () { if (pvCurrent && pvCurrent.onApprove) pvCurrent.onApprove(); });
+  pvDeny.addEventListener('click', function () { if (pvCurrent && pvCurrent.onDeny) pvCurrent.onDeny(); });
+
+  var reviewBar = document.getElementById('reviewBar');
+  function loadReviewBar() {
+    if (!isOwner) return;
+    fetch('/api/meteor/requests').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var reqs = (j && j.requests) || [];
+      if (!reqs.length) { reviewBar.style.display = 'none'; reviewBar.innerHTML = ''; return; }
+      reviewBar.style.display = 'block';
+      reviewBar.innerHTML = '📥 <b>' + reqs.length + ' page request' + (reqs.length === 1 ? '' : 's') + '</b> waiting for your review:';
+      reqs.forEach(function (rq) {
+        var row = document.createElement('div');
+        row.className = 'reqRow';
+        var label = document.createElement('span');
+        label.innerHTML = '<span class="who2">' + esc(rq.requester) + '</span> → /games/' + esc(rq.slug);
+        var b = document.createElement('button');
+        b.textContent = '👁 Preview & decide';
+        b.addEventListener('click', function () { reviewRequest(rq); });
+        row.appendChild(label); row.appendChild(b);
+        reviewBar.appendChild(row);
+      });
+    }).catch(function () {});
+  }
+  function reviewRequest(rq) {
+    fetch('/api/meteor/requests/' + rq.id).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || !j.request) { botSay('⚠️ Couldn\'t load that request.', null, 300); return; }
+      var req = j.request;
+      openPreview('📥 ' + req.requester + ' → /games/' + req.slug, req.code, {
+        onApprove: function () {
+          pvApprove.disabled = true; pvDeny.disabled = true;
+          pvApprove.textContent = '🚀 Publishing…';
+          fetch('/api/meteor/requests/' + req.id + '/approve', { method: 'POST' }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (jj) { return { ok: r.ok, j: jj }; });
+          }).then(function (res) {
+            closePreview();
+            if (res.ok) botSay('Approved! ✅ ' + req.requester + '\'s page is published (commit ' + (res.j.commit || '—') + ') — live at ' + res.j.url + ' in about a minute.', null, 300);
+            else botSay('⚠️ Approve failed: ' + (res.j.error || 'something went wrong.') + ' The request is still waiting.', null, 300);
+            loadReviewBar();
+          }).catch(function () { closePreview(); botSay('⚠️ Approve failed: no connection.', null, 300); loadReviewBar(); });
+        },
+        onDeny: function () {
+          pvApprove.disabled = true; pvDeny.disabled = true;
+          pvDeny.textContent = 'Denying…';
+          fetch('/api/meteor/requests/' + req.id + '/deny', { method: 'POST' }).then(function (r) { return { ok: r.ok }; }).then(function (res) {
+            closePreview();
+            botSay(res.ok ? 'Denied. ✖ ' + req.requester + '\'s page won\'t be published.' : '⚠️ Deny failed — try again.', null, 300);
+            loadReviewBar();
+          }).catch(function () { closePreview(); botSay('⚠️ Deny failed: no connection.', null, 300); loadReviewBar(); });
+        }
+      });
+    }).catch(function () { botSay('⚠️ Couldn\'t load that request.', null, 300); });
+  }
+
+  function showMyRequests() {
+    fetch('/api/meteor/my-requests').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var reqs = (j && j.requests) || [];
+      if (!reqs.length) { botSay('You haven\'t sent any page requests yet. Generate a game page and tap 📨 Send to Dylan.', null, 300); return; }
+      var lines = reqs.map(function (rq) {
+        var icon = rq.status === 'approved' ? '✅ live' : (rq.status === 'denied' ? '✖ denied' : '⏳ waiting for Dylan');
+        return '• /games/' + rq.slug + ' — ' + icon;
+      });
+      botSay('📨 Your requests:\n' + lines.join('\n'), null, 300);
+    }).catch(function () { botSay('⚠️ Couldn\'t load your requests.', null, 300); });
   }
 
   function botSay(text, code, delay, pushSlug) {
@@ -296,7 +457,7 @@
     var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
     return '<a class="card" href="/games/' + slug + '">\n  <div class="art"><!-- cover art --></div>\n  <div class="body">\n    <span class="tag purple">NEW</span>\n    <h2>' + name + '</h2>\n    <p>One-line description of the game.</p>\n    <span class="play">▶ Play</span>\n  </div>\n</a>';
   }
-  var CODE_HELP = '💻 Code mode — here\'s what I can generate:\n• "game page called Rocket Jump" — a full Arqade game page\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nFor brand-new custom features, Baxter in your Muse chat still codes those live — I generate from my built-in patterns, like a 1.0 should.';
+  var CODE_HELP = '💻 Code mode — here\'s what I can generate:\n• "game page called Rocket Jump" — a full Arqade game page\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\n• "my requests" — see the pages you sent Dylan\nEvery game page gets a 👁 Preview. The owner publishes with 🚀 Push; developer-tag players send with 📨 and Dylan approves them after previewing.\nFor brand-new custom features, Baxter in your Muse chat still codes those live — I generate from my built-in patterns, like a 1.0 should.';
 
   function codeReply(raw) {
     var q = raw.toLowerCase();
@@ -305,7 +466,7 @@
     if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) {
       var gname = m[1].trim();
       var gslug = gname.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
-      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + (pushAvailable ? ' Tap 🚀 Push to site under the code and it goes live for real:' : ''), code: gameSkeleton(gname), slug: gslug };
+      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + (canPublish && pushAvailable ? ' Tap 👁 Preview to see it working, or 🚀 Push to site and it goes live for real:' : (!canPublish ? ' Tap 👁 Preview to see it working, or 📨 Send to Dylan — he previews it and can approve it:' : '')), code: gameSkeleton(gname), slug: gslug };
     }
     if ((m = raw.match(/(?:portal )?card (?:for|called)\s+(.+)/i))) return { text: 'Here\'s the portal card for "' + m[1].trim() + '":', code: cardSnippet(m[1].trim()) };
     if ((m = raw.match(/gradient\s+(#[0-9a-f]{3,8})\s+(?:to\s+)?(#[0-9a-f]{3,8})/i))) return { text: 'Gradient, ready to paste:', code: 'background: linear-gradient(135deg, ' + m[1] + ', ' + m[2] + ');' };
@@ -321,7 +482,7 @@
 
   /* ---------------- wiring ---------------- */
   var CHAT_CHIPS = ['Tell me a joke 😂', 'Pick a game for me 🎮', 'What is 24 × 7?', 'What games are on Arqade?', 'Let\'s play rock paper scissors', 'Who made you?'];
-  var CODE_CHIPS = ['Help', 'Game page called Rocket Jump', 'Portal card for Rocket Jump', 'Gradient #f59e0b to #7c3aed', 'Encode hello Arqade', 'Flip a coin'];
+  var CODE_CHIPS = ['Help', 'Game page called Rocket Jump', 'Portal card for Rocket Jump', 'Gradient #f59e0b to #7c3aed', 'Encode hello Arqade', 'My requests 📨'];
 
   function renderChips() {
     chipsBox.innerHTML = '';
@@ -335,7 +496,7 @@
   }
 
   function setMode(next) {
-    if (next === 'code' && !isOwner) return;
+    if (next === 'code' && !canCode) return;
     mode = next;
     modeChatBtn.classList.toggle('on', mode === 'chat');
     modeCodeBtn.classList.toggle('on', mode === 'code');
@@ -352,6 +513,7 @@
     input.value = '';
     addMsg('me', myName, raw);
     if (mode === 'code') {
+      if (/^my requests/i.test(raw)) { showMyRequests(); return; }
       var r = codeReply(raw);
       botSay(r.text, r.code, 600, r.slug);
     } else {
@@ -367,13 +529,16 @@
   fetch('/api/me').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
     if (d && d.user) {
       if (d.user.displayName) myName = d.user.displayName;
-      if (d.user.isOwner) {
-        isOwner = true;
-        modeCodeBtn.classList.remove('hidden');
-        fetch('/api/meteor/push-status').then(function (r) { return r.ok ? r.json() : null; }).then(function (s) {
-          if (s && s.available) pushAvailable = true;
-        }).catch(function () {});
-      }
+      if (d.user.isOwner) isOwner = true;
+      fetch('/api/meteor/access').then(function (r) { return r.ok ? r.json() : null; }).then(function (a) {
+        if (a && a.code) {
+          canCode = true;
+          canPublish = !!a.canPublish;
+          pushAvailable = !!a.pushAvailable;
+          modeCodeBtn.classList.remove('hidden');
+          if (isOwner) loadReviewBar();
+        }
+      }).catch(function () {});
     }
   }).catch(function () {});
 })();
