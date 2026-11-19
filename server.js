@@ -171,6 +171,12 @@ const SCHEMA_SQLITE = `
     game    TEXT NOT NULL,
     PRIMARY KEY (user_id, game)
   );
+  CREATE TABLE IF NOT EXISTS chat_servers (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `;
 
 const SCHEMA_PG = `
@@ -215,6 +221,12 @@ const SCHEMA_PG = `
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     game    TEXT NOT NULL,
     PRIMARY KEY (user_id, game)
+  );
+  CREATE TABLE IF NOT EXISTS chat_servers (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT NOT NULL,
+    owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 `;
 
@@ -575,6 +587,59 @@ async function main() {
   });
 
   // -------------------------------------------------------------------------
+  // Arqade Chat servers — player-created chat rooms next to the public lobby.
+  // The list is public; creating and deleting need a signed-in account.
+  // -------------------------------------------------------------------------
+  app.get('/api/chat/servers', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const rows = await db.prepare(
+      'SELECT cs.id, cs.name, cs.owner_id, u.display_name AS owner_name FROM chat_servers cs JOIN users u ON u.id = cs.owner_id ORDER BY cs.id'
+    ).all();
+    const me = req.user;
+    res.json({
+      lobbyCount: lobbyRoomCount('lobby'),
+      servers: rows.map((r) => ({
+        id: Number(r.id),
+        name: r.name,
+        owner: r.owner_name,
+        mine: !!me && Number(r.owner_id) === me.id,
+        canDelete: !!me && (Number(r.owner_id) === me.id || !!me.is_admin || !!me.is_owner || !!me.is_moderator || !!me.is_developer),
+        count: lobbyRoomCount('srv:' + r.id),
+      })),
+    });
+  });
+
+  app.post('/api/chat/servers', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const name = String((req.body || {}).name || '').trim().replace(/\s+/g, ' ');
+    if (name.length < 2 || name.length > 28) return res.status(400).json({ error: 'Server names are 2-28 characters.' });
+    if (!/^[A-Za-z0-9][A-Za-z0-9 '\-.!]*$/.test(name)) return res.status(400).json({ error: 'Use letters, numbers, spaces and basic punctuation only.' });
+    if (['public lobby', 'lobby', 'public', 'arqade chat'].includes(name.toLowerCase())) return res.status(400).json({ error: 'That name is reserved.' });
+    const dupe = await db.prepare('SELECT id FROM chat_servers WHERE LOWER(name) = LOWER(?)').get(name);
+    if (dupe) return res.status(409).json({ error: 'A server with that name already exists.' });
+    const mineCount = await db.prepare('SELECT COUNT(*) AS n FROM chat_servers WHERE owner_id = ?').get(req.user.id);
+    if (Number(mineCount ? mineCount.n : 0) >= 3) return res.status(400).json({ error: 'You can have up to 3 servers.' });
+    await db.prepare('INSERT INTO chat_servers (name, owner_id) VALUES (?, ?)').run(name, req.user.id);
+    const row = await db.prepare('SELECT id FROM chat_servers WHERE owner_id = ? AND name = ? ORDER BY id DESC LIMIT 1').get(req.user.id, name);
+    res.json({ ok: true, server: { id: Number(row.id), name, owner: req.user.display_name, mine: true, canDelete: true, count: 0 } });
+  });
+
+  app.delete('/api/chat/servers/:id', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad server id.' });
+    const row = await db.prepare('SELECT * FROM chat_servers WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'No such server.' });
+    const u = req.user;
+    if (!(Number(row.owner_id) === u.id || u.is_admin || u.is_owner || u.is_moderator || u.is_developer)) {
+      return res.status(403).json({ error: 'Only the server owner or an admin can delete it.' });
+    }
+    await db.prepare('DELETE FROM chat_servers WHERE id = ?').run(id);
+    kickLobbyRoom('srv:' + id);
+    res.json({ ok: true });
+  });
+
+  // -------------------------------------------------------------------------
   // Account settings — change username / display name / password
   // -------------------------------------------------------------------------
   app.patch('/api/account', requireAuth, async (req, res) => {
@@ -794,7 +859,25 @@ async function main() {
   const wss = new WebSocket.Server({ server: httpServer, path: '/ws' });
   const online = new Map(); // userId -> { ws, username, displayName, x, y, stage, tags }
   const pursuit = new Map(); // City Pursuit room: userId -> { ws, username, displayName, tags, state }
-  const lobby = new Map(); // Portal lobby room: userId -> { ws, displayName, tags, voiceOn, lastChat }
+  const lobbyRooms = new Map(); // Arqade Chat rooms: roomKey ('lobby' or 'srv:<id>') -> Map(userId -> { ws, displayName, tags, voiceOn, lastChat })
+  function lobbyRoom(key) {
+    let r = lobbyRooms.get(key);
+    if (!r) { r = new Map(); lobbyRooms.set(key, r); }
+    return r;
+  }
+  function lobbyRoomCount(key) {
+    const r = lobbyRooms.get(key);
+    return r ? r.size : 0;
+  }
+  function kickLobbyRoom(key) {
+    const r = lobbyRooms.get(key);
+    if (!r) return;
+    for (const q of r.values()) {
+      try { q.ws.send(JSON.stringify({ t: 'servergone' })); } catch (e) {}
+      try { q.ws.close(4002, 'Server deleted'); } catch (e) {}
+    }
+    lobbyRooms.delete(key);
+  }
 
   function broadcast(msg, exceptId) {
     const data = JSON.stringify(msg);
@@ -825,8 +908,22 @@ async function main() {
 
     // ---- City Pursuit 3D room (?game=pursuit): relay car/foot state, keep out of the Miner Cat world ----
     let gameParam = '';
-    try { gameParam = new URL(req.url, 'http://localhost').searchParams.get('game') || ''; } catch (e) {}
+    let roomParam = '';
+    try {
+      const u2 = new URL(req.url, 'http://localhost');
+      gameParam = u2.searchParams.get('game') || '';
+      roomParam = u2.searchParams.get('room') || '';
+    } catch (e) {}
     if (gameParam === 'lobby') {
+      // Custom chat servers: ?room=<chat_servers id>; anything else lands in the public lobby.
+      let roomKey = 'lobby';
+      if (roomParam && roomParam !== 'lobby') {
+        const sid = parseInt(roomParam, 10);
+        const srow = Number.isInteger(sid) ? await db.prepare('SELECT id FROM chat_servers WHERE id = ?').get(sid) : null;
+        if (!srow) { ws.close(4003, 'No such server'); return; }
+        roomKey = 'srv:' + sid;
+      }
+      const lobby = lobbyRoom(roomKey);
       const tags = user.hide_tags ? {} : {
         owner: !!user.is_owner, admin: !!user.is_admin,
         moderator: !!user.is_moderator, developer: !!user.is_developer,
@@ -837,7 +934,7 @@ async function main() {
       const lothers = [...lobby.values()].filter((q) => q.id !== userId).map((q) => ({
         id: q.id, displayName: q.displayName, tags: q.tags, voice: !!q.voiceOn,
       }));
-      ws.send(JSON.stringify({ t: 'lwelcome', id: userId, players: lothers }));
+      ws.send(JSON.stringify({ t: 'lwelcome', id: userId, room: roomKey, players: lothers }));
       const toLobby = (obj, except) => {
         const data = JSON.stringify(obj);
         for (const q of lobby.values()) {
@@ -877,6 +974,7 @@ async function main() {
         if (lobby.get(userId)?.ws === ws) {
           lobby.delete(userId);
           toLobby({ t: 'lleave', id: userId });
+          if (lobby.size === 0 && roomKey !== 'lobby') lobbyRooms.delete(roomKey);
         }
       });
       return;
