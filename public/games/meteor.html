@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Meteor AI — Arqade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #12121e; color: #eef; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 14px; }
+  a.exit-game { display: inline-flex; align-items: center; align-self: flex-start; background: #101828; color: #dcefe2; border: 1px solid #3b4b3f; border-radius: 9px; padding: 8px 14px; font-size: 15px; font-weight: 700; line-height: 1; text-decoration: none; }
+  #aiBox { width: min(680px, 96vw); margin-top: 12px; background: #1e1e30; border: 2px solid #2c2c48; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; height: min(78vh, 740px); }
+  #head { padding: 13px 16px 11px; border-bottom: 1px solid #2c2c48; display: flex; align-items: center; gap: 12px; }
+  #avatar { font-size: 34px; line-height: 1; filter: drop-shadow(0 0 9px rgba(249,115,22,.65)); }
+  #head h1 { font-size: 21px; }
+  #head h1 .ver { color: #f5c542; }
+  #statusLine { font-size: 13px; opacity: .8; margin-top: 2px; }
+  #statusLine .dot { color: #4ade80; }
+  #modeBar { margin-left: auto; display: flex; gap: 7px; }
+  .modeBtn { border-radius: 999px; padding: 8px 14px; font-weight: 800; font-size: 13.5px; border: 1.5px solid #3a3a5c; background: #191920; color: #cfcfe8; cursor: pointer; font-family: inherit; }
+  .modeBtn.on { border-color: #f5c542; color: #ffe9a8; background: #2e2a1a; }
+  #modeBar .hidden { display: none; }
+  #chatLog { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .msg { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .msg.bot { background: #262640; border: 1px solid #3a3a5c; align-self: flex-start; border-bottom-left-radius: 5px; }
+  .msg.me { background: #155e80; align-self: flex-end; border-bottom-right-radius: 5px; }
+  .msg .who { display: block; font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; opacity: .65; margin-bottom: 3px; }
+  .msg pre { background: #0d0d16; border: 1px solid #3a3a5c; border-radius: 9px; padding: 10px 12px; margin-top: 8px; font-size: 12.5px; line-height: 1.45; overflow-x: auto; white-space: pre; color: #d9f99d; }
+  .copyBtn { margin-top: 7px; background: #f5c542; color: #191920; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  .typing { align-self: flex-start; font-size: 13px; color: #9aa0b4; font-style: italic; padding: 2px 4px; }
+  #chips { display: flex; gap: 7px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid #2c2c48; background: #171726; }
+  .chip { background: #262640; border: 1.5px solid #3a3a5c; color: #eef; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .chip:active { border-color: #f5c542; }
+  #inputRow { display: flex; border-top: 1px solid #2c2c48; }
+  #chatInput { flex: 1; min-width: 0; background: #14141f; color: #fff; border: 0; padding: 13px 14px; font-size: 16px; outline: none; font-family: inherit; }
+  #chatSend { background: #f5c542; color: #191920; border: 0; font-weight: 800; font-size: 15px; padding: 0 20px; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+<a class="exit-game" href="/">← All games</a>
+
+<div id="aiBox">
+  <div id="head">
+    <div id="avatar">☄️</div>
+    <div>
+      <h1>Meteor <span class="ver">1.0</span></h1>
+      <div id="statusLine"><span class="dot">●</span> Online · Arqade's AI, by Meteor</div>
+    </div>
+    <div id="modeBar">
+      <button class="modeBtn on" id="modeChat">💬 Chat</button>
+      <button class="modeBtn hidden" id="modeCode">💻 Code</button>
+    </div>
+  </div>
+  <div id="chatLog"></div>
+  <div id="chips"></div>
+  <div id="inputRow">
+    <input id="chatInput" type="text" placeholder="Ask Meteor anything…" maxlength="500" autocomplete="off">
+    <button id="chatSend">Send</button>
+  </div>
+</div>
+
+<script src="/games/admin-panel.js"></script>
+<script>
+(function () {
+  var log = document.getElementById('chatLog');
+  var input = document.getElementById('chatInput');
+  var chipsBox = document.getElementById('chips');
+  var modeChatBtn = document.getElementById('modeChat');
+  var modeCodeBtn = document.getElementById('modeCode');
+  var mode = 'chat';
+  var isOwner = false;
+  var myName = 'friend';
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function scrollDown() { log.scrollTop = log.scrollHeight; }
+
+  function addMsg(cls, who, text, code) {
+    var d = document.createElement('div');
+    d.className = 'msg ' + cls;
+    var html = '<span class="who">' + esc(who) + '</span>' + esc(text);
+    if (code) html += '<pre>' + esc(code) + '</pre><button class="copyBtn">📋 Copy code</button>';
+    d.innerHTML = html;
+    if (code) {
+      d.querySelector('.copyBtn').addEventListener('click', function () {
+        var btn = this;
+        function done() { btn.textContent = '✅ Copied!'; setTimeout(function () { btn.textContent = '📋 Copy code'; }, 1600); }
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, done);
+        else done();
+      });
+    }
+    log.appendChild(d);
+    scrollDown();
+  }
+
+  function botSay(text, code, delay) {
+    var t = document.createElement('div');
+    t.className = 'typing';
+    t.textContent = '☄️ Meteor is typing…';
+    log.appendChild(t); scrollDown();
+    setTimeout(function () {
+      t.remove();
+      addMsg('bot', 'Meteor 1.0', text, code);
+    }, delay || (450 + Math.random() * 550));
+  }
+
+  /* ---------------- the brain ---------------- */
+  var GAMES = [
+    ['Mining Simulator', 'Dig through 100 stages, collect coins and gems, buy enchants, and mine together in the shared multiplayer world.'],
+    ['City Pursuit 3D', 'An open-city driving game — outrun the cops, jack cars, and explore in Explore, Multiplayer or Pursuit mode.'],
+    ['Turbo Racer 3D', 'One endless 3D highway — desert, green fields and ocean coast. Thread the traffic and build near-miss combos.'],
+    ['Arqade Chat', 'Text and voice chat with everyone on Arqade, with player-made servers.'],
+    ['Web Browser', 'Browse the web without leaving Arqade, with a built-in YouTube player.'],
+    ['Settings', 'Every setting for every game in one place.'],
+    ['Snake', 'Eat the apples, grow longer, don\'t bite yourself.'],
+    ['Breakout', 'Smash every brick with the ball and paddle.'],
+    ['Flappy Bird', 'Tap to flap through the pipes.'],
+    ['Memory Match', 'Flip the cards and find every pair.'],
+    ['2048', 'Slide the tiles and reach 2048.'],
+    ['Coin Clicker', 'Click the coin, get rich, buy upgrades.'],
+    ['Pong', 'The original — beat the paddle on the other side.'],
+    ['Minesweeper', 'Clear the board without hitting a mine.'],
+    ['Space Invaders', 'Blast the invaders before they land.'],
+    ['Lunar Lander', 'Land the module gently on the moon.'],
+    ['Blackjack', 'Beat the dealer to 21.'],
+    ['Word Guess', 'Guess the word before you run out of tries.']
+  ];
+  var JOKES = [
+    'Why did the meteor go to school? To get brighter! ☄️',
+    'What do you call a fake noodle? An impasta! 🍝',
+    'Why don\'t scientists trust atoms? Because they make up everything! ⚛️',
+    'What did the ocean say to the beach? Nothing — it just waved! 🌊',
+    'Why did the scarecrow win an award? Because he was outstanding in his field! 🌾',
+    'What do you call a bear with no teeth? A gummy bear! 🐻',
+    'Why did the computer go to the doctor? It had a virus! 💻',
+    'What\'s a meteor\'s favorite game? Crash-tronauts! (Okay, I made that one up on impact.)'
+  ];
+  var jokeIdx = 0, fallbackIdx = 0, rpsActive = false;
+  var FALLBACKS = [
+    'Hmm, that one\'s beyond my 1.0 brain for now. Try asking me for a joke, a game pick, or some math — I\'m great at math!',
+    'I\'m still learning! Ask me "what games are on Arqade", "tell me a joke", or give me a math problem.',
+    'Good question — that\'s one for a future version of me. Meanwhile: want a game recommendation?'
+  ];
+
+  function findGame(q) {
+    for (var i = 0; i < GAMES.length; i++) if (q.indexOf(GAMES[i][0].toLowerCase()) >= 0) return GAMES[i];
+    if (q.indexOf('mining') >= 0 || q.indexOf('miner') >= 0) return GAMES[0];
+    if (q.indexOf('pursuit') >= 0 || q.indexOf('cop') >= 0 || q.indexOf('city') >= 0) return GAMES[1];
+    if (q.indexOf('racer') >= 0 || q.indexOf('racing') >= 0) return GAMES[2];
+    return null;
+  }
+
+  /* safe little math parser: + - * / ^ % ( ) decimals */
+  function calc(expr) {
+    var s = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/,/g, '');
+    if (!/^[\d\s+\-*/^%().]+$/.test(s)) return null;
+    if (!/\d\s*[-+*/^%]\s*\(?\s*\d/.test(s) && !/\(\s*\d/.test(s)) return null;
+    var pos = 0;
+    function peek() { return s[pos]; }
+    function parseNum() {
+      var m = /^\d*\.?\d+/.exec(s.slice(pos));
+      if (!m) return NaN;
+      pos += m[0].length;
+      return parseFloat(m[0]);
+    }
+    function parsePrimary() {
+      while (s[pos] === ' ') pos++;
+      if (s[pos] === '(') { pos++; var v = parseExpr(); while (s[pos] === ' ') pos++; if (s[pos] === ')') pos++; return v; }
+      if (s[pos] === '-') { pos++; return -parsePrimary(); }
+      return parseNum();
+    }
+    function parsePow() {
+      var b = parsePrimary();
+      while (true) { while (s[pos] === ' ') pos++; if (s[pos] === '^') { pos++; b = Math.pow(b, parsePrimary()); } else return b; }
+    }
+    function parseTerm() {
+      var v = parsePow();
+      while (true) {
+        while (s[pos] === ' ') pos++;
+        if (s[pos] === '*') { pos++; v = v * parsePow(); }
+        else if (s[pos] === '/') { pos++; v = v / parsePow(); }
+        else if (s[pos] === '%') { pos++; v = v % parsePow(); }
+        else return v;
+      }
+    }
+    function parseExpr() {
+      var v = parseTerm();
+      while (true) {
+        while (s[pos] === ' ') pos++;
+        if (s[pos] === '+') { pos++; v = v + parseTerm(); }
+        else if (s[pos] === '-') { pos++; v = v - parseTerm(); }
+        else return v;
+      }
+    }
+    var out = parseExpr();
+    while (s[pos] === ' ') pos++;
+    if (pos < s.length || typeof out !== 'number' || !isFinite(out)) return null;
+    return Math.round(out * 1e10) / 1e10;
+  }
+
+  function chatReply(raw) {
+    var q = ' ' + raw.toLowerCase().trim() + ' ';
+
+    if (rpsActive && /\b(rock|paper|scissors)\b/.test(q)) {
+      rpsActive = false;
+      var mine = ['rock', 'paper', 'scissors'][Math.floor(Math.random() * 3)];
+      var yours = q.match(/\b(rock|paper|scissors)\b/)[1];
+      var em = { rock: '🪨', paper: '📄', scissors: '✂️' };
+      if (mine === yours) return 'I picked ' + em[mine] + ' ' + mine + ' too — it\'s a tie! Play again? Just say "rock paper scissors".';
+      var beats = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
+      if (beats[yours] === mine) return 'You threw ' + em[yours] + ' ' + yours + ', I threw ' + em[mine] + ' ' + mine + ' — you win! 🎉';
+      return 'You threw ' + em[yours] + ' ' + yours + ', I threw ' + em[mine] + ' ' + mine + ' — I win this one! ☄️ Rematch? Say "rock paper scissors".';
+    }
+    if (q.indexOf('rock paper scissors') >= 0 || q.indexOf('rock, paper') >= 0) {
+      rpsActive = true;
+      return 'You\'re on! Pick one: 🪨 rock, 📄 paper, or ✂️ scissors.';
+    }
+    if (/\b(hi|hello|hey|yo|sup)\b/.test(q) && q.length < 30) return 'Hey ' + myName + '! 👋 I\'m Meteor 1.0. Ask me for a joke, a game to play, or throw some math at me.';
+    if (q.indexOf('your name') >= 0 || q.indexOf('who are you') >= 0) return 'I\'m Meteor 1.0 ☄️ — Arqade\'s own AI, made by Meteor, the company behind Arqade. I chat, tell jokes, do math, and help you pick games.';
+    if (q.indexOf('who made you') >= 0 || q.indexOf('who created you') >= 0 || q.indexOf('who built you') >= 0) return 'Meteor made me — that\'s Dylan\'s company, the one that runs Arqade. I\'m version 1.0, so I\'m just getting started!';
+    if (q.indexOf('dylan') >= 0) return 'Dylan is the owner of Arqade 👑 — he built this whole site and the company Meteor behind it.';
+    if (q.indexOf('meteor') >= 0 && (q.indexOf('company') >= 0 || q.indexOf('business') >= 0)) return 'Meteor is the company behind Arqade — it runs Arqade and its other websites. And yes, it\'s also my name. ☄️';
+    if (q.indexOf('joke') >= 0 || q.indexOf('funny') >= 0) { var j = JOKES[jokeIdx % JOKES.length]; jokeIdx++; return j; }
+    if (q.indexOf('what games') >= 0 || q.indexOf('list') >= 0 && q.indexOf('game') >= 0 || q.indexOf('all the games') >= 0) {
+      var names = GAMES.map(function (g) { return g[0]; }).join(', ');
+      return 'Arqade has ' + GAMES.length + ' games and apps: ' + names + '. Want me to pick one for you?';
+    }
+    var g = findGame(q);
+    if (g && (q.indexOf('what is') >= 0 || q.indexOf('what\'s') >= 0 || q.indexOf('about') >= 0 || q.indexOf('tell me') >= 0 || q.indexOf('how') >= 0)) return g[0] + ': ' + g[1];
+    if (q.indexOf('pick') >= 0 && q.indexOf('game') >= 0 || q.indexOf('what should i play') >= 0 || q.indexOf('recommend') >= 0 || q.indexOf('bored') >= 0) {
+      var pick = GAMES[Math.floor(Math.random() * GAMES.length)];
+      return 'Play ' + pick[0] + '! ' + pick[1] + ' Find it on the Arqade home page. 🎮';
+    }
+    if (q.indexOf('roll') >= 0 && (q.indexOf('dice') >= 0 || q.indexOf('die') >= 0)) return '🎲 You rolled a ' + (1 + Math.floor(Math.random() * 6)) + '!';
+    if (q.indexOf('flip') >= 0 && q.indexOf('coin') >= 0) return Math.random() < 0.5 ? '🪙 Heads!' : '🪙 Tails!';
+    if (q.indexOf('what time') >= 0 || q.indexOf('the time') >= 0) return 'It\'s ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' where you are. ⏰';
+    if (q.indexOf('thank') >= 0) return 'Anytime! That\'s what I\'m here for. ☄️';
+    if (q.indexOf('bye') >= 0) return 'See you soon, ' + myName + '! I\'ll be here in orbit. ☄️👋';
+    if (q.indexOf('help') >= 0 || q.indexOf('what can you do') >= 0) return 'Here\'s what Meteor 1.0 can do:\n• 💬 Chat and answer questions about Arqade\n• 🧮 Math — try "what is 24 x 7?"\n• 😂 Jokes — "tell me a joke"\n• 🎮 Game picks — "pick a game for me"\n• 🪨 Rock paper scissors — "let\'s play rock paper scissors"\n• 🎲 Dice and coin flips';
+
+    /* math: "what is 24 x 7", "calculate ...", or a bare expression */
+    var expr = raw.replace(/^(what is|what's|calculate|calc|solve|math)[:\s]*/i, '').replace(/\?+\s*$/, '').trim();
+    expr = expr.replace(/(\d)\s*x\s*(\d)/gi, '$1*$2');
+    var val = calc(expr);
+    if (val !== null) return '🧮 ' + expr.replace(/\*/g, '×').replace(/\//g, '÷') + ' = ' + val;
+
+    var f = FALLBACKS[fallbackIdx % FALLBACKS.length]; fallbackIdx++;
+    return f;
+  }
+
+  /* ---------------- code mode (owner only) ---------------- */
+  function gameSkeleton(name) {
+    var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
+    return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">\n<title>' + name + ' — Arqade</title>\n<style>\n  body { font-family: \'Segoe UI\', system-ui, sans-serif; background: #12121e; color: #eef; margin: 0; padding: 14px; }\n  a.exit-game { display: inline-flex; background: #101828; color: #dcefe2; border: 1px solid #3b4b3f; border-radius: 9px; padding: 8px 14px; font-weight: 700; text-decoration: none; }\n</style>\n</head>\n<body>\n<a class="exit-game" href="/">← All games</a>\n<h1>' + name + '</h1>\n<p>Your game goes here.</p>\n<script src="/games/admin-panel.js"><\/script>\n<script>\n  // ' + slug + ' game code\n<\/script>\n</body>\n</html>';
+  }
+  function cardSnippet(name) {
+    var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
+    return '<a class="card" href="/games/' + slug + '">\n  <div class="art"><!-- cover art --></div>\n  <div class="body">\n    <span class="tag purple">NEW</span>\n    <h2>' + name + '</h2>\n    <p>One-line description of the game.</p>\n    <span class="play">▶ Play</span>\n  </div>\n</a>';
+  }
+  var CODE_HELP = '💻 Code mode — here\'s what I can generate:\n• "game page called Rocket Jump" — a full Arqade game page\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nFor brand-new custom features, Baxter in your Muse chat still codes those live — I generate from my built-in patterns, like a 1.0 should.';
+
+  function codeReply(raw) {
+    var q = raw.toLowerCase();
+    var m;
+    if (q.indexOf('help') >= 0 || q.trim() === '') return { text: CODE_HELP };
+    if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) return { text: 'Here\'s a starter page for "' + m[1].trim() + '" — Arqade style, with the account gate built in:', code: gameSkeleton(m[1].trim()) };
+    if ((m = raw.match(/(?:portal )?card (?:for|called)\s+(.+)/i))) return { text: 'Here\'s the portal card for "' + m[1].trim() + '":', code: cardSnippet(m[1].trim()) };
+    if ((m = raw.match(/gradient\s+(#[0-9a-f]{3,8})\s+(?:to\s+)?(#[0-9a-f]{3,8})/i))) return { text: 'Gradient, ready to paste:', code: 'background: linear-gradient(135deg, ' + m[1] + ', ' + m[2] + ');' };
+    if ((m = raw.match(/^encode\s+([\s\S]+)/i))) { try { return { text: 'Encoded:', code: btoa(unescape(encodeURIComponent(m[1]))) }; } catch (e) { return { text: 'I couldn\'t encode that one.' }; } }
+    if ((m = raw.match(/^decode\s+([\s\S]+)/i))) { try { return { text: 'Decoded:', code: decodeURIComponent(escape(atob(m[1].trim()))) }; } catch (e) { return { text: 'That doesn\'t look like valid Base64.' }; } }
+    if (q.indexOf('count') >= 0) {
+      var body = raw.replace(/^count( the)?( words)?( in)?( this text)?[:\s]*/i, '');
+      var words = body.trim() ? body.trim().split(/\s+/).length : 0;
+      return { text: '📊 Characters: ' + body.length + ' · Words: ' + words + ' · Lines: ' + (body ? body.split('\n').length : 0) };
+    }
+    return { text: 'That build is beyond my 1.0 patterns — I generate game pages, portal cards, gradients, Base64 and counts. For custom features, ask Baxter in your Muse chat and he\'ll code and ship it live, like always. Want the list? Say "help".' };
+  }
+
+  /* ---------------- wiring ---------------- */
+  var CHAT_CHIPS = ['Tell me a joke 😂', 'Pick a game for me 🎮', 'What is 24 × 7?', 'What games are on Arqade?', 'Let\'s play rock paper scissors', 'Who made you?'];
+  var CODE_CHIPS = ['Help', 'Game page called Rocket Jump', 'Portal card for Rocket Jump', 'Gradient #f59e0b to #7c3aed', 'Encode hello Arqade', 'Flip a coin'];
+
+  function renderChips() {
+    chipsBox.innerHTML = '';
+    (mode === 'code' ? CODE_CHIPS : CHAT_CHIPS).forEach(function (c) {
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = c;
+      b.addEventListener('click', function () { send(c.replace(/\s*[^\x00-\x7F]+\s*$/u, '').trim() || c); });
+      chipsBox.appendChild(b);
+    });
+  }
+
+  function setMode(next) {
+    if (next === 'code' && !isOwner) return;
+    mode = next;
+    modeChatBtn.classList.toggle('on', mode === 'chat');
+    modeCodeBtn.classList.toggle('on', mode === 'code');
+    input.placeholder = mode === 'code' ? 'Tell Meteor what to code…' : 'Ask Meteor anything…';
+    renderChips();
+    if (mode === 'code') botSay(CODE_HELP);
+  }
+  modeChatBtn.addEventListener('click', function () { setMode('chat'); });
+  modeCodeBtn.addEventListener('click', function () { setMode('code'); });
+
+  function send(text) {
+    var raw = (typeof text === 'string' ? text : input.value).trim();
+    if (!raw) return;
+    input.value = '';
+    addMsg('me', myName, raw);
+    if (mode === 'code') {
+      var r = codeReply(raw);
+      botSay(r.text, r.code, 600);
+    } else {
+      botSay(chatReply(raw));
+    }
+  }
+  document.getElementById('chatSend').addEventListener('click', function () { send(); });
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
+
+  renderChips();
+  botSay('Hey! I\'m Meteor 1.0 ☄️ — Arqade\'s AI. Ask me anything, or tap one of the ideas below.', null, 300);
+
+  fetch('/api/me').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (d && d.user) {
+      if (d.user.displayName) myName = d.user.displayName;
+      if (d.user.isOwner) {
+        isOwner = true;
+        modeCodeBtn.classList.remove('hidden');
+      }
+    }
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>
