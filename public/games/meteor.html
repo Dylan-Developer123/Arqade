@@ -54,7 +54,7 @@
   <div id="head">
     <div id="avatar">☄️</div>
     <div>
-      <h1>Meteor <span class="ver">1.0</span></h1>
+      <h1>Meteor <span class="ver">1.1</span></h1>
       <div id="statusLine"><span class="dot">●</span> Online · Arqade's AI, by Meteor</div>
     </div>
     <div id="modeBar">
@@ -209,7 +209,7 @@
     log.appendChild(t); scrollDown();
     setTimeout(function () {
       t.remove();
-      addMsg('bot', 'Meteor 1.0', text, code, pushSlug);
+      addMsg('bot', 'Meteor 1.1', text, code, pushSlug);
     }, delay || (450 + Math.random() * 550));
   }
 
@@ -246,7 +246,7 @@
   ];
   var jokeIdx = 0, fallbackIdx = 0, rpsActive = false;
   var FALLBACKS = [
-    'Hmm, that one\'s beyond my 1.0 brain for now. Try asking me for a joke, a game pick, or some math — I\'m great at math!',
+    'Hmm, that one\'s beyond my 1.1 brain for now. Try asking me for a joke, a game pick, or some math — and in Code mode I can even BUILD games!',
     'I\'m still learning! Ask me "what games are on Arqade", "tell me a joke", or give me a math problem.',
     'Good question — that\'s one for a future version of me. Meanwhile: want a game recommendation?'
   ];
@@ -324,9 +324,9 @@
       rpsActive = true;
       return 'You\'re on! Pick one: 🪨 rock, 📄 paper, or ✂️ scissors.';
     }
-    if (/\b(hi|hello|hey|yo|sup)\b/.test(q) && q.length < 30) return 'Hey ' + myName + '! 👋 I\'m Meteor 1.0. Ask me for a joke, a game to play, or throw some math at me.';
-    if (q.indexOf('your name') >= 0 || q.indexOf('who are you') >= 0) return 'I\'m Meteor 1.0 ☄️ — Arqade\'s own AI, made by Meteor, the company behind Arqade. I chat, tell jokes, do math, and help you pick games.';
-    if (q.indexOf('who made you') >= 0 || q.indexOf('who created you') >= 0 || q.indexOf('who built you') >= 0) return 'Meteor made me — that\'s Dylan\'s company, the one that runs Arqade. I\'m version 1.0, so I\'m just getting started!';
+    if (/\b(hi|hello|hey|yo|sup)\b/.test(q) && q.length < 30) return 'Hey ' + myName + '! 👋 I\'m Meteor 1.1. Ask me for a joke, a game to play, or throw some math at me.';
+    if (q.indexOf('your name') >= 0 || q.indexOf('who are you') >= 0) return 'I\'m Meteor 1.1 ☄️ — Arqade\'s own AI, made by Meteor, the company behind Arqade. I chat, tell jokes, do math, help you pick games — and in Code mode I build whole playable mini-games.';
+    if (q.indexOf('who made you') >= 0 || q.indexOf('who created you') >= 0 || q.indexOf('who built you') >= 0) return 'Meteor made me — that\'s Dylan\'s company, the one that runs Arqade. I\'m version 1.1 — now with a real code engine that builds playable mini-games, not just page shells.';
     if (q.indexOf('dylan') >= 0) return 'Dylan is the owner of Arqade 👑 — he built this whole site and the company Meteor behind it.';
     if (q.indexOf('meteor') >= 0 && (q.indexOf('company') >= 0 || q.indexOf('business') >= 0)) return 'Meteor is the company behind Arqade — it runs Arqade and its other websites. And yes, it\'s also my name. ☄️';
     if (q.indexOf('joke') >= 0 || q.indexOf('funny') >= 0) { var j = JOKES[jokeIdx % JOKES.length]; jokeIdx++; return j; }
@@ -340,12 +340,16 @@
       var pick = GAMES[Math.floor(Math.random() * GAMES.length)];
       return 'Play ' + pick[0] + '! ' + pick[1] + ' Find it on the Arqade home page. 🎮';
     }
+    var rm = q.match(/random number between (\d+) and (\d+)/);
+    if (rm) { var lo = +rm[1], hi = +rm[2]; if (hi < lo) { var tt = lo; lo = hi; hi = tt; } return '🎲 Your random number between ' + lo + ' and ' + hi + ' is: ' + (lo + Math.floor(Math.random() * (hi - lo + 1))) + '!'; }
+    var pm = raw.match(/^pick\s+(.+)$/i);
+    if (pm && /,|\bor\b/.test(pm[1])) { var opts = pm[1].split(/,|\bor\b/).map(function (s) { return s.trim(); }).filter(Boolean); if (opts.length > 1) return '🎯 I pick: ' + opts[Math.floor(Math.random() * opts.length)] + '!'; }
     if (q.indexOf('roll') >= 0 && (q.indexOf('dice') >= 0 || q.indexOf('die') >= 0)) return '🎲 You rolled a ' + (1 + Math.floor(Math.random() * 6)) + '!';
     if (q.indexOf('flip') >= 0 && q.indexOf('coin') >= 0) return Math.random() < 0.5 ? '🪙 Heads!' : '🪙 Tails!';
     if (q.indexOf('what time') >= 0 || q.indexOf('the time') >= 0) return 'It\'s ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' where you are. ⏰';
     if (q.indexOf('thank') >= 0) return 'Anytime! That\'s what I\'m here for. ☄️';
     if (q.indexOf('bye') >= 0) return 'See you soon, ' + myName + '! I\'ll be here in orbit. ☄️👋';
-    if (q.indexOf('help') >= 0 || q.indexOf('what can you do') >= 0) return 'Here\'s what Meteor 1.0 can do:\n• 💬 Chat and answer questions about Arqade\n• 🧮 Math — try "what is 24 x 7?"\n• 😂 Jokes — "tell me a joke"\n• 🎮 Game picks — "pick a game for me"\n• 🪨 Rock paper scissors — "let\'s play rock paper scissors"\n• 🎲 Dice and coin flips';
+    if (q.indexOf('help') >= 0 || q.indexOf('what can you do') >= 0) return 'Here\'s what Meteor 1.1 can do:\n• 💬 Chat and answer questions about Arqade\n• 🧮 Math — try "what is 24 x 7?"\n• 😂 Jokes — "tell me a joke"\n• 🎮 Game picks — "pick a game for me"\n• 🪨 Rock paper scissors — "let\'s play rock paper scissors"\n• 🎲 Dice, coin flips and random numbers\n• 💻 Code mode (owner + developer-tag players) — I build full playable mini-games';
 
     /* math: "what is 24 x 7", "calculate ...", or a bare expression */
     var expr = raw.replace(/^(what is|what's|calculate|calc|solve|math)[:\s]*/i, '').replace(/\?+\s*$/, '').trim();
@@ -366,7 +370,227 @@
     var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
     return '<a class="card" href="/games/' + slug + '">\n  <div class="art"><!-- cover art --></div>\n  <div class="body">\n    <span class="tag purple">NEW</span>\n    <h2>' + name + '</h2>\n    <p>One-line description of the game.</p>\n    <span class="play">▶ Play</span>\n  </div>\n</a>';
   }
-  var CODE_HELP = '💻 Code mode — here\'s what I can generate:\n• "game page called Rocket Jump" — a full Arqade game page\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nEvery game page gets a 👁 Preview so you can see it working. The owner publishes with 🚀 Push; developer-tag players tap 📨 Send to Dylan — he previews it in the 💌 Feedback app Dev requests tab and taps ✅ or ❌.\nFor brand-new custom features, Baxter in your Muse chat still codes those live — I generate from my built-in patterns, like a 1.0 should.';
+  /* ---------------- Meteor 1.1 code engine ---------------- */
+  function slugify(name) { return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game'; }
+  function codeTail() {
+    return canPublish && pushAvailable
+      ? ' Tap 👁 Preview to play it right here, or 🚀 Push to site and it goes live for real:'
+      : (!canPublish ? ' Tap 👁 Preview to play it right here, or 📨 Send to Dylan — he decides in the 💌 Feedback app:' : ' Tap 👁 Preview to play it right here:');
+  }
+  function pageShell(name, bodyHtml, scriptJs) {
+    return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">\n<title>' + name + ' — Arqade</title>\n<style>\n' +
+      '  body { font-family: \'Segoe UI\', system-ui, sans-serif; background: #12121e; color: #eef; margin: 0; padding: 14px; text-align: center; }\n' +
+      '  a.exit-game { display: inline-flex; background: #101828; color: #dcefe2; border: 1px solid #3b4b3f; border-radius: 9px; padding: 8px 14px; font-weight: 700; text-decoration: none; float: left; }\n' +
+      '  h1 { clear: both; padding-top: 10px; }\n' +
+      '  .btn { background: #f5c542; color: #191920; border: 0; border-radius: 10px; font-weight: 800; font-size: 16px; padding: 11px 22px; cursor: pointer; margin: 5px; }\n' +
+      '  .hud { font-size: 19px; font-weight: 800; margin: 10px 0; }\n' +
+      '  canvas { background: #0b0b14; border: 2px solid #2c2c48; border-radius: 10px; max-width: 92vw; }\n' +
+      '  .dpad button { width: 58px; height: 58px; font-size: 22px; margin: 3px; border-radius: 12px; border: 1.5px solid #3a3a5c; background: #262640; color: #eef; cursor: pointer; }\n' +
+      '  .cards { display: grid; grid-template-columns: repeat(4, 72px); gap: 9px; justify-content: center; margin: 12px auto; }\n' +
+      '  .mcard { height: 72px; font-size: 32px; border-radius: 12px; border: 2px solid #3a3a5c; background: #262640; color: #eef; cursor: pointer; }\n' +
+      '  .mcard.open { background: #f5c542; }\n' +
+      '  input[type=number] { width: 110px; padding: 10px; font-size: 17px; border-radius: 9px; border: 1.5px solid #3a3a5c; background: #14141f; color: #fff; text-align: center; }\n' +
+      '</style>\n</head>\n<body>\n<a class="exit-game" href="/">← All games</a>\n<h1>' + name + '</h1>\n' + bodyHtml + '\n<script src="/games/admin-panel.js"><\/script>\n<script>\n' + scriptJs + '\n<\/script>\n</body>\n</html>';
+  }
+
+  var GAME_TYPES = {
+    snake: {
+      label: 'Snake',
+      body: `<div class="hud" id="sc">Score: 0</div>
+<canvas id="cv" width="300" height="300"></canvas>
+<p id="msg"></p>
+<button class="btn" id="start">▶ Start</button>
+<div class="dpad"><button onclick="setDir(0,-1)">⬆️</button><br><button onclick="setDir(-1,0)">⬅️</button><button onclick="setDir(0,1)">⬇️</button><button onclick="setDir(1,0)">➡️</button></div>`,
+      js: `var cv = document.getElementById('cv'), cx = cv.getContext('2d');
+var N = 15, S = 20, snake, dir, food, score, timer = null;
+function place() { food = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) }; }
+function draw() {
+  cx.fillStyle = '#0b0b14'; cx.fillRect(0, 0, 300, 300);
+  cx.fillStyle = '#ef4444'; cx.fillRect(food.x * S + 2, food.y * S + 2, S - 4, S - 4);
+  cx.fillStyle = '#4ade80';
+  snake.forEach(function (p) { cx.fillRect(p.x * S + 1, p.y * S + 1, S - 2, S - 2); });
+}
+function reset() {
+  snake = [{ x: 7, y: 7 }]; dir = { x: 1, y: 0 }; score = 0; place(); draw();
+  document.getElementById('sc').textContent = 'Score: 0';
+  document.getElementById('msg').textContent = 'Steer with the arrow keys or the buttons.';
+}
+function step() {
+  var h = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+  if (h.x < 0 || h.y < 0 || h.x >= N || h.y >= N || snake.some(function (p) { return p.x === h.x && p.y === h.y; })) {
+    clearInterval(timer); timer = null;
+    document.getElementById('msg').textContent = '💥 Game over! Score: ' + score + ' — press Start to play again.';
+    return;
+  }
+  snake.unshift(h);
+  if (h.x === food.x && h.y === food.y) { score += 10; document.getElementById('sc').textContent = 'Score: ' + score; place(); }
+  else snake.pop();
+  draw();
+}
+function setDir(x, y) { if (dir.x !== -x || dir.y !== -y) dir = { x: x, y: y }; }
+document.getElementById('start').addEventListener('click', function () { reset(); if (timer) clearInterval(timer); timer = setInterval(step, 130); });
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'ArrowUp') setDir(0, -1); else if (e.key === 'ArrowDown') setDir(0, 1);
+  else if (e.key === 'ArrowLeft') setDir(-1, 0); else if (e.key === 'ArrowRight') setDir(1, 0);
+});
+reset();`
+    },
+    clicker: {
+      label: 'Clicker',
+      body: `<div class="hud" id="sc">🪙 0 coins</div>
+<button id="big" style="font-size:84px;background:none;border:0;cursor:pointer;">🪙</button>
+<p>Tap the coin!</p>
+<button class="btn" id="up"></button><button class="btn" id="au"></button>`,
+      js: `var coins = 0, per = 1, auto = 0, upCost = 25, autoCost = 60;
+function show() {
+  document.getElementById('sc').textContent = '🪙 ' + coins + ' coins';
+  document.getElementById('up').textContent = '⬆️ Stronger clicks (' + upCost + ') — now +' + per;
+  document.getElementById('au').textContent = '🤖 Auto clicker (' + autoCost + ') — ' + auto + '/sec';
+}
+document.getElementById('big').addEventListener('click', function () { coins += per; show(); });
+document.getElementById('up').addEventListener('click', function () { if (coins >= upCost) { coins -= upCost; per++; upCost = Math.round(upCost * 1.6); } show(); });
+document.getElementById('au').addEventListener('click', function () { if (coins >= autoCost) { coins -= autoCost; auto++; autoCost = Math.round(autoCost * 1.7); } show(); });
+setInterval(function () { if (auto > 0) { coins += auto; show(); } }, 1000);
+show();`
+    },
+    reaction: {
+      label: 'Reaction',
+      body: `<div id="box" style="height:210px;border-radius:14px;background:#262640;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;cursor:pointer;user-select:none;padding:10px;">👆 Tap to start</div>
+<p class="hud" id="msg"></p>`,
+      js: `var state = 'idle', t0 = 0, best = null, wait = null;
+var box = document.getElementById('box'), msg = document.getElementById('msg');
+function setBox(color, text) { box.style.background = color; box.textContent = text; }
+box.addEventListener('click', function () {
+  if (state === 'idle') {
+    state = 'wait'; setBox('#b91c1c', '⏳ Wait for green…'); msg.textContent = '';
+    wait = setTimeout(function () { state = 'go'; t0 = Date.now(); setBox('#16a34a', '🟢 CLICK!'); }, 1200 + Math.random() * 2500);
+  } else if (state === 'wait') {
+    clearTimeout(wait); state = 'idle'; setBox('#262640', '👆 Too soon! Tap to try again.');
+  } else if (state === 'go') {
+    var t = Date.now() - t0; state = 'idle';
+    if (best === null || t < best) best = t;
+    setBox('#262640', '⚡ ' + t + ' ms — tap to go again');
+    msg.textContent = 'Best: ' + best + ' ms';
+  }
+});`
+    },
+    memory: {
+      label: 'Memory match',
+      body: `<div class="hud" id="sc">Moves: 0</div>
+<div class="cards" id="grid"></div>
+<p id="msg"></p>`,
+      js: `var EMO = ['🍎', '🍌', '🍇', '🍓', '🍉', '🥝'];
+var deck = EMO.concat(EMO).sort(function () { return Math.random() - 0.5; });
+var open = [], matched = 0, moves = 0, lock = false;
+var grid = document.getElementById('grid');
+deck.forEach(function (e, i) {
+  var b = document.createElement('button');
+  b.className = 'mcard'; b.textContent = '❓';
+  b.addEventListener('click', function () {
+    if (lock || b.classList.contains('open')) return;
+    b.classList.add('open'); b.textContent = deck[i]; open.push(b);
+    if (open.length === 2) {
+      moves++; document.getElementById('sc').textContent = 'Moves: ' + moves;
+      var a = open[0], c = open[1]; open = [];
+      if (a.textContent === c.textContent) { matched++; if (matched === EMO.length) document.getElementById('msg').textContent = '🎉 You matched them all in ' + moves + ' moves!'; }
+      else { lock = true; setTimeout(function () { a.classList.remove('open'); c.classList.remove('open'); a.textContent = '❓'; c.textContent = '❓'; lock = false; }, 700); }
+    }
+  });
+  grid.appendChild(b);
+});`
+    },
+    guess: {
+      label: 'Number guessing',
+      body: `<p>I'm thinking of a number from 1 to 100.</p>
+<input type="number" id="in" min="1" max="100" placeholder="50">
+<button class="btn" id="go">Guess</button>
+<p class="hud" id="msg"></p>`,
+      js: `var target = 1 + Math.floor(Math.random() * 100), tries = 0;
+document.getElementById('go').addEventListener('click', function () {
+  var v = parseInt(document.getElementById('in').value, 10);
+  var msg = document.getElementById('msg');
+  if (!v || v < 1 || v > 100) { msg.textContent = 'Enter a number from 1 to 100.'; return; }
+  tries++;
+  if (v === target) msg.textContent = '🎉 Got it in ' + tries + ' tries! Refresh to play again.';
+  else msg.textContent = (v < target ? '⬆️ Higher!' : '⬇️ Lower!') + ' (try ' + tries + ')';
+});`
+    },
+    quiz: {
+      label: 'Quiz',
+      body: `<div id="quiz"></div>
+<p>✏️ Edit the QUESTIONS list in the code to make your own quiz!</p>`,
+      js: `var QUESTIONS = [
+  { q: 'What is 2 + 2?', a: ['3', '4', '5'], right: 1 },
+  { q: 'Which planet is called the Red Planet?', a: ['Mars', 'Venus', 'Jupiter'], right: 0 },
+  { q: 'How many legs does a spider have?', a: ['6', '10', '8'], right: 2 }
+];
+var i = 0, score = 0;
+function show() {
+  var box = document.getElementById('quiz');
+  if (i >= QUESTIONS.length) { box.innerHTML = '<p class="hud">🎉 Quiz done! Score: ' + score + ' / ' + QUESTIONS.length + '</p><button class="btn" onclick="location.reload()">↻ Play again</button>'; return; }
+  var cur = QUESTIONS[i];
+  var h = '<p class="hud">' + cur.q + '</p>';
+  cur.a.forEach(function (a, j) { h += '<button class="btn" onclick="answer(' + j + ')">' + a + '</button>'; });
+  box.innerHTML = h;
+}
+function answer(j) { if (j === QUESTIONS[i].right) score++; i++; show(); }
+show();`
+    },
+    dice: {
+      label: 'Dice roller',
+      body: `<div id="dice" style="font-size:90px;">⚀ ⚀</div>
+<button class="btn" id="roll">🎲 Roll</button>
+<p class="hud" id="msg"></p>`,
+      js: `var FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+document.getElementById('roll').addEventListener('click', function () {
+  var a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
+  document.getElementById('dice').textContent = FACES[a - 1] + ' ' + FACES[b - 1];
+  document.getElementById('msg').textContent = 'Total: ' + (a + b) + (a === b ? ' — DOUBLES! 🎉' : '');
+});`
+    }
+  };
+
+  function detectGameType(text) {
+    var q = ' ' + String(text).toLowerCase() + ' ';
+    if (/snake/.test(q)) return 'snake';
+    if (/clicker|clicking|coin click/.test(q)) return 'clicker';
+    if (/reaction/.test(q)) return 'reaction';
+    if (/memory|matching/.test(q)) return 'memory';
+    if (/guess/.test(q)) return 'guess';
+    if (/quiz|trivia/.test(q)) return 'quiz';
+    if (/dice/.test(q)) return 'dice';
+    return null;
+  }
+  function playablePage(name, type) { var g = GAME_TYPES[type]; return pageShell(name, g.body, g.js); }
+
+  var COLOR_WORDS = { red: '#ef4444', blue: '#3b82f6', green: '#22c55e', gold: '#f5c542', yellow: '#facc15', purple: '#a855f7', orange: '#f97316', pink: '#ec4899', black: '#111827', white: '#f8fafc' };
+  function pickColor(raw) { var q = raw.toLowerCase(); for (var k in COLOR_WORDS) { if (new RegExp('\\b' + k + '\\b').test(q)) return COLOR_WORDS[k]; } return '#f5c542'; }
+
+  function snippet(kind, raw) {
+    if (kind === 'navbar') return '<nav style="display:flex;justify-content:space-between;align-items:center;background:#1e1e30;padding:12px 18px;border-radius:12px;">\n  <strong style="color:#f5c542;font-size:19px;">☄️ My Site</strong>\n  <span>\n    <a href="#" style="color:#eef;text-decoration:none;margin:0 10px;font-weight:700;">Home</a>\n    <a href="#" style="color:#eef;text-decoration:none;margin:0 10px;font-weight:700;">Games</a>\n    <a href="#" style="color:#eef;text-decoration:none;margin:0 10px;font-weight:700;">About</a>\n  </span>\n</nav>';
+    if (kind === 'hero') return '<section style="text-align:center;padding:54px 18px;background:linear-gradient(135deg,#1e1e30,#3b0764);border-radius:16px;color:#eef;">\n  <h1 style="font-size:40px;margin:0 0 10px;">🚀 Big Title Here</h1>\n  <p style="opacity:.85;font-size:17px;">A short line about why this is awesome.</p>\n  <button style="background:#f5c542;color:#191920;border:0;border-radius:10px;font-weight:800;font-size:16px;padding:12px 26px;cursor:pointer;">▶ Get started</button>\n</section>';
+    if (kind === 'button') {
+      var lm = raw.match(/saying\s+"([^"]+)"/i) || raw.match(/"([^"]+)"/) || raw.match(/saying\s+(\w+)/i);
+      var label = lm ? lm[1] : 'Click me';
+      return '<button style="background:' + pickColor(raw) + ';color:#191920;border:0;border-radius:10px;font-weight:800;font-size:16px;padding:12px 26px;cursor:pointer;">' + label + '</button>';
+    }
+    if (kind === 'card') return '<a class="card" href="#" style="display:block;background:#1e1e30;border:2px solid #2c2c48;border-radius:14px;overflow:hidden;text-decoration:none;color:#eef;max-width:300px;">\n  <div style="height:110px;background:linear-gradient(135deg,#7c2d12,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:44px;">🎮</div>\n  <div style="padding:13px 15px;">\n    <h3 style="margin:0 0 5px;">Card title</h3>\n    <p style="margin:0;opacity:.8;font-size:14px;">A short description goes here.</p>\n  </div>\n</a>';
+    if (kind === 'form') return '<form onsubmit="event.preventDefault(); alert(\'Signed in (demo)!\');" style="background:#1e1e30;border:2px solid #2c2c48;border-radius:14px;padding:20px;max-width:320px;">\n  <h3 style="margin:0 0 12px;">Sign in</h3>\n  <input required placeholder="Username" style="width:100%;box-sizing:border-box;padding:11px;margin-bottom:9px;border-radius:9px;border:1.5px solid #3a3a5c;background:#14141f;color:#fff;">\n  <input required type="password" placeholder="Password" style="width:100%;box-sizing:border-box;padding:11px;margin-bottom:12px;border-radius:9px;border:1.5px solid #3a3a5c;background:#14141f;color:#fff;">\n  <button style="width:100%;background:#f5c542;color:#191920;border:0;border-radius:9px;font-weight:800;padding:11px;cursor:pointer;">Sign in</button>\n</form>';
+    if (kind === 'table') return '<table style="border-collapse:collapse;width:100%;max-width:420px;background:#1e1e30;border-radius:12px;overflow:hidden;">\n  <tr style="background:#2c2c48;color:#f5c542;text-align:left;"><th style="padding:10px 12px;">#</th><th style="padding:10px 12px;">Player</th><th style="padding:10px 12px;">Score</th></tr>\n  <tr><td style="padding:9px 12px;">1</td><td style="padding:9px 12px;">Player One</td><td style="padding:9px 12px;">9,999</td></tr>\n  <tr style="background:#262640;"><td style="padding:9px 12px;">2</td><td style="padding:9px 12px;">Player Two</td><td style="padding:9px 12px;">8,500</td></tr>\n  <tr><td style="padding:9px 12px;">3</td><td style="padding:9px 12px;">Player Three</td><td style="padding:9px 12px;">7,250</td></tr>\n</table>';
+    if (kind === 'modal') return '<button onclick="document.getElementById(\'pop\').style.display=\'flex\'" style="background:#f5c542;color:#191920;border:0;border-radius:10px;font-weight:800;padding:11px 22px;cursor:pointer;">Open popup</button>\n<div id="pop" style="display:none;position:fixed;inset:0;background:rgba(5,5,12,.75);align-items:center;justify-content:center;z-index:50;">\n  <div style="background:#1e1e30;border:2px solid #f5c542;border-radius:14px;padding:22px;max-width:320px;text-align:center;">\n    <h3 style="margin:0 0 8px;">🎉 Popup!</h3>\n    <p style="opacity:.85;">Your message goes here.</p>\n    <button onclick="document.getElementById(\'pop\').style.display=\'none\'" style="background:#262640;color:#eef;border:1.5px solid #3a3a5c;border-radius:9px;font-weight:700;padding:9px 18px;cursor:pointer;">Close</button>\n  </div>\n</div>';
+    if (kind === 'footer') return '<footer style="text-align:center;padding:22px 14px;opacity:.75;font-size:14px;border-top:1px solid #2c2c48;margin-top:30px;">\n  Made with ☄️ on Arqade · <a href="#" style="color:#f5c542;">Home</a> · <a href="#" style="color:#f5c542;">Games</a>\n</footer>';
+    if (kind === 'gallery') return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:460px;">\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;font-size:34px;">🌅</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-size:34px;">🌊</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#14532d);display:flex;align-items:center;justify-content:center;font-size:34px;">🌲</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:34px;">🎆</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#facc15,#f97316);display:flex;align-items:center;justify-content:center;font-size:34px;">🏖️</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#334155,#0f172a);display:flex;align-items:center;justify-content:center;font-size:34px;">🌙</div>\n</div>';
+    return '';
+  }
+
+  var UTIL_SNIPPETS = {
+    countdown: '<div style="font-size:44px;font-weight:800;" id="cd">10</div>\n<script>\n  var n = 10;\n  var iv = setInterval(function () {\n    n--;\n    document.getElementById(\'cd\').textContent = n > 0 ? n : \'⏰ Time up!\';\n    if (n <= 0) clearInterval(iv);\n  }, 1000);\n<\/script>',
+    stopwatch: '<div style="font-size:44px;font-weight:800;" id="sw">0.0</div>\n<button onclick="startSw()">▶ Start</button> <button onclick="stopSw()">⏸ Stop</button> <button onclick="resetSw()">↻ Reset</button>\n<script>\n  var t = 0, iv = null;\n  function drawSw() { document.getElementById(\'sw\').textContent = (t / 10).toFixed(1); }\n  function startSw() { if (!iv) iv = setInterval(function () { t++; drawSw(); }, 100); }\n  function stopSw() { clearInterval(iv); iv = null; }\n  function resetSw() { stopSw(); t = 0; drawSw(); }\n<\/script>',
+    password: '<script>\n  function makePassword(len) {\n    var chars = \'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%\';\n    var out = \'\';\n    for (var i = 0; i < (len || 12); i++) out += chars[Math.floor(Math.random() * chars.length)];\n    return out;\n  }\n  // try it: alert(makePassword(12));\n<\/script>',
+    tip: '<input type="number" id="bill" placeholder="Bill $" style="padding:10px;"> <input type="number" id="pct" placeholder="Tip %" value="18" style="padding:10px;width:80px;">\n<button onclick="tipCalc()">Calculate</button>\n<p id="tipOut" style="font-weight:800;"></p>\n<script>\n  function tipCalc() {\n    var b = parseFloat(document.getElementById(\'bill\').value) || 0;\n    var p = parseFloat(document.getElementById(\'pct\').value) || 0;\n    var tip = b * p / 100;\n    document.getElementById(\'tipOut\').textContent = \'Tip: $\' + tip.toFixed(2) + \' · Total: $\' + (b + tip).toFixed(2);\n  }\n<\/script>'
+  };
+
+  var CODE_HELP = '💻 Code mode 1.1 — I build REAL working code now:\n• 🎮 FULL playable games: "make a snake game", "make a clicker game", "reaction game", "memory game", "guessing game", "quiz game", "dice game" — or "game page called Rocket Jump with a snake game"\n• "game page called Rocket Jump" — an Arqade game page shell\n• 🧩 Page pieces: "make a navbar", "make a hero", "make a gold button saying Play", "make a form", "make a table", "make a modal", "make a gallery", "make a footer", "make a card"\n• 🛠 Utilities: "countdown code", "stopwatch code", "password generator code", "tip calculator code"\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nEvery game page gets a 👁 Preview so you can play it right here. The owner publishes with 🚀 Push; developer-tag players tap 📨 Send to Dylan — he previews it in the 💌 Feedback app Dev requests tab and taps ✅ or ❌.\nFor one-of-a-kind custom features, Baxter in your Muse chat still codes those live — I build from my (much bigger) 1.1 patterns.';
 
   function codeReply(raw) {
     var q = raw.toLowerCase();
@@ -374,10 +598,32 @@
     if (q.indexOf('help') >= 0 || q.trim() === '') return { text: CODE_HELP };
     if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) {
       var gname = m[1].trim();
-      var gslug = gname.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
-      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + (canPublish && pushAvailable ? ' Tap 👁 Preview to see it working, or 🚀 Push to site and it goes live for real:' : (!canPublish ? ' Tap 👁 Preview to see it working, or 📨 Send to Dylan — he decides in the 💌 Feedback app:' : ' Tap 👁 Preview to see it working first:')), code: gameSkeleton(gname), slug: gslug };
+      var gtype = detectGameType(gname);
+      gname = gname.replace(/\s+with\s+(an?\s+|the\s+)?(snake|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(\s+game)?\s*$/i, '').trim() || m[1].trim();
+      var gslug = slugify(gname);
+      if (gtype) return { text: 'Here\'s "' + gname + '" with a FULL playable ' + GAME_TYPES[gtype].label + ' game inside — the real game, not a blank page.' + codeTail(), code: playablePage(gname, gtype), slug: gslug };
+      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + codeTail(), code: gameSkeleton(gname), slug: gslug };
+    }
+    if ((m = raw.match(/(?:make|build|create|code)\s+(?:me\s+)?(?:an?\s+)?(snake|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(?:\s+game)?(?:\s+called\s+(.+))?/i))) {
+      var mtype = detectGameType(m[1]);
+      var mname = (m[2] || (GAME_TYPES[mtype].label + ' Game')).trim();
+      return { text: 'One FULL playable ' + GAME_TYPES[mtype].label + ' game, coming up — the page is called "' + mname + '".' + codeTail(), code: playablePage(mname, mtype), slug: slugify(mname) };
+    }
+    if ((m = raw.match(/^(?:a\s+|an\s+)?(snake|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(?:\s+game)?\b/i))) {
+      var btype = detectGameType(m[1]);
+      var bname = GAME_TYPES[btype].label + ' Game';
+      return { text: 'One FULL playable ' + GAME_TYPES[btype].label + ' game, coming up — the page is called "' + bname + '".' + codeTail(), code: playablePage(bname, btype), slug: slugify(bname) };
     }
     if ((m = raw.match(/(?:portal )?card (?:for|called)\s+(.+)/i))) return { text: 'Here\'s the portal card for "' + m[1].trim() + '":', code: cardSnippet(m[1].trim()) };
+    if ((m = raw.match(/(?:make|add|create|build|code)\s+(?:me\s+)?(?:an?\s+)?(?:\w+\s+)?(nav\s?bar|hero|button|card|form|table|modal|footer|gallery)\b/i))) {
+      var kind = m[1].toLowerCase().replace(/\s+/g, '');
+      if (kind === 'navbar') kind = 'navbar';
+      return { text: 'Here\'s your ' + m[1].toLowerCase() + ' — paste it into any page:', code: snippet(kind === 'nav' ? 'navbar' : kind, raw) };
+    }
+    if ((m = q.match(/(countdown|stopwatch|password generator|tip calculator)/))) {
+      var ukey = m[1] === 'password generator' ? 'password' : (m[1] === 'tip calculator' ? 'tip' : m[1]);
+      return { text: 'Here\'s a working ' + m[1] + ' — paste it into a page and it just runs:', code: UTIL_SNIPPETS[ukey] };
+    }
     if ((m = raw.match(/gradient\s+(#[0-9a-f]{3,8})\s+(?:to\s+)?(#[0-9a-f]{3,8})/i))) return { text: 'Gradient, ready to paste:', code: 'background: linear-gradient(135deg, ' + m[1] + ', ' + m[2] + ');' };
     if ((m = raw.match(/^encode\s+([\s\S]+)/i))) { try { return { text: 'Encoded:', code: btoa(unescape(encodeURIComponent(m[1]))) }; } catch (e) { return { text: 'I couldn\'t encode that one.' }; } }
     if ((m = raw.match(/^decode\s+([\s\S]+)/i))) { try { return { text: 'Decoded:', code: decodeURIComponent(escape(atob(m[1].trim()))) }; } catch (e) { return { text: 'That doesn\'t look like valid Base64.' }; } }
@@ -386,12 +632,12 @@
       var words = body.trim() ? body.trim().split(/\s+/).length : 0;
       return { text: '📊 Characters: ' + body.length + ' · Words: ' + words + ' · Lines: ' + (body ? body.split('\n').length : 0) };
     }
-    return { text: 'That build is beyond my 1.0 patterns — I generate game pages, portal cards, gradients, Base64 and counts. For custom features, ask Baxter in your Muse chat and he\'ll code and ship it live, like always. Want the list? Say "help".' };
+    return { text: 'That build is beyond my 1.1 patterns — but my 1.1 patterns are BIG now: full playable mini-games (snake, clicker, reaction, memory, guessing, quiz, dice), game pages, page pieces like navbars and buttons, utilities, portal cards, gradients, Base64 and counts. For one-of-a-kind custom features, ask Baxter in your Muse chat and he\'ll code and ship it live, like always. Want the list? Say "help".' };
   }
 
   /* ---------------- wiring ---------------- */
   var CHAT_CHIPS = ['Tell me a joke 😂', 'Pick a game for me 🎮', 'What is 24 × 7?', 'What games are on Arqade?', 'Let\'s play rock paper scissors', 'Who made you?'];
-  var CODE_CHIPS = ['Help', 'Game page called Rocket Jump', 'Portal card for Rocket Jump', 'Gradient #f59e0b to #7c3aed', 'Encode hello Arqade', 'Flip a coin'];
+  var CODE_CHIPS = ['Help', 'Make a snake game', 'Game page called Gem Clicker with a clicker game', 'Make a navbar', 'Make a gold button saying Play', 'Countdown code'];
 
   function renderChips() {
     chipsBox.innerHTML = '';
@@ -432,7 +678,7 @@
   input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
 
   renderChips();
-  botSay('Hey! I\'m Meteor 1.0 ☄️ — Arqade\'s AI. Ask me anything, or tap one of the ideas below.', null, 300);
+  botSay('Hey! I\'m Meteor 1.1 ☄️ — Arqade\'s AI. Ask me anything, or tap one of the ideas below.', null, 300);
 
   fetch('/api/me').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
     if (d && d.user) {
