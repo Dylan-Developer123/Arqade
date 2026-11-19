@@ -28,6 +28,9 @@
   .copyBtn { margin-top: 7px; background: #f5c542; color: #191920; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
   .pushBtn { margin-top: 7px; margin-left: 7px; background: #f97316; color: #fff; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
   .pushBtn:disabled { opacity: .55; cursor: default; }
+  .sendBtn { background: #7c3aed; color: #fff; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  .sendBtn.armed { background: #5b21b6; }
+  .sendBtn:disabled { opacity: .55; cursor: default; }
   .typing { align-self: flex-start; font-size: 13px; color: #9aa0b4; font-style: italic; padding: 2px 4px; }
   #chips { display: flex; gap: 7px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid #2c2c48; background: #171726; }
   .chip { background: #262640; border: 1.5px solid #3a3a5c; color: #eef; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
@@ -115,6 +118,7 @@
       if (pushSlug) {
         html += '<button class="pvBtn">👁 Preview</button>';
         if (canPublish && pushAvailable) html += '<button class="pushBtn">🚀 Push to site</button>';
+        if (!canPublish) html += '<button class="sendBtn">📨 Send to Dylan</button>';
       }
     }
     d.innerHTML = html;
@@ -151,6 +155,29 @@
             pushBtn.disabled = false;
             pushBtn.textContent = '🚀 Push to site';
             botSay('⚠️ Publish failed: no connection. Try again in a bit.', null, 300);
+          });
+        });
+      }
+      var sendBtn = d.querySelector('.sendBtn');
+      if (sendBtn && pushSlug) {
+        armButton(sendBtn, '📨 Send to Dylan', 'Tap again to send 📨', function () {
+          sendBtn.disabled = true;
+          sendBtn.textContent = '📨 Sending…';
+          fetch('/api/meteor/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: pushSlug, code: code }) }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+          }).then(function (res) {
+            if (res.ok) {
+              sendBtn.textContent = '✅ Sent!';
+              botSay('📨 Sent to Dylan! He\'ll preview "/games/' + pushSlug + '" in the Feedback app\'s 🛠 Dev requests tab — ✅ and it goes live, ❌ and it doesn\'t. Your status shows in that tab too.', null, 300);
+            } else {
+              sendBtn.disabled = false;
+              sendBtn.textContent = '📨 Send to Dylan';
+              botSay('⚠️ Couldn\'t send: ' + (res.j.error || 'try again in a bit.'), null, 300);
+            }
+          }).catch(function () {
+            sendBtn.disabled = false;
+            sendBtn.textContent = '📨 Send to Dylan';
+            botSay('⚠️ Send failed: no connection. Try again in a bit.', null, 300);
           });
         });
       }
@@ -339,7 +366,7 @@
     var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
     return '<a class="card" href="/games/' + slug + '">\n  <div class="art"><!-- cover art --></div>\n  <div class="body">\n    <span class="tag purple">NEW</span>\n    <h2>' + name + '</h2>\n    <p>One-line description of the game.</p>\n    <span class="play">▶ Play</span>\n  </div>\n</a>';
   }
-  var CODE_HELP = '💻 Code mode — here\'s what I can generate:\n• "game page called Rocket Jump" — a full Arqade game page\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nEvery game page gets a 👁 Preview so you can see it working. The owner publishes with 🚀 Push; developer-tag players can copy their code — and send ideas any time through the 💌 Feedback app.\nFor brand-new custom features, Baxter in your Muse chat still codes those live — I generate from my built-in patterns, like a 1.0 should.';
+  var CODE_HELP = '💻 Code mode — here\'s what I can generate:\n• "game page called Rocket Jump" — a full Arqade game page\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nEvery game page gets a 👁 Preview so you can see it working. The owner publishes with 🚀 Push; developer-tag players tap 📨 Send to Dylan — he previews it in the 💌 Feedback app Dev requests tab and taps ✅ or ❌.\nFor brand-new custom features, Baxter in your Muse chat still codes those live — I generate from my built-in patterns, like a 1.0 should.';
 
   function codeReply(raw) {
     var q = raw.toLowerCase();
@@ -348,7 +375,7 @@
     if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) {
       var gname = m[1].trim();
       var gslug = gname.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
-      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + (canPublish && pushAvailable ? ' Tap 👁 Preview to see it working, or 🚀 Push to site and it goes live for real:' : ' Tap 👁 Preview to see it working first:'), code: gameSkeleton(gname), slug: gslug };
+      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + (canPublish && pushAvailable ? ' Tap 👁 Preview to see it working, or 🚀 Push to site and it goes live for real:' : (!canPublish ? ' Tap 👁 Preview to see it working, or 📨 Send to Dylan — he decides in the 💌 Feedback app:' : ' Tap 👁 Preview to see it working first:')), code: gameSkeleton(gname), slug: gslug };
     }
     if ((m = raw.match(/(?:portal )?card (?:for|called)\s+(.+)/i))) return { text: 'Here\'s the portal card for "' + m[1].trim() + '":', code: cardSnippet(m[1].trim()) };
     if ((m = raw.match(/gradient\s+(#[0-9a-f]{3,8})\s+(?:to\s+)?(#[0-9a-f]{3,8})/i))) return { text: 'Gradient, ready to paste:', code: 'background: linear-gradient(135deg, ' + m[1] + ', ' + m[2] + ');' };
