@@ -1410,9 +1410,10 @@ function updateMpCount() {
 function drawMpPlayers() {
   if (!S.inMp && !S.inLounge) return;
   const myStage = S.inLounge ? LOUNGE_STAGE : MP_STAGE;
+  const W = canvas.width / dpr, H = canvas.height / dpr;
   for (const p of MP.players.values()) {
     if (p.stage !== myStage) continue;
-    const sx = (p.x - camX) * TILE, sy = (p.y - camY) * TILE;
+    const sx = p.x * TILE, sy = (p.y - camY) * TILE;
     if (sx < -50 || sy < -50 || sx > W + 50 || sy > H + 50) continue;
     // Simple person (miner): pants, shirt, head + hard hat
     ctx.fillStyle = '#33549e';
