@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Feedback — Arqade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #12121e; color: #eef; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 14px; }
+  a.exit-game { display: inline-flex; align-items: center; align-self: flex-start; background: #101828; color: #dcefe2; border: 1px solid #3b4b3f; border-radius: 9px; padding: 8px 14px; font-size: 15px; font-weight: 700; line-height: 1; text-decoration: none; }
+  #fbBox { width: min(680px, 96vw); margin-top: 12px; background: #1e1e30; border: 2px solid #2c2c48; border-radius: 16px; overflow: hidden; }
+  #head { padding: 15px 18px 12px; border-bottom: 1px solid #2c2c48; }
+  #head h1 { font-size: 22px; }
+  #head h1 .ver { color: #f5c542; }
+  #head p { font-size: 13.5px; opacity: .8; margin-top: 3px; }
+  #tabs { display: flex; gap: 7px; padding: 11px 16px 0; flex-wrap: wrap; }
+  .tabBtn { border-radius: 999px; padding: 8px 15px; font-weight: 800; font-size: 13.5px; border: 1.5px solid #3a3a5c; background: #191920; color: #cfcfe8; cursor: pointer; font-family: inherit; }
+  .tabBtn.on { border-color: #f5c542; color: #ffe9a8; background: #2e2a1a; }
+  .tabBtn.hidden { display: none; }
+  .panel { padding: 16px; display: none; }
+  .panel.on { display: block; }
+  .typeRow { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+  .typeChip { background: #262640; border: 1.5px solid #3a3a5c; color: #eef; border-radius: 999px; padding: 7px 13px; font-size: 13.5px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .typeChip.on { border-color: #f5c542; color: #ffe9a8; background: #2e2a1a; }
+  label.lbl { display: block; font-size: 12px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; opacity: .65; margin: 10px 0 5px; }
+  select, textarea { width: 100%; background: #14141f; color: #fff; border: 1.5px solid #3a3a5c; border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: inherit; outline: none; }
+  textarea { min-height: 110px; resize: vertical; line-height: 1.45; }
+  #charCount { font-size: 12px; opacity: .55; text-align: right; margin-top: 4px; }
+  #sendBtn { margin-top: 12px; width: 100%; background: #f5c542; color: #191920; border: 0; border-radius: 10px; font-weight: 800; font-size: 16px; padding: 12px; cursor: pointer; font-family: inherit; }
+  #sendBtn:disabled { opacity: .55; cursor: default; }
+  #sendMsg { margin-top: 10px; font-size: 14px; min-height: 20px; }
+  .fbItem { background: #262640; border: 1px solid #3a3a5c; border-radius: 12px; padding: 11px 13px; margin-bottom: 9px; }
+  .fbItem .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+  .fbItem .author { font-weight: 800; font-size: 13.5px; }
+  .fbItem .game { opacity: .75; }
+  .fbItem .when { opacity: .5; margin-left: auto; }
+  .fbItem .text { margin-top: 6px; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .stChip { border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 800; }
+  .st-new { background: #3a2a10; color: #fbbf24; border: 1px solid #92600e; }
+  .st-seen { background: #102a3a; color: #7dd3fc; border: 1px solid #155e80; }
+  .st-done { background: #10301c; color: #4ade80; border: 1px solid #166534; }
+  .fbItem .ops { margin-top: 9px; display: flex; gap: 7px; flex-wrap: wrap; }
+  .fbItem .ops button { background: #191920; color: #cfcfe8; border: 1.5px solid #3a3a5c; border-radius: 8px; font-weight: 700; font-size: 12.5px; padding: 5px 11px; cursor: pointer; font-family: inherit; }
+  .fbItem .ops button.danger { color: #fda4af; border-color: #7f1d2d; }
+  .empty { opacity: .65; font-size: 14.5px; padding: 8px 2px; }
+</style>
+</head>
+<body>
+<a class="exit-game" href="/">← All games</a>
+
+<div id="fbBox">
+  <div id="head">
+    <h1>💌 Feedback <span class="ver">for Arqade</span></h1>
+    <p>Found a bug? Got an idea? Tell Dylan — he reads everything.</p>
+  </div>
+  <div id="tabs">
+    <button class="tabBtn on" id="tabSend">✍️ Send</button>
+    <button class="tabBtn hidden" id="tabAll">📋 All feedback</button>
+    <button class="tabBtn" id="tabMine">🙋 Mine</button>
+  </div>
+
+  <div class="panel on" id="panelSend">
+    <label class="lbl">What kind?</label>
+    <div class="typeRow" id="typeRow">
+      <button class="typeChip" data-type="bug">🐛 Bug</button>
+      <button class="typeChip on" data-type="idea">💡 Idea</button>
+      <button class="typeChip" data-type="review">⭐ Review</button>
+      <button class="typeChip" data-type="other">💬 Other</button>
+    </div>
+    <label class="lbl" for="gameSel">Which game?</label>
+    <select id="gameSel"></select>
+    <label class="lbl" for="msgBox">Your feedback</label>
+    <textarea id="msgBox" maxlength="1000" placeholder="Tell Dylan what's up…"></textarea>
+    <div id="charCount">0 / 1000</div>
+    <button id="sendBtn">📨 Send feedback</button>
+    <div id="sendMsg"></div>
+  </div>
+
+  <div class="panel" id="panelAll">
+    <div id="allList"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div class="panel" id="panelMine">
+    <div id="mineList"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<script src="/games/admin-panel.js"></script>
+<script>
+(function () {
+  var GAMES = ['The whole site', 'Mining Simulator', 'City Pursuit 3D', 'Turbo Racer 3D', 'Arqade Chat', 'Web Browser', 'Settings', 'Meteor AI', 'Feedback', 'Snake', 'Breakout', 'Flappy Bird', 'Memory Match', '2048', 'Coin Clicker', 'Pong', 'Minesweeper', 'Space Invaders', 'Lunar Lander', 'Blackjack', 'Word Guess'];
+  var TYPES = { bug: '🐛 Bug', idea: '💡 Idea', review: '⭐ Review', other: '💬 Other' };
+  var STATUS = { new: '⏳ New', seen: '👀 Seen', done: '✅ Done' };
+  var isOwner = false;
+  var selType = 'idea';
+
+  var gameSel = document.getElementById('gameSel');
+  GAMES.forEach(function (g) {
+    var o = document.createElement('option');
+    o.value = g; o.textContent = g;
+    gameSel.appendChild(o);
+  });
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function fmtTime(t) {
+    var s = String(t || '');
+    var d = /^\d{4}-\d{2}-\d{2} \d{2}:/.test(s) ? new Date(s.replace(' ', 'T') + 'Z') : new Date(s);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  /* tabs */
+  var panels = { send: document.getElementById('panelSend'), all: document.getElementById('panelAll'), mine: document.getElementById('panelMine') };
+  var tabBtns = { send: document.getElementById('tabSend'), all: document.getElementById('tabAll'), mine: document.getElementById('tabMine') };
+  function showTab(name) {
+    Object.keys(panels).forEach(function (k) {
+      panels[k].classList.toggle('on', k === name);
+      tabBtns[k].classList.toggle('on', k === name);
+    });
+    if (name === 'all') loadAll();
+    if (name === 'mine') loadMine();
+  }
+  tabBtns.send.addEventListener('click', function () { showTab('send'); });
+  tabBtns.all.addEventListener('click', function () { showTab('all'); });
+  tabBtns.mine.addEventListener('click', function () { showTab('mine'); });
+
+  /* send */
+  document.getElementById('typeRow').addEventListener('click', function (e) {
+    var b = e.target.closest('.typeChip');
+    if (!b) return;
+    selType = b.getAttribute('data-type');
+    document.querySelectorAll('.typeChip').forEach(function (c) { c.classList.toggle('on', c === b); });
+  });
+  var msgBox = document.getElementById('msgBox');
+  var charCount = document.getElementById('charCount');
+  msgBox.addEventListener('input', function () { charCount.textContent = msgBox.value.length + ' / 1000'; });
+  var sendBtn = document.getElementById('sendBtn');
+  var sendMsg = document.getElementById('sendMsg');
+  sendBtn.addEventListener('click', function () {
+    var message = msgBox.value.trim();
+    if (message.length < 3) { sendMsg.textContent = '✏️ Write a little more first (3+ characters).'; return; }
+    sendBtn.disabled = true;
+    sendBtn.textContent = '📨 Sending…';
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: selType, game: gameSel.value, message: message })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = '📨 Send feedback';
+      if (res.ok) {
+        sendMsg.textContent = '✅ Sent! Dylan can read it now. Track it in the 🙋 Mine tab.';
+        msgBox.value = '';
+        charCount.textContent = '0 / 1000';
+      } else {
+        sendMsg.textContent = '⚠️ ' + (res.j.error || 'Could not send. Try again in a bit.');
+      }
+    }).catch(function () {
+      sendBtn.disabled = false;
+      sendBtn.textContent = '📨 Send feedback';
+      sendMsg.textContent = '⚠️ No connection. Try again in a bit.';
+    });
+  });
+
+  /* lists */
+  function itemHtml(f, withAuthor, withOps) {
+    var h = '<div class="fbItem"><div class="top">' +
+      '<span>' + (TYPES[f.type] || TYPES.other) + '</span>' +
+      (withAuthor ? '<span class="author">' + esc(f.author || '') + '</span>' : '') +
+      '<span class="game">· ' + esc(f.game) + '</span>' +
+      '<span class="stChip st-' + esc(f.status) + '">' + (STATUS[f.status] || f.status) + '</span>' +
+      '<span class="when">' + esc(fmtTime(f.createdAt)) + '</span></div>' +
+      '<div class="text">' + esc(f.message) + '</div>';
+    if (withOps) {
+      h += '<div class="ops">' +
+        '<button data-op="seen" data-id="' + f.id + '">👀 Seen</button>' +
+        '<button data-op="done" data-id="' + f.id + '">✅ Done</button>' +
+        '<button data-op="new" data-id="' + f.id + '">↩ Back to New</button>' +
+        '<button data-op="del" data-id="' + f.id + '" class="danger">🗑 Delete</button></div>';
+    }
+    return h + '</div>';
+  }
+  function loadAll() {
+    var box = document.getElementById('allList');
+    fetch('/api/feedback/all').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var list = (j && j.feedback) || [];
+      box.innerHTML = list.length ? list.map(function (f) { return itemHtml(f, true, isOwner); }).join('') : '<div class="empty">No feedback yet — it\'ll show up here.</div>';
+    }).catch(function () { box.innerHTML = '<div class="empty">Couldn\'t load feedback.</div>'; });
+  }
+  function loadMine() {
+    var box = document.getElementById('mineList');
+    fetch('/api/feedback/mine').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      var list = (j && j.feedback) || [];
+      box.innerHTML = list.length ? list.map(function (f) { return itemHtml(f, false, false); }).join('') : '<div class="empty">You haven\'t sent any feedback yet.</div>';
+    }).catch(function () { box.innerHTML = '<div class="empty">Couldn\'t load your feedback.</div>'; });
+  }
+  document.getElementById('allList').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-op]');
+    if (!b || !isOwner) return;
+    var id = b.getAttribute('data-id');
+    var op = b.getAttribute('data-op');
+    var done = function () { loadAll(); };
+    if (op === 'del') {
+      if (b.textContent.indexOf('Sure') < 0) {
+        b.textContent = '🗑 Sure?';
+        setTimeout(function () { b.textContent = '🗑 Delete'; }, 3000);
+        return;
+      }
+      fetch('/api/feedback/' + id, { method: 'DELETE' }).then(done, done);
+    } else {
+      fetch('/api/feedback/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: op })
+      }).then(done, done);
+    }
+  });
+
+  /* who am I? */
+  fetch('/api/feedback/access').then(function (r) { return r.ok ? r.json() : null; }).then(function (a) {
+    if (a) {
+      isOwner = !!a.isOwner;
+      if (a.canViewAll) tabBtns.all.classList.remove('hidden');
+    }
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>
