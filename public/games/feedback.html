@@ -39,6 +39,23 @@
   .st-new { background: #3a2a10; color: #fbbf24; border: 1px solid #92600e; }
   .st-seen { background: #102a3a; color: #7dd3fc; border: 1px solid #155e80; }
   .st-done { background: #10301c; color: #4ade80; border: 1px solid #166534; }
+  .st-denied { background: #3a1016; color: #fda4af; border: 1px solid #7f1d2d; }
+  .reqSlug { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: #ffe9a8; }
+  #previewModal { position: fixed; inset: 0; background: rgba(5,5,12,.78); display: none; align-items: center; justify-content: center; z-index: 60; padding: 14px; }
+  #previewModal.open { display: flex; }
+  .pvCard { background: #1e1e30; border: 2px solid #f5c542; border-radius: 14px; width: min(860px, 96vw); height: min(640px, 88vh); display: flex; flex-direction: column; overflow: hidden; }
+  .pvHead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #2c2c48; font-weight: 800; font-size: 14.5px; }
+  .pvHead span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pvHead button { background: #262640; color: #eef; border: 1.5px solid #3a3a5c; border-radius: 8px; font-weight: 700; font-size: 13px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  #pvMsg { padding: 0 14px; font-size: 13.5px; min-height: 0; }
+  #pvMsg:not(:empty) { padding: 8px 14px 0; }
+  #pvFrame { flex: 1; width: 100%; border: 0; background: #fff; }
+  .pvActions { display: none; gap: 9px; padding: 11px 14px; border-top: 1px solid #2c2c48; }
+  .pvActions.on { display: flex; }
+  .pvActions button { flex: 1; border-radius: 9px; font-weight: 800; font-size: 14.5px; padding: 10px; cursor: pointer; font-family: inherit; border: 0; }
+  #pvApprove { background: #22c55e; color: #08130c; }
+  #pvDeny { background: #3a1016; color: #fda4af; border: 1.5px solid #7f1d2d !important; }
+  .pvActions button:disabled { opacity: .55; cursor: default; }
   .fbItem .ops { margin-top: 9px; display: flex; gap: 7px; flex-wrap: wrap; }
   .fbItem .ops button { background: #191920; color: #cfcfe8; border: 1.5px solid #3a3a5c; border-radius: 8px; font-weight: 700; font-size: 12.5px; padding: 5px 11px; cursor: pointer; font-family: inherit; }
   .fbItem .ops button.danger { color: #fda4af; border-color: #7f1d2d; }
@@ -56,6 +73,7 @@
   <div id="tabs">
     <button class="tabBtn on" id="tabSend">✍️ Send</button>
     <button class="tabBtn hidden" id="tabAll">📋 All feedback</button>
+    <button class="tabBtn hidden" id="tabDev">🛠 Dev requests</button>
     <button class="tabBtn" id="tabMine">🙋 Mine</button>
   </div>
 
@@ -80,8 +98,24 @@
     <div id="allList"><div class="empty">Loading…</div></div>
   </div>
 
+  <div class="panel" id="panelDev">
+    <div id="devList"><div class="empty">Loading…</div></div>
+  </div>
+
   <div class="panel" id="panelMine">
     <div id="mineList"><div class="empty">Loading…</div></div>
+  </div>
+</div>
+
+<div id="previewModal">
+  <div class="pvCard">
+    <div class="pvHead"><span id="pvTitle">👁 Preview</span><button id="pvClose">✖ Close</button></div>
+    <div id="pvMsg"></div>
+    <iframe id="pvFrame" sandbox="allow-scripts" title="Page preview"></iframe>
+    <div class="pvActions" id="pvActions">
+      <button id="pvApprove">✅ Approve &amp; publish</button>
+      <button id="pvDeny">❌ Deny</button>
+    </div>
   </div>
 </div>
 
@@ -109,18 +143,20 @@
   }
 
   /* tabs */
-  var panels = { send: document.getElementById('panelSend'), all: document.getElementById('panelAll'), mine: document.getElementById('panelMine') };
-  var tabBtns = { send: document.getElementById('tabSend'), all: document.getElementById('tabAll'), mine: document.getElementById('tabMine') };
+  var panels = { send: document.getElementById('panelSend'), all: document.getElementById('panelAll'), dev: document.getElementById('panelDev'), mine: document.getElementById('panelMine') };
+  var tabBtns = { send: document.getElementById('tabSend'), all: document.getElementById('tabAll'), dev: document.getElementById('tabDev'), mine: document.getElementById('tabMine') };
   function showTab(name) {
     Object.keys(panels).forEach(function (k) {
       panels[k].classList.toggle('on', k === name);
       tabBtns[k].classList.toggle('on', k === name);
     });
     if (name === 'all') loadAll();
+    if (name === 'dev') loadDev();
     if (name === 'mine') loadMine();
   }
   tabBtns.send.addEventListener('click', function () { showTab('send'); });
   tabBtns.all.addEventListener('click', function () { showTab('all'); });
+  tabBtns.dev.addEventListener('click', function () { showTab('dev'); });
   tabBtns.mine.addEventListener('click', function () { showTab('mine'); });
 
   /* send */
@@ -217,11 +253,115 @@
     }
   });
 
+  /* -------- dev requests tab -------- */
+  var REQ_STATUS = { pending: ['⏳ Waiting', 'st-new'], approved: ['✅ Live', 'st-done'], denied: ['❌ Denied', 'st-denied'] };
+  function loadDev() {
+    var box = document.getElementById('devList');
+    if (isOwner) {
+      fetch('/api/meteor/requests').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        var list = (j && j.requests) || [];
+        if (!list.length) { box.innerHTML = '<div class="empty">No dev requests waiting. When a developer-tag player sends a page from Meteor\'s Code mode, it lands here for your ✅ or ❌.</div>'; return; }
+        box.innerHTML = list.map(function (q) {
+          return '<div class="fbItem"><div class="top"><span>🛠</span><span class="author">' + esc(q.requester) + '</span>' +
+            '<span class="reqSlug">/games/' + esc(q.slug) + '</span><span class="game">· ' + Math.max(1, Math.round(q.codeLen / 1024)) + ' KB</span>' +
+            '<span class="when">' + esc(fmtTime(q.createdAt)) + '</span></div>' +
+            '<div class="ops">' +
+            '<button data-pv="' + q.id + '">👁 Preview</button>' +
+            '<button data-approve="' + q.id + '">✅ Approve</button>' +
+            '<button data-deny="' + q.id + '" class="danger">❌ Deny</button></div></div>';
+        }).join('');
+      }).catch(function () { box.innerHTML = '<div class="empty">Couldn\'t load dev requests.</div>'; });
+    } else {
+      fetch('/api/meteor/my-requests').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        var list = (j && j.requests) || [];
+        if (!list.length) { box.innerHTML = '<div class="empty">You haven\'t sent any pages yet. Build one in ☄️ Meteor AI\'s Code mode and tap 📨 Send to Dylan.</div>'; return; }
+        box.innerHTML = list.map(function (q) {
+          var st = REQ_STATUS[q.status] || REQ_STATUS.pending;
+          return '<div class="fbItem"><div class="top"><span>🛠</span>' +
+            '<span class="reqSlug">/games/' + esc(q.slug) + '</span>' +
+            '<span class="stChip ' + st[1] + '">' + st[0] + '</span>' +
+            '<span class="when">' + esc(fmtTime(q.createdAt)) + '</span></div>' +
+            (q.status === 'approved' ? '<div class="text">It\'s live: <a href="/games/' + esc(q.slug) + '" style="color:#f5c542;">play it</a></div>' : '') +
+            '</div>';
+        }).join('');
+      }).catch(function () { box.innerHTML = '<div class="empty">Couldn\'t load your requests.</div>'; });
+    }
+  }
+
+  /* preview modal (same pattern as Meteor's) */
+  var pvModal = document.getElementById('previewModal');
+  var pvFrame = document.getElementById('pvFrame');
+  var pvTitle = document.getElementById('pvTitle');
+  var pvMsg = document.getElementById('pvMsg');
+  var pvActions = document.getElementById('pvActions');
+  var pvCurrent = null;
+  function stripForPreview(code) {
+    return code.replace(/<script[^>]*src="\/games\/admin-panel\.js"[^>]*><\/script>/g, '<!-- preview: site scripts off -->');
+  }
+  function openRequestPreview(id) {
+    pvMsg.textContent = '';
+    pvTitle.textContent = '👁 Loading preview…';
+    pvActions.classList.remove('on');
+    pvModal.classList.add('open');
+    fetch('/api/meteor/requests/' + id).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || !j.request) { pvTitle.textContent = '⚠️ Could not load that request.'; return; }
+      pvCurrent = j.request;
+      pvTitle.textContent = '👁 ' + pvCurrent.requester + ' — /games/' + pvCurrent.slug;
+      pvFrame.srcdoc = stripForPreview(pvCurrent.code);
+      if (pvCurrent.status === 'pending') pvActions.classList.add('on');
+    }).catch(function () { pvTitle.textContent = '⚠️ Could not load that request.'; });
+  }
+  function closePreview() { pvModal.classList.remove('open'); pvFrame.srcdoc = ''; pvCurrent = null; }
+  document.getElementById('pvClose').addEventListener('click', closePreview);
+  function decide(kind) {
+    if (!pvCurrent) return;
+    var btnA = document.getElementById('pvApprove');
+    var btnD = document.getElementById('pvDeny');
+    btnA.disabled = true; btnD.disabled = true;
+    fetch('/api/meteor/requests/' + pvCurrent.id + '/' + kind, { method: 'POST' }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      btnA.disabled = false; btnD.disabled = false;
+      if (res.ok) {
+        pvMsg.textContent = kind === 'approve' ? '✅ Published! It\'s live at /games/' + pvCurrent.slug + ' in about a minute.' : '❌ Denied — the dev can see the status in their tab.';
+        pvActions.classList.remove('on');
+        loadDev();
+      } else {
+        pvMsg.textContent = '⚠️ ' + (res.j.error || 'That didn\'t work — the request is still waiting.');
+      }
+    }).catch(function () {
+      btnA.disabled = false; btnD.disabled = false;
+      pvMsg.textContent = '⚠️ No connection. The request is still waiting.';
+    });
+  }
+  document.getElementById('pvApprove').addEventListener('click', function () { decide('approve'); });
+  document.getElementById('pvDeny').addEventListener('click', function () { decide('deny'); });
+
+  document.getElementById('devList').addEventListener('click', function (e) {
+    var pv = e.target.closest('button[data-pv]');
+    if (pv) { openRequestPreview(pv.getAttribute('data-pv')); return; }
+    var ap = e.target.closest('button[data-approve]');
+    var dn = e.target.closest('button[data-deny]');
+    var b = ap || dn;
+    if (!b || !isOwner) return;
+    if (b.textContent.indexOf('Sure') < 0) {
+      var old = b.textContent;
+      b.textContent = (ap ? '✅ Sure?' : '❌ Sure?');
+      setTimeout(function () { b.textContent = old; }, 3000);
+      return;
+    }
+    var id = b.getAttribute('data-approve') || b.getAttribute('data-deny');
+    fetch('/api/meteor/requests/' + id + '/' + (ap ? 'approve' : 'deny'), { method: 'POST' }).then(function () { loadDev(); }, function () { loadDev(); });
+  });
+
   /* who am I? */
   fetch('/api/feedback/access').then(function (r) { return r.ok ? r.json() : null; }).then(function (a) {
     if (a) {
       isOwner = !!a.isOwner;
-      if (a.canViewAll) tabBtns.all.classList.remove('hidden');
+      if (a.canViewAll) {
+        tabBtns.all.classList.remove('hidden');
+        tabBtns.dev.classList.remove('hidden');
+      }
     }
   }).catch(function () {});
 })();
