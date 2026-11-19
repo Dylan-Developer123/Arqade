@@ -887,6 +887,92 @@ async function main() {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Meteor 1.0 — Arqade's AI as a bot player in both multiplayer worlds.
+  // A server-run fake player (stub socket): wanders + mines in the Mining
+  // Simulator world, and drives a loop around the central block in City
+  // Pursuit. Real clients render it exactly like any other player.
+  // -------------------------------------------------------------------------
+  const METEOR_ID = 'meteor';
+  const meteorStubWs = { readyState: 1, send: () => {}, close: () => {} };
+
+  // --- Mining Simulator world bot (stage 1001, around spawn) ---
+  const minerBot = {
+    ws: meteorStubWs, id: METEOR_ID, username: 'meteor', displayName: 'Meteor 1.0',
+    x: 12.5, y: -0.5, stage: 1001, tags: {},
+    dir: 1, targetX: 17, jumpT: -1, nextMineAt: Date.now() + 9000, mineStepAt: 0, mineX: null,
+  };
+  online.set(METEOR_ID, minerBot);
+  setInterval(() => {
+    if (online.size <= 1) return; // nobody watching — rest
+    const dt = 0.25;
+    const dx = minerBot.targetX - minerBot.x;
+    if (Math.abs(dx) < 0.3) {
+      minerBot.targetX = 5 + Math.random() * 15; // wander x 5..20 near spawn
+    } else {
+      minerBot.dir = dx > 0 ? 1 : -1;
+      minerBot.x += minerBot.dir * Math.min(Math.abs(dx), 2.1 * dt);
+      if (minerBot.jumpT < 0 && Math.random() < 0.012) minerBot.jumpT = 0; // little hop
+    }
+    if (minerBot.jumpT >= 0) {
+      minerBot.jumpT += dt / 0.55;
+      if (minerBot.jumpT >= 1) { minerBot.jumpT = -1; minerBot.y = -0.5; }
+      else minerBot.y = -0.5 - Math.sin(minerBot.jumpT * Math.PI) * 0.85;
+    }
+    broadcast({ t: 'pos', id: METEOR_ID, x: +minerBot.x.toFixed(2), y: +minerBot.y.toFixed(2), stage: 1001 }, METEOR_ID);
+    // Mining: every ~10-17s, dig the grass + dirt in front (two-step)
+    const now = Date.now();
+    if (!minerBot.mineStepAt && now >= minerBot.nextMineAt && minerBot.jumpT < 0) {
+      minerBot.mineX = Math.floor(minerBot.x) + minerBot.dir;
+      broadcast({ t: 'break', stage: 1001, x: minerBot.mineX, y: 0, by: 'meteor' }, METEOR_ID);
+      minerBot.mineStepAt = now + 1100;
+    } else if (minerBot.mineStepAt && now >= minerBot.mineStepAt) {
+      broadcast({ t: 'break', stage: 1001, x: minerBot.mineX, y: 1, by: 'meteor' }, METEOR_ID);
+      minerBot.mineStepAt = 0;
+      minerBot.nextMineAt = now + 10000 + Math.random() * 7000;
+    }
+  }, 250);
+
+  // --- City Pursuit bot car: right-hand-traffic loop around the central block ---
+  const pursuitBot = {
+    ws: meteorStubWs, id: METEOR_ID, username: 'meteor', displayName: 'Meteor 1.0', tags: {},
+    voiceOn: false, lastChat: 0,
+    x: -3.6, z: 30, a: Math.PI, wp: 0, // start on Main St heading south (+Z)
+    state: { mode: 'drive', x: -3.6, y: 0, z: 30, a: Math.PI, c: 0xf97316, mv: 1, hide: 0, cop: 0 },
+  };
+  pursuit.set(METEOR_ID, pursuitBot);
+  const PURSUIT_WPS = [[-3.6, 68.4], [68.4, 75.6], [75.6, 3.6], [-3.6, -3.6]];
+  function pursuitBotBroadcast(obj) {
+    const data = JSON.stringify(obj);
+    for (const q of pursuit.values()) {
+      if (q.id === METEOR_ID) continue;
+      if (q.ws.readyState === WebSocket.OPEN) q.ws.send(data);
+    }
+  }
+  setInterval(() => {
+    const dt = 0.1;
+    const [tx, tz] = PURSUIT_WPS[pursuitBot.wp];
+    const dx = tx - pursuitBot.x, dz = tz - pursuitBot.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 4) { pursuitBot.wp = (pursuitBot.wp + 1) % PURSUIT_WPS.length; return; }
+    const want = Math.atan2(-dx / dist, -dz / dist);
+    let diff = want - pursuitBot.a;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    const turn = Math.max(-1.7 * dt, Math.min(1.7 * dt, diff));
+    pursuitBot.a += turn;
+    const spd = 15 - Math.min(6, Math.abs(diff) * 4); // ease off in corners
+    pursuitBot.x += -Math.sin(pursuitBot.a) * spd * dt;
+    pursuitBot.z += -Math.cos(pursuitBot.a) * spd * dt;
+    pursuitBot.state = {
+      mode: 'drive', x: +pursuitBot.x.toFixed(2), y: 0, z: +pursuitBot.z.toFixed(2),
+      a: +pursuitBot.a.toFixed(3), c: 0xf97316, mv: 1, hide: 0, cop: 0,
+    };
+    if (pursuit.size > 1) {
+      pursuitBotBroadcast({ t: 'ppos', id: METEOR_ID, displayName: 'Meteor 1.0', tags: {}, ...pursuitBot.state });
+    }
+  }, 100);
+
   wss.on('connection', async (ws, req) => {
     // Auth via session cookie
     let userId = null;
@@ -1005,6 +1091,12 @@ async function main() {
           if (q.ws.readyState === WebSocket.OPEN) q.ws.send(data);
         }
       };
+      // Meteor 1.0 greets each driver who enters the city
+      setTimeout(() => {
+        if (pursuit.get(userId)?.ws === ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ t: 'chat', id: METEOR_ID, displayName: 'Meteor 1.0', text: 'Hey ' + pp.displayName + '! ☄️ I\'m Meteor 1.0 — I\'m driving the orange car. Catch me if you can!' }));
+        }
+      }, 1200);
       ws.on('message', (raw) => {
         if (raw.length > 20000) return;
         let msg;
