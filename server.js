@@ -177,6 +177,15 @@ const SCHEMA_SQLITE = `
     owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS meteor_requests (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    slug         TEXT NOT NULL,
+    code         TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at   TEXT
+  );
 `;
 
 const SCHEMA_PG = `
@@ -227,6 +236,15 @@ const SCHEMA_PG = `
     name       TEXT NOT NULL,
     owner_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS meteor_requests (
+    id           SERIAL PRIMARY KEY,
+    requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    slug         TEXT NOT NULL,
+    code         TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    decided_at   TIMESTAMPTZ
   );
 `;
 
@@ -640,16 +658,61 @@ async function main() {
   });
 
   // -------------------------------------------------------------------------
-  // Meteor 1.0 publishing — the owner can push a NEW game page that Meteor
-  // generated straight to GitHub (which auto-deploys the site). Hard limits:
-  // owner account only, brand-new public/games/<slug>.html files only, the
-  // file must not already exist, complete HTML pages only, throttled. The key
-  // comes from the GITHUB_TOKEN environment variable and never leaves here.
+  // Meteor 1.0 publishing — Meteor can push a NEW game page it generated
+  // straight to GitHub (which auto-deploys the site). The OWNER publishes
+  // directly. Players with the DEVELOPER tag get Code mode too, but their
+  // pages go to the owner as a request (with a live preview) and only the
+  // owner's approval publishes them. Hard limits for everyone: brand-new
+  // public/games/<slug>.html files only, the file must not already exist,
+  // complete HTML pages only, throttled. The key comes from the GITHUB_TOKEN
+  // environment variable and never leaves this server.
   // -------------------------------------------------------------------------
   function requireOwner(req, res, next) {
     if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
     if (!req.user.is_owner) return res.status(403).json({ error: 'Owner only.' });
     next();
+  }
+  function requireCoder(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
+    if (!(req.user.is_owner || req.user.is_developer)) return res.status(403).json({ error: 'Code mode is for the owner and developer-tag players.' });
+    next();
+  }
+  function meteorPageError(slug, code) {
+    if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return 'Bad page name.';
+    if (typeof code !== 'string' || code.length < 200 || code.length > 200000) return 'That code is the wrong size to publish.';
+    if (!/^\s*<!DOCTYPE html>/i.test(code) || !/<\/html>\s*$/i.test(code.trim())) return 'Only complete game pages can be published.';
+    return null;
+  }
+  async function meteorPublish(slug, code, via) {
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) return { ok: false, status: 503, error: 'Push is not set up on this server yet (no GITHUB_TOKEN).' };
+    if (typeof fetch !== 'function') return { ok: false, status: 500, error: 'This server cannot reach GitHub from here.' };
+    const apiUrl = 'https://api.github.com/repos/Dylan-Developer123/Arqade/contents/public/games/' + slug + '.html';
+    const ghHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'Arqade-Meteor-Publish' };
+    try {
+      const head = await fetch(apiUrl, { headers: ghHeaders });
+      if (head.status === 200) return { ok: false, status: 409, error: 'A page with that name already exists — Meteor can only add new pages.' };
+      if (head.status !== 404) return { ok: false, status: 502, error: 'GitHub check failed (' + head.status + '). The token may be wrong or expired.' };
+      const put = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { ...ghHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Meteor 1.0: add game page ' + slug + (via ? ' (' + via + ')' : ''), content: Buffer.from(code, 'utf8').toString('base64') }),
+      });
+      if (!put.ok) return { ok: false, status: 502, error: 'GitHub refused the publish (' + put.status + ').' };
+      const data = await put.json().catch(() => null);
+      return { ok: true, commit: data && data.commit ? String(data.commit.sha).slice(0, 7) : null };
+    } catch (e) {
+      return { ok: false, status: 502, error: 'Could not reach GitHub just now. Try again in a bit.' };
+    }
+  }
+  function meteorThrottle(map, userId, minGapMs, maxPerHour) {
+    const now = Date.now();
+    const log = (map.get(userId) || []).filter((t) => now - t < 3600 * 1000);
+    if (log.length && now - log[log.length - 1] < minGapMs) return 'Slow down — one every 15 seconds.';
+    if (log.length >= maxPerHour) return 'Limit reached for this hour.';
+    log.push(now);
+    map.set(userId, log);
+    return null;
   }
 
   app.get('/api/meteor/push-status', requireOwner, (req, res) => {
@@ -657,40 +720,99 @@ async function main() {
     res.json({ available: !!process.env.GITHUB_TOKEN });
   });
 
-  const meteorPublishLog = new Map(); // userId -> recent publish timestamps
+  // Who can use Code mode, and how (direct publish vs request)?
+  app.get('/api/meteor/access', requireAuth, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const u = req.user;
+    res.json({
+      code: !!(u.is_owner || u.is_developer),
+      canPublish: !!u.is_owner,
+      pushAvailable: !!process.env.GITHUB_TOKEN,
+    });
+  });
+
+  const meteorPublishLog = new Map(); // owner direct publishes
   app.post('/api/meteor/publish', requireOwner, async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) return res.status(503).json({ error: 'Push is not set up on this server yet (no GITHUB_TOKEN).' });
-    if (typeof fetch !== 'function') return res.status(500).json({ error: 'This server cannot reach GitHub from here.' });
     const slug = String((req.body || {}).slug || '');
     const code = (req.body || {}).code;
-    if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return res.status(400).json({ error: 'Bad page name.' });
-    if (typeof code !== 'string' || code.length < 200 || code.length > 200000) return res.status(400).json({ error: 'That code is the wrong size to publish.' });
-    if (!/^\s*<!DOCTYPE html>/i.test(code) || !/<\/html>\s*$/i.test(code.trim())) return res.status(400).json({ error: 'Only complete game pages can be published.' });
-    const now = Date.now();
-    const log = (meteorPublishLog.get(req.user.id) || []).filter((t) => now - t < 3600 * 1000);
-    if (log.length && now - log[log.length - 1] < 15000) return res.status(429).json({ error: 'Slow down — one publish every 15 seconds.' });
-    if (log.length >= 20) return res.status(429).json({ error: 'Publish limit reached for this hour.' });
-    const apiUrl = 'https://api.github.com/repos/Dylan-Developer123/Arqade/contents/public/games/' + slug + '.html';
-    const ghHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'Arqade-Meteor-Publish' };
-    try {
-      const head = await fetch(apiUrl, { headers: ghHeaders });
-      if (head.status === 200) return res.status(409).json({ error: 'A page with that name already exists — Meteor can only add new pages.' });
-      if (head.status !== 404) return res.status(502).json({ error: 'GitHub check failed (' + head.status + '). The token may be wrong or expired.' });
-      const put = await fetch(apiUrl, {
-        method: 'PUT',
-        headers: { ...ghHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Meteor 1.0: add game page ' + slug, content: Buffer.from(code, 'utf8').toString('base64') }),
-      });
-      if (!put.ok) return res.status(502).json({ error: 'GitHub refused the publish (' + put.status + ').' });
-      const data = await put.json().catch(() => null);
-      log.push(now);
-      meteorPublishLog.set(req.user.id, log);
-      res.json({ ok: true, url: '/games/' + slug, commit: data && data.commit ? String(data.commit.sha).slice(0, 7) : null });
-    } catch (e) {
-      res.status(502).json({ error: 'Could not reach GitHub just now. Try again in a bit.' });
-    }
+    const bad = meteorPageError(slug, code);
+    if (bad) return res.status(400).json({ error: bad });
+    const slow = meteorThrottle(meteorPublishLog, req.user.id, 15000, 20);
+    if (slow) return res.status(429).json({ error: slow });
+    const r = await meteorPublish(slug, code, 'owner');
+    if (!r.ok) return res.status(r.status).json({ error: r.error });
+    res.json({ ok: true, url: '/games/' + slug, commit: r.commit });
+  });
+
+  // Developer-tag players: send a page to the owner for approval.
+  const meteorRequestLog = new Map();
+  app.post('/api/meteor/request', requireCoder, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.user.is_owner) return res.status(400).json({ error: 'You are the owner — publish directly instead.' });
+    const slug = String((req.body || {}).slug || '');
+    const code = (req.body || {}).code;
+    const bad = meteorPageError(slug, code);
+    if (bad) return res.status(400).json({ error: bad });
+    const slow = meteorThrottle(meteorRequestLog, req.user.id, 15000, 20);
+    if (slow) return res.status(429).json({ error: slow });
+    const pending = await db.prepare("SELECT COUNT(*) AS n FROM meteor_requests WHERE requester_id = ? AND status = 'pending'").get(req.user.id);
+    if (Number(pending ? pending.n : 0) >= 5) return res.status(400).json({ error: 'You already have 5 requests waiting. Let Dylan catch up first.' });
+    const dupe = await db.prepare("SELECT id FROM meteor_requests WHERE slug = ? AND status = 'pending'").get(slug);
+    if (dupe) return res.status(409).json({ error: 'A request for that page name is already waiting for Dylan.' });
+    await db.prepare('INSERT INTO meteor_requests (requester_id, slug, code) VALUES (?, ?, ?)').run(req.user.id, slug, code);
+    const row = await db.prepare('SELECT id FROM meteor_requests WHERE requester_id = ? AND slug = ? ORDER BY id DESC LIMIT 1').get(req.user.id, slug);
+    res.json({ ok: true, id: Number(row.id) });
+  });
+
+  app.get('/api/meteor/my-requests', requireCoder, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const rows = await db.prepare('SELECT id, slug, status, created_at FROM meteor_requests WHERE requester_id = ? ORDER BY id DESC LIMIT 10').all(req.user.id);
+    res.json({ requests: rows.map((r) => ({ id: Number(r.id), slug: r.slug, status: r.status, createdAt: r.created_at })) });
+  });
+
+  // Owner review: list, inspect (code included, for the preview), decide.
+  app.get('/api/meteor/requests', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const rows = await db.prepare(
+      "SELECT mr.id, mr.slug, mr.status, mr.created_at, LENGTH(mr.code) AS code_len, u.display_name AS requester FROM meteor_requests mr JOIN users u ON u.id = mr.requester_id WHERE mr.status = 'pending' ORDER BY mr.id ASC"
+    ).all();
+    res.json({ requests: rows.map((r) => ({ id: Number(r.id), slug: r.slug, status: r.status, createdAt: r.created_at, codeLen: Number(r.code_len), requester: r.requester })) });
+  });
+
+  app.get('/api/meteor/requests/:id', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad request id.' });
+    const row = await db.prepare('SELECT mr.*, u.display_name AS requester FROM meteor_requests mr JOIN users u ON u.id = mr.requester_id WHERE mr.id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'No such request.' });
+    res.json({ request: { id: Number(row.id), slug: row.slug, code: row.code, status: row.status, createdAt: row.created_at, requester: row.requester } });
+  });
+
+  app.post('/api/meteor/requests/:id/approve', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad request id.' });
+    const row = await db.prepare('SELECT * FROM meteor_requests WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'No such request.' });
+    if (row.status !== 'pending') return res.status(400).json({ error: 'That request was already ' + row.status + '.' });
+    const slow = meteorThrottle(meteorPublishLog, req.user.id, 15000, 20);
+    if (slow) return res.status(429).json({ error: slow });
+    const r = await meteorPublish(row.slug, row.code, 'approved request from ' + row.requester_id);
+    if (!r.ok) return res.status(r.status).json({ error: r.error });
+    await db.prepare("UPDATE meteor_requests SET status = 'approved', decided_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    res.json({ ok: true, url: '/games/' + row.slug, commit: r.commit });
+  });
+
+  app.post('/api/meteor/requests/:id/deny', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad request id.' });
+    const row = await db.prepare('SELECT * FROM meteor_requests WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'No such request.' });
+    if (row.status !== 'pending') return res.status(400).json({ error: 'That request was already ' + row.status + '.' });
+    await db.prepare("UPDATE meteor_requests SET status = 'denied', decided_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    res.json({ ok: true });
   });
 
   // -------------------------------------------------------------------------
