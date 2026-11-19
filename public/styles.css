@@ -129,6 +129,21 @@ form input {
 form input:focus { outline: 2px solid var(--accent); }
 form small { display: block; margin-top: 4px; }
 
+/* Auth overlay — Arqade theme (navy + gold), not the Miner Cat cream style */
+#auth-overlay { background: rgba(10, 10, 18, 0.72); }
+#auth-overlay .auth-panel {
+  background: #1e1e30; border: 2px solid #55557a; color: #eeeeee;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+}
+#auth-overlay .eyebrow { color: #f5c542; }
+#auth-overlay .muted { color: #a9a9c9; }
+#auth-overlay .tab { color: #a9a9c9; }
+#auth-overlay .tab.active { background: #26264a; border-color: #55557a; color: #ffffff; }
+#auth-overlay form input { background: #12121c; border-color: #55557a; color: #eeeeee; }
+#auth-overlay form input:focus { outline: 2px solid #f5c542; }
+#auth-overlay .btn.primary { background: #f5c542; border-color: #f5c542; color: #191920; }
+#auth-overlay .error { background: #3a1d22; color: #ff9a9a; border-color: #7a3a44; }
+
 /* ---------- game layout ---------- */
 #game-root { max-width: 1180px; margin: 0 auto; padding: 10px; }
 #topbar {
