@@ -26,6 +26,8 @@
   .msg .who { display: block; font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; opacity: .65; margin-bottom: 3px; }
   .msg pre { background: #0d0d16; border: 1px solid #3a3a5c; border-radius: 9px; padding: 10px 12px; margin-top: 8px; font-size: 12.5px; line-height: 1.45; overflow-x: auto; white-space: pre; color: #d9f99d; }
   .copyBtn { margin-top: 7px; background: #f5c542; color: #191920; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  .pushBtn { margin-top: 7px; margin-left: 7px; background: #f97316; color: #fff; border: 0; border-radius: 8px; font-weight: 800; font-size: 12.5px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+  .pushBtn:disabled { opacity: .55; cursor: default; }
   .typing { align-self: flex-start; font-size: 13px; color: #9aa0b4; font-style: italic; padding: 2px 4px; }
   #chips { display: flex; gap: 7px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid #2c2c48; background: #171726; }
   .chip { background: #262640; border: 1.5px solid #3a3a5c; color: #eef; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
@@ -68,16 +70,20 @@
   var modeCodeBtn = document.getElementById('modeCode');
   var mode = 'chat';
   var isOwner = false;
+  var pushAvailable = false;
   var myName = 'friend';
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function scrollDown() { log.scrollTop = log.scrollHeight; }
 
-  function addMsg(cls, who, text, code) {
+  function addMsg(cls, who, text, code, pushSlug) {
     var d = document.createElement('div');
     d.className = 'msg ' + cls;
     var html = '<span class="who">' + esc(who) + '</span>' + esc(text);
-    if (code) html += '<pre>' + esc(code) + '</pre><button class="copyBtn">📋 Copy code</button>';
+    if (code) {
+      html += '<pre>' + esc(code) + '</pre><button class="copyBtn">📋 Copy code</button>';
+      if (pushSlug && pushAvailable) html += '<button class="pushBtn">🚀 Push to site</button>';
+    }
     d.innerHTML = html;
     if (code) {
       d.querySelector('.copyBtn').addEventListener('click', function () {
@@ -86,19 +92,54 @@
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, done);
         else done();
       });
+      var pushBtn = d.querySelector('.pushBtn');
+      if (pushBtn) {
+        var armed = false, armTimer = null;
+        pushBtn.addEventListener('click', function () {
+          if (!armed) {
+            armed = true;
+            pushBtn.textContent = 'Tap again to publish 🚀';
+            armTimer = setTimeout(function () { armed = false; pushBtn.textContent = '🚀 Push to site'; }, 3500);
+            return;
+          }
+          clearTimeout(armTimer);
+          pushBtn.disabled = true;
+          pushBtn.textContent = '🚀 Publishing…';
+          fetch('/api/meteor/publish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: pushSlug, code: code })
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+          }).then(function (res) {
+            if (res.ok) {
+              pushBtn.textContent = '✅ Published!';
+              botSay('Done! 🚀 Your page is on GitHub (commit ' + (res.j.commit || '—') + '). Render is rebuilding now — it\'ll be live at ' + res.j.url + ' in about a minute. It\'s not on the portal yet: ask Baxter to add the card, or grab the "portal card" code from me and paste it in.', null, 400);
+            } else {
+              pushBtn.disabled = false;
+              pushBtn.textContent = '🚀 Push to site';
+              botSay('⚠️ Publish failed: ' + (res.j.error || 'something went wrong.'), null, 300);
+            }
+          }).catch(function () {
+            pushBtn.disabled = false;
+            pushBtn.textContent = '🚀 Push to site';
+            botSay('⚠️ Publish failed: no connection. Try again in a bit.', null, 300);
+          });
+        });
+      }
     }
     log.appendChild(d);
     scrollDown();
   }
 
-  function botSay(text, code, delay) {
+  function botSay(text, code, delay, pushSlug) {
     var t = document.createElement('div');
     t.className = 'typing';
     t.textContent = '☄️ Meteor is typing…';
     log.appendChild(t); scrollDown();
     setTimeout(function () {
       t.remove();
-      addMsg('bot', 'Meteor 1.0', text, code);
+      addMsg('bot', 'Meteor 1.0', text, code, pushSlug);
     }, delay || (450 + Math.random() * 550));
   }
 
@@ -261,7 +302,11 @@
     var q = raw.toLowerCase();
     var m;
     if (q.indexOf('help') >= 0 || q.trim() === '') return { text: CODE_HELP };
-    if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) return { text: 'Here\'s a starter page for "' + m[1].trim() + '" — Arqade style, with the account gate built in:', code: gameSkeleton(m[1].trim()) };
+    if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) {
+      var gname = m[1].trim();
+      var gslug = gname.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
+      return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + (pushAvailable ? ' Tap 🚀 Push to site under the code and it goes live for real:' : ''), code: gameSkeleton(gname), slug: gslug };
+    }
     if ((m = raw.match(/(?:portal )?card (?:for|called)\s+(.+)/i))) return { text: 'Here\'s the portal card for "' + m[1].trim() + '":', code: cardSnippet(m[1].trim()) };
     if ((m = raw.match(/gradient\s+(#[0-9a-f]{3,8})\s+(?:to\s+)?(#[0-9a-f]{3,8})/i))) return { text: 'Gradient, ready to paste:', code: 'background: linear-gradient(135deg, ' + m[1] + ', ' + m[2] + ');' };
     if ((m = raw.match(/^encode\s+([\s\S]+)/i))) { try { return { text: 'Encoded:', code: btoa(unescape(encodeURIComponent(m[1]))) }; } catch (e) { return { text: 'I couldn\'t encode that one.' }; } }
@@ -308,7 +353,7 @@
     addMsg('me', myName, raw);
     if (mode === 'code') {
       var r = codeReply(raw);
-      botSay(r.text, r.code, 600);
+      botSay(r.text, r.code, 600, r.slug);
     } else {
       botSay(chatReply(raw));
     }
@@ -325,6 +370,9 @@
       if (d.user.isOwner) {
         isOwner = true;
         modeCodeBtn.classList.remove('hidden');
+        fetch('/api/meteor/push-status').then(function (r) { return r.ok ? r.json() : null; }).then(function (s) {
+          if (s && s.available) pushAvailable = true;
+        }).catch(function () {});
       }
     }
   }).catch(function () {});
