@@ -763,6 +763,79 @@ async function main() {
     res.json({ ok: true, url: '/games/' + slug, commit: r.commit });
   });
 
+  // Developer-tag players: send a page to the owner. The owner reviews the
+  // requests in the Feedback app's Dev requests tab (with a live preview)
+  // and approves (publishes) or denies them there.
+  const meteorRequestLog = new Map();
+  app.post('/api/meteor/request', requireCoder, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.user.is_owner) return res.status(400).json({ error: 'You are the owner — publish directly instead.' });
+    const slug = String((req.body || {}).slug || '');
+    const code = (req.body || {}).code;
+    const bad = meteorPageError(slug, code);
+    if (bad) return res.status(400).json({ error: bad });
+    const slow = meteorThrottle(meteorRequestLog, req.user.id, 15000, 20);
+    if (slow) return res.status(429).json({ error: slow });
+    const pend = await db.prepare("SELECT COUNT(*) AS c FROM meteor_requests WHERE requester_id = ? AND status = 'pending'").get(req.user.id);
+    if (Number(pend.c) >= 5) return res.status(400).json({ error: 'You already have 5 requests waiting. Dylan needs to decide those first.' });
+    const dupe = await db.prepare("SELECT id FROM meteor_requests WHERE slug = ? AND status = 'pending'").get(slug);
+    if (dupe) return res.status(409).json({ error: 'A page called "' + slug + '" is already waiting for Dylan.' });
+    await db.prepare('INSERT INTO meteor_requests (requester_id, slug, code) VALUES (?, ?, ?)').run(req.user.id, slug, code);
+    const row = await db.prepare('SELECT id FROM meteor_requests WHERE requester_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
+    res.json({ ok: true, id: Number(row.id) });
+  });
+
+  app.get('/api/meteor/my-requests', requireCoder, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const rows = await db.prepare('SELECT id, slug, status, created_at FROM meteor_requests WHERE requester_id = ? ORDER BY id DESC LIMIT 10').all(req.user.id);
+    res.json({ requests: rows.map((r) => ({ id: Number(r.id), slug: r.slug, status: r.status, createdAt: r.created_at })) });
+  });
+
+  app.get('/api/meteor/requests', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const rows = await db.prepare(
+      "SELECT mr.id, mr.slug, mr.status, mr.created_at, LENGTH(mr.code) AS code_len, u.display_name AS requester FROM meteor_requests mr JOIN users u ON u.id = mr.requester_id WHERE mr.status = 'pending' ORDER BY mr.id ASC"
+    ).all();
+    res.json({ requests: rows.map((r) => ({ id: Number(r.id), slug: r.slug, status: r.status, createdAt: r.created_at, codeLen: Number(r.code_len), requester: r.requester })) });
+  });
+
+  app.get('/api/meteor/requests/:id', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad request id.' });
+    const row = await db.prepare(
+      'SELECT mr.id, mr.slug, mr.code, mr.status, mr.created_at, u.display_name AS requester FROM meteor_requests mr JOIN users u ON u.id = mr.requester_id WHERE mr.id = ?'
+    ).get(id);
+    if (!row) return res.status(404).json({ error: 'No such request.' });
+    res.json({ request: { id: Number(row.id), slug: row.slug, code: row.code, status: row.status, createdAt: row.created_at, requester: row.requester } });
+  });
+
+  app.post('/api/meteor/requests/:id/approve', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad request id.' });
+    const row = await db.prepare('SELECT id, slug, code, status, requester_id FROM meteor_requests WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'No such request.' });
+    if (row.status !== 'pending') return res.status(400).json({ error: 'That request was already ' + row.status + '.' });
+    const slow = meteorThrottle(meteorPublishLog, req.user.id, 15000, 20);
+    if (slow) return res.status(429).json({ error: slow });
+    const r = await meteorPublish(row.slug, row.code, 'approved request from user ' + row.requester_id);
+    if (!r.ok) return res.status(r.status).json({ error: r.error });
+    await db.prepare("UPDATE meteor_requests SET status = 'approved', decided_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    res.json({ ok: true, slug: row.slug, commit: r.commit, url: '/games/' + row.slug });
+  });
+
+  app.post('/api/meteor/requests/:id/deny', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Bad request id.' });
+    const row = await db.prepare('SELECT id, status FROM meteor_requests WHERE id = ?').get(id);
+    if (!row) return res.status(404).json({ error: 'No such request.' });
+    if (row.status !== 'pending') return res.status(400).json({ error: 'That request was already ' + row.status + '.' });
+    await db.prepare("UPDATE meteor_requests SET status = 'denied', decided_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+    res.json({ ok: true });
+  });
+
   // -------------------------------------------------------------------------
   // Feedback app — everyone signed in can send feedback; the owner and
   // developer-tag players can read all of it; only the owner manages it.
