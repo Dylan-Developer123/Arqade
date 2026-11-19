@@ -640,6 +640,60 @@ async function main() {
   });
 
   // -------------------------------------------------------------------------
+  // Meteor 1.0 publishing — the owner can push a NEW game page that Meteor
+  // generated straight to GitHub (which auto-deploys the site). Hard limits:
+  // owner account only, brand-new public/games/<slug>.html files only, the
+  // file must not already exist, complete HTML pages only, throttled. The key
+  // comes from the GITHUB_TOKEN environment variable and never leaves here.
+  // -------------------------------------------------------------------------
+  function requireOwner(req, res, next) {
+    if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
+    if (!req.user.is_owner) return res.status(403).json({ error: 'Owner only.' });
+    next();
+  }
+
+  app.get('/api/meteor/push-status', requireOwner, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ available: !!process.env.GITHUB_TOKEN });
+  });
+
+  const meteorPublishLog = new Map(); // userId -> recent publish timestamps
+  app.post('/api/meteor/publish', requireOwner, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) return res.status(503).json({ error: 'Push is not set up on this server yet (no GITHUB_TOKEN).' });
+    if (typeof fetch !== 'function') return res.status(500).json({ error: 'This server cannot reach GitHub from here.' });
+    const slug = String((req.body || {}).slug || '');
+    const code = (req.body || {}).code;
+    if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(slug)) return res.status(400).json({ error: 'Bad page name.' });
+    if (typeof code !== 'string' || code.length < 200 || code.length > 200000) return res.status(400).json({ error: 'That code is the wrong size to publish.' });
+    if (!/^\s*<!DOCTYPE html>/i.test(code) || !/<\/html>\s*$/i.test(code.trim())) return res.status(400).json({ error: 'Only complete game pages can be published.' });
+    const now = Date.now();
+    const log = (meteorPublishLog.get(req.user.id) || []).filter((t) => now - t < 3600 * 1000);
+    if (log.length && now - log[log.length - 1] < 15000) return res.status(429).json({ error: 'Slow down — one publish every 15 seconds.' });
+    if (log.length >= 20) return res.status(429).json({ error: 'Publish limit reached for this hour.' });
+    const apiUrl = 'https://api.github.com/repos/Dylan-Developer123/Arqade/contents/public/games/' + slug + '.html';
+    const ghHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'Arqade-Meteor-Publish' };
+    try {
+      const head = await fetch(apiUrl, { headers: ghHeaders });
+      if (head.status === 200) return res.status(409).json({ error: 'A page with that name already exists — Meteor can only add new pages.' });
+      if (head.status !== 404) return res.status(502).json({ error: 'GitHub check failed (' + head.status + '). The token may be wrong or expired.' });
+      const put = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: { ...ghHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Meteor 1.0: add game page ' + slug, content: Buffer.from(code, 'utf8').toString('base64') }),
+      });
+      if (!put.ok) return res.status(502).json({ error: 'GitHub refused the publish (' + put.status + ').' });
+      const data = await put.json().catch(() => null);
+      log.push(now);
+      meteorPublishLog.set(req.user.id, log);
+      res.json({ ok: true, url: '/games/' + slug, commit: data && data.commit ? String(data.commit.sha).slice(0, 7) : null });
+    } catch (e) {
+      res.status(502).json({ error: 'Could not reach GitHub just now. Try again in a bit.' });
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // Account settings — change username / display name / password
   // -------------------------------------------------------------------------
   app.patch('/api/account', requireAuth, async (req, res) => {
