@@ -561,7 +561,9 @@ async function main() {
     const existing = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
     if (!existing) {
       await db.prepare('INSERT INTO scores (user_id, game, score) VALUES (?, ?, ?)').run(req.user.id, game, score);
-    } else if (score > existing.score) {
+    } else if (score > existing.score || game === 'clickersim') {
+      /* clickersim's board follows the player's CURRENT save (lifetime earned), so it always
+         updates as they play — best-ever semantics froze it behind an old boosted best. */
       await db.prepare('UPDATE scores SET score = ? WHERE user_id = ? AND game = ?').run(score, req.user.id, game);
     }
     const mine = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
