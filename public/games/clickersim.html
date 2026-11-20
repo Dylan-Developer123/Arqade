@@ -68,7 +68,6 @@
 <div id="shopFilter">
   <button id="fltMine" class="on">🎚️ My rebirth &amp; below</button>
   <button id="fltAll">🌐 Show all upgrades</button>
-  <button id="fltNew">🛒 Not bought yet</button>
 </div>
 
 <h2 class="shop-title">👆 Click power</h2>
@@ -160,7 +159,7 @@ var coinBtn = document.getElementById('bigcoin');
 var msgEl = document.getElementById('msg');
 var dirty = false;
 
-var filterMode = 'mine'; /* 'mine' | 'all' | 'unowned' */
+var filterMode = 'mine'; /* 'mine' | 'all' */
 function buildShop(el, items, ownedMap, perLabel) {
   el.innerHTML = '';
   items.forEach(function (it) {
@@ -190,8 +189,8 @@ function buy(it, ownedMap) {
 buildShop(document.getElementById('clickShop'), CLICK_ITEMS, S.clickOwned, 'per click');
 buildShop(document.getElementById('autoShop'), AUTO_ITEMS, S.autoOwned, 'per sec');
 
-filterMode = S.filterMode || (S.showAll ? 'all' : 'mine');
-var fltBtns = { mine: document.getElementById('fltMine'), all: document.getElementById('fltAll'), unowned: document.getElementById('fltNew') };
+filterMode = (S.filterMode === 'all' || S.showAll) ? 'all' : 'mine';
+var fltBtns = { mine: document.getElementById('fltMine'), all: document.getElementById('fltAll') };
 function syncFilter() { for (var k in fltBtns) fltBtns[k].classList.toggle('on', filterMode === k); }
 Object.keys(fltBtns).forEach(function (mode) {
   fltBtns[mode].addEventListener('click', function () { filterMode = mode; S.filterMode = mode; dirty = true; syncFilter(); render(); });
@@ -202,7 +201,7 @@ function renderShop(items, ownedMap) {
   items.forEach(function (it) {
     var owned = ownedMap[it.id] || 0;
     var locked = it.req > S.rebirths;
-    var hide = (filterMode === 'mine' && locked) || (filterMode === 'unowned' && (owned > 0 || locked));
+    var hide = filterMode === 'mine' && locked;
     it._card.style.display = hide ? 'none' : '';
     it._card.classList.toggle('locked', locked);
     if (locked) {
