@@ -148,7 +148,7 @@ function clickBase() { var t = 1 + permLvl('hands'); CLICK_ITEMS.forEach(functio
 function autoBase() { var t = 0; AUTO_ITEMS.forEach(function (it) { t += it.add * (S.autoOwned[it.id] || 0); }); return t; }
 function perClick() { return clickBase() * mult() * permFactor(); }
 function perSec() { return autoBase() * mult() * permFactor(); }
-function costOf(it, owned) { return Math.ceil(it.base * Math.pow(GROWTH, owned)); }
+function costOf(it, owned) { return Math.max(1, Math.ceil(it.base * Math.pow(GROWTH, owned) * Math.pow(0.95, permLvl('sale')))); }
 function rebirthCost() { return 1000000 * Math.pow(8, S.rebirths); }
 var PERM_ITEMS = [
   { id: 'power',     name: '💪 Power Core',   cost: 1, max: 20, desc: '+25% to ALL earnings per level' },
@@ -156,12 +156,25 @@ var PERM_ITEMS = [
   { id: 'headstart', name: '🚀 Head Start',   cost: 1, max: 10, desc: 'Start each rebirth with +10K coins per level' },
   { id: 'vault',     name: '🏦 Coin Vault',   cost: 2, max: 5,  desc: 'Keep +10% of your coins when you rebirth, per level' },
   { id: 'offline',   name: '💤 Offline Boost', cost: 1, max: 4, desc: 'Offline earnings +25% rate per level (starts at 50%)' },
-  { id: 'magnet',    name: '🧲 Token Magnet', cost: 3, max: 3,  desc: '+1 ✨ token per rebirth, per level' }
+  { id: 'magnet',    name: '🧲 Token Magnet', cost: 3, max: 3,  desc: '+1 ✨ token per rebirth, per level' },
+  { id: 'sale',      name: '🏷️ Sale Hunter', cost: 2, max: 10, desc: 'Regular upgrades cost 5% less per level' },
+  { id: 'crit',      name: '🎯 Crit Clicks',  cost: 2, max: 10, desc: '+2% chance per level that a click pays ×10' },
+  { id: 'synergy',   name: '🔗 Click Synergy', cost: 2, max: 10, desc: 'Each click also pays +2% of your per-second earnings, per level' },
+  { id: 'sleeper',   name: '🌙 Deep Sleeper', cost: 1, max: 5,  desc: 'Offline earnings cap +4 hours per level (starts at 8h)' },
+  { id: 'kickstart', name: '🎁 Kickstart Crew', cost: 1, max: 10, desc: 'Start each rebirth with free Auto Clickers, 1 per level' },
+  { id: 'timebank',  name: '⏰ Time Bank',    cost: 2, max: 10, desc: 'Rebirthing also pays 1 minute of your auto earnings per level' }
 ];
 function permLvl(id) { return (S.permOwned && S.permOwned[id]) || 0; }
 function permFactor() { return 1 + 0.25 * permLvl('power'); }
 function offlineRate() { return 0.5 + 0.25 * permLvl('offline'); }
 function tokensPerRebirth() { return 3 + permLvl('magnet'); }
+function offlineCapSec() { return (8 + 4 * permLvl('sleeper')) * 3600; }
+function clickGain() {
+  var g = perClick() + perSec() * 0.02 * permLvl('synergy');
+  var crit = permLvl('crit') > 0 && Math.random() < 0.02 * permLvl('crit');
+  if (crit) g *= 10;
+  return { gain: g, crit: crit };
+}
 function fmt(n) {
   if (n < 1000) return String(Math.floor(n));
   if (n >= 1e36) return n.toExponential(2).replace('e+', 'e');
@@ -301,29 +314,32 @@ rebirthBtn.addEventListener('click', function () {
   rebirthArmed = false;
   var kept = Math.floor(S.coins * 0.10 * permLvl('vault'));
   var bonus = permLvl('headstart') * 10000;
+  var timeBonus = Math.floor(perSec() * 60 * permLvl('timebank'));
   var gained = tokensPerRebirth();
-  S.coins = kept + bonus;
+  S.coins = kept + bonus + timeBonus;
   S.clickOwned = {};
   S.autoOwned = {};
+  if (permLvl('kickstart') > 0) S.autoOwned[AUTO_ITEMS[0].id] = permLvl('kickstart');
   S.rebirths++;
   S.tokens += gained;
   buildShop(document.getElementById('clickShop'), CLICK_ITEMS, S.clickOwned, 'per click');
   buildShop(document.getElementById('autoShop'), AUTO_ITEMS, S.autoOwned, 'per sec');
   dirty = true;
-  msgEl.textContent = '✨ REBIRTH #' + S.rebirths + '! Multiplier ×' + mult() + ' and +' + gained + ' ✨ tokens!' + (kept + bonus > 0 ? ' You kept 🪙 ' + fmt(kept + bonus) + ' thanks to your permanent upgrades.' : '');
+  msgEl.textContent = '✨ REBIRTH #' + S.rebirths + '! Multiplier ×' + mult() + ' and +' + gained + ' ✨ tokens!' + (kept + bonus + timeBonus > 0 ? ' You kept 🪙 ' + fmt(kept + bonus + timeBonus) + ' thanks to your permanent upgrades.' : '') + (permLvl('kickstart') > 0 ? ' Kickstart Crew: ' + permLvl('kickstart') + ' free Auto Clickers ready!' : '');
   render();
   submitScore(true);
 });
 
 coinBtn.addEventListener('click', function (e) {
-  var gain = perClick();
+  var cg = clickGain();
+  var gain = cg.gain;
   S.coins += gain;
   S.totalEarned += gain;
   dirty = true;
   var r = stage.getBoundingClientRect();
   var f = document.createElement('div');
   f.className = 'floaty';
-  f.textContent = '+' + fmt(gain);
+  f.textContent = cg.crit ? '💥 CRIT +' + fmt(gain) : '+' + fmt(gain);
   var x = (e.clientX ? e.clientX - r.left : r.width / 2) - 18 + (Math.random() * 36 - 18);
   var y = (e.clientY ? e.clientY - r.top : 90) - 14;
   f.style.left = Math.max(4, Math.min(r.width - 60, x)) + 'px';
@@ -335,7 +351,7 @@ coinBtn.addEventListener('click', function (e) {
 
 /* offline earnings: half rate, up to 8 hours away */
 if (hadSave && S.lastSeen) {
-  var awaySec = Math.min(28800, Math.max(0, Math.floor((Date.now() - S.lastSeen) / 1000)));
+  var awaySec = Math.min(offlineCapSec(), Math.max(0, Math.floor((Date.now() - S.lastSeen) / 1000)));
   var offlineGain = perSec() * awaySec * offlineRate();
   if (offlineGain >= 10) {
     S.coins += offlineGain;
@@ -381,7 +397,7 @@ var ME = null;
 var esc = function (s) { return String(s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); };
 async function loadLb() {
   try {
-    var d = await (await fetch('/api/scores/clickersim')).json();
+    var d = await (await fetch('/api/scores/clickersim', { cache: 'no-store' })).json();
     document.getElementById('lb').innerHTML = '<b>🏆 Leaderboard</b> (lifetime coins earned)' + (d.scores.length ? d.scores.map(function (s, i) { return '<br>' + (i + 1) + '. ' + esc(s.displayName) + ' — ' + fmt(s.score); }).join('') : '<br>No scores yet — be the first!');
   } catch (e) {}
 }
@@ -395,6 +411,7 @@ async function submitScore(force) {
   try { await fetch('/api/scores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'clickersim', score: s }) }); loadLb(); } catch (e) {}
 }
 setInterval(function () { submitScore(false); }, 4000);
+setInterval(loadLb, 30000);
 (async function () {
   try { var r = await fetch('/api/me'); if (r.ok) ME = (await r.json()).user; } catch (e) {}
   document.getElementById('acct').innerHTML = ME ? '👤 Playing as <b>' + esc(ME.displayName) + '</b> — your lifetime coins save to the leaderboard' : '👤 <a href="/miner-cat-2" style="color:#f5c542;">Sign in</a> to save scores to your account';
