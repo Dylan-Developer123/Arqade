@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Arqade — Play Free Games</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='21' fill='%23f5c542'/%3E%3Ccircle cx='24' cy='24' r='16.5' fill='none' stroke='%238a6414' stroke-width='1.6' opacity='0.55'/%3E%3Cpath fill-rule='evenodd' fill='%231b1b2d' d='M14.5 35 L24 13 L33.5 35 L28.6 35 L26.9 30.6 L21.1 30.6 L19.4 35 Z M24 22.2 L25.5 26.6 L22.5 26.6 Z'/%3E%3C/svg%3E">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   ::selection { background: rgba(245,197,66,.4); }
@@ -24,7 +25,8 @@
     box-shadow: 0 8px 28px rgba(0,0,0,.35);
     position: sticky; top: 0; z-index: 10;
   }
-  header .logo { font-size: 34px; filter: drop-shadow(0 3px 8px rgba(245,197,66,.35)); }
+  header .logo { display: flex; align-items: center; filter: drop-shadow(0 3px 8px rgba(245,197,66,.35)); }
+  header .logo svg { display: block; }
   header h1 { font-size: 26px; letter-spacing: 2px; color: #f5c542; text-transform: uppercase; font-weight: 700; text-shadow: 0 2px 16px rgba(245,197,66,.28); }
   header h1 span { color: #f5c542; }
   header p { opacity: 0.7; font-size: 14px; margin-left: auto; }
@@ -77,6 +79,7 @@
 </head>
 <body>
 <header>
+  <span class="logo" aria-hidden="true"><svg width="42" height="42" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="arqLogoGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe37e"/><stop offset="0.55" stop-color="#f5c542"/><stop offset="1" stop-color="#dd9f26"/></linearGradient></defs><circle cx="24" cy="24" r="21" fill="url(#arqLogoGold)"/><circle cx="24" cy="24" r="16.5" fill="none" stroke="#8a6414" stroke-width="1.6" opacity="0.55"/><path fill-rule="evenodd" fill="#1b1b2d" d="M14.5 35 L24 13 L33.5 35 L28.6 35 L26.9 30.6 L21.1 30.6 L19.4 35 Z M24 22.2 L25.5 26.6 L22.5 26.6 Z"/><ellipse cx="16.5" cy="13.5" rx="9" ry="4.6" fill="#ffffff" opacity="0.30" transform="rotate(-24 16.5 13.5)"/></svg></span>
   <h1>Arqade</h1>
   <div style="font-size:12.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#f5c542;">by Meteor</div>
   <p>Free games — no downloads, just play</p>
