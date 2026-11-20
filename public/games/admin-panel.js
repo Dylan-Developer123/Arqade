@@ -405,4 +405,47 @@ try { arqApplyAppearance(); } catch (e) {}
     try { await admin('wipe', {}); location.reload(); }
     catch (ex) { status('⚠️ ' + ex.message); }
   };
+
+  /* ------- fullscreen button (every page) ------- */
+  (function () {
+    if (document.getElementById('arq-fs-btn')) return;
+    var btn = document.createElement('button');
+    btn.id = 'arq-fs-btn';
+    btn.type = 'button';
+    btn.textContent = '⛶ Fullscreen';
+    btn.setAttribute('aria-label', 'Toggle fullscreen');
+    btn.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:900;background:rgba(30,30,48,.88);color:#f5c542;border:1.5px solid #55557a;border-radius:999px;padding:8px 14px;font:700 13px "Segoe UI",system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4);';
+    document.body.appendChild(btn);
+    var toastEl = null;
+    function fsToast(msg) {
+      if (!toastEl) {
+        toastEl = document.createElement('div');
+        toastEl.style.cssText = 'position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:9999;background:#262640;color:#eee;border:1.5px solid #55557a;border-radius:10px;padding:10px 16px;font:600 14px "Segoe UI",system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;transition:opacity .3s;';
+        document.body.appendChild(toastEl);
+      }
+      toastEl.textContent = msg;
+      toastEl.style.opacity = '1';
+      clearTimeout(fsToast._t);
+      fsToast._t = setTimeout(function () { toastEl.style.opacity = '0'; }, 2400);
+    }
+    function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+    function sync() { btn.textContent = fsEl() ? '⛶ Exit fullscreen' : '⛶ Fullscreen'; }
+    btn.addEventListener('click', function () {
+      try {
+        if (fsEl()) {
+          var exit = document.exitFullscreen || document.webkitExitFullscreen;
+          if (exit) exit.call(document);
+        } else {
+          var el = document.documentElement;
+          var req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (!req) { fsToast('⛶ Fullscreen isn\'t available in this browser.'); return; }
+          var p = req.call(el);
+          if (p && p.catch) p.catch(function () { fsToast('⛶ Fullscreen was blocked — try tapping again.'); });
+        }
+      } catch (e) { fsToast('⛶ Fullscreen isn\'t available here.'); }
+      setTimeout(sync, 300);
+    });
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+  })();
 })();
