@@ -202,7 +202,7 @@ function renderShop(items, ownedMap) {
   items.forEach(function (it) {
     var owned = ownedMap[it.id] || 0;
     var locked = it.req > S.rebirths;
-    var hide = (filterMode === 'mine' && locked) || (filterMode === 'unowned' && owned > 0);
+    var hide = (filterMode === 'mine' && locked) || (filterMode === 'unowned' && (owned > 0 || locked));
     it._card.style.display = hide ? 'none' : '';
     it._card.classList.toggle('locked', locked);
     if (locked) {
