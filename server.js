@@ -714,7 +714,7 @@ async function main() {
       const put = await fetch(apiUrl, {
         method: 'PUT',
         headers: { ...ghHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Meteor 1.1: add game page ' + slug + (via ? ' (' + via + ')' : ''), content: Buffer.from(code, 'utf8').toString('base64') }),
+        body: JSON.stringify({ message: 'Meteor 1.2: add game page ' + slug + (via ? ' (' + via + ')' : ''), content: Buffer.from(code, 'utf8').toString('base64') }),
       });
       if (!put.ok) return { ok: false, status: 502, error: 'GitHub refused the publish (' + put.status + ').' };
       const data = await put.json().catch(() => null);
@@ -1167,7 +1167,7 @@ async function main() {
 
   // --- Mining Simulator world bot (stage 1001, around spawn) ---
   const minerBot = {
-    ws: meteorStubWs, id: METEOR_ID, username: 'meteor', displayName: 'Meteor 1.1',
+    ws: meteorStubWs, id: METEOR_ID, username: 'meteor', displayName: 'Meteor 1.2',
     x: 12.5, y: -0.5, stage: 1001, tags: {},
     dir: 1, targetX: 17, jumpT: -1, nextMineAt: Date.now() + 9000, mineStepAt: 0, mineX: null,
   };
@@ -1204,7 +1204,7 @@ async function main() {
 
   // --- City Pursuit bot car: right-hand-traffic loop around the central block ---
   const pursuitBot = {
-    ws: meteorStubWs, id: METEOR_ID, username: 'meteor', displayName: 'Meteor 1.1', tags: {},
+    ws: meteorStubWs, id: METEOR_ID, username: 'meteor', displayName: 'Meteor 1.2', tags: {},
     voiceOn: false, lastChat: 0,
     x: -3.6, z: 30, a: Math.PI, wp: 0, // start on Main St heading south (+Z)
     state: { mode: 'drive', x: -3.6, y: 0, z: 30, a: Math.PI, c: 0xf97316, mv: 1, hide: 0, cop: 0 },
@@ -1238,7 +1238,7 @@ async function main() {
       a: +pursuitBot.a.toFixed(3), c: 0xf97316, mv: 1, hide: 0, cop: 0,
     };
     if (pursuit.size > 1) {
-      pursuitBotBroadcast({ t: 'ppos', id: METEOR_ID, displayName: 'Meteor 1.1', tags: {}, ...pursuitBot.state });
+      pursuitBotBroadcast({ t: 'ppos', id: METEOR_ID, displayName: 'Meteor 1.2', tags: {}, ...pursuitBot.state });
     }
   }, 100);
 
@@ -1363,7 +1363,7 @@ async function main() {
       // Meteor 1.0 greets each driver who enters the city
       setTimeout(() => {
         if (pursuit.get(userId)?.ws === ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ t: 'chat', id: METEOR_ID, displayName: 'Meteor 1.1', text: 'Hey ' + pp.displayName + '! ☄️ I\'m Meteor 1.0 — I\'m driving the orange car. Catch me if you can!' }));
+          ws.send(JSON.stringify({ t: 'chat', id: METEOR_ID, displayName: 'Meteor 1.2', text: 'Hey ' + pp.displayName + '! ☄️ I\'m Meteor 1.0 — I\'m driving the orange car. Catch me if you can!' }));
         }
       }, 1200);
       ws.on('message', (raw) => {
