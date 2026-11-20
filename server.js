@@ -549,7 +549,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // Portal game scores — the Miner Cat account is the one site account.
   // -------------------------------------------------------------------------
-  const PORTAL_GAMES = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'blackjack', 'word', 'pursuit3d'];
+  const PORTAL_GAMES = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'blackjack', 'word', 'pursuit3d', 'clickersim'];
   const isPortalGame = game => PORTAL_GAMES.includes(game) || /^micro-[a-z0-9-]{3,50}$/.test(game);
   app.post('/api/scores', requireAuth, async (req, res) => {
     const game = String((req.body || {}).game || '');
