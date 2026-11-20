@@ -68,6 +68,7 @@
 <div id="shopFilter">
   <button id="fltMine" class="on">🎚️ My rebirth &amp; below</button>
   <button id="fltAll">🌐 Show all upgrades</button>
+  <button id="fltNew">🛒 Not bought yet</button>
 </div>
 
 <h2 class="shop-title">👆 Click power</h2>
@@ -158,7 +159,7 @@ var coinBtn = document.getElementById('bigcoin');
 var msgEl = document.getElementById('msg');
 var dirty = false;
 
-var showAll = false;
+var filterMode = 'mine'; /* 'mine' | 'all' | 'unowned' */
 function buildShop(el, items, ownedMap, perLabel) {
   el.innerHTML = '';
   items.forEach(function (it) {
@@ -188,18 +189,20 @@ function buy(it, ownedMap) {
 buildShop(document.getElementById('clickShop'), CLICK_ITEMS, S.clickOwned, 'per click');
 buildShop(document.getElementById('autoShop'), AUTO_ITEMS, S.autoOwned, 'per sec');
 
-showAll = !!S.showAll;
-var fltMine = document.getElementById('fltMine'), fltAll = document.getElementById('fltAll');
-function syncFilter() { fltMine.classList.toggle('on', !showAll); fltAll.classList.toggle('on', showAll); }
-fltMine.addEventListener('click', function () { showAll = false; S.showAll = false; dirty = true; syncFilter(); render(); });
-fltAll.addEventListener('click', function () { showAll = true; S.showAll = true; dirty = true; syncFilter(); render(); });
+filterMode = S.filterMode || (S.showAll ? 'all' : 'mine');
+var fltBtns = { mine: document.getElementById('fltMine'), all: document.getElementById('fltAll'), unowned: document.getElementById('fltNew') };
+function syncFilter() { for (var k in fltBtns) fltBtns[k].classList.toggle('on', filterMode === k); }
+Object.keys(fltBtns).forEach(function (mode) {
+  fltBtns[mode].addEventListener('click', function () { filterMode = mode; S.filterMode = mode; dirty = true; syncFilter(); render(); });
+});
 syncFilter();
 
 function renderShop(items, ownedMap) {
   items.forEach(function (it) {
     var owned = ownedMap[it.id] || 0;
     var locked = it.req > S.rebirths;
-    it._card.style.display = (locked && !showAll) ? 'none' : '';
+    var hide = (filterMode === 'mine' && locked) || (filterMode === 'unowned' && owned > 0);
+    it._card.style.display = hide ? 'none' : '';
     it._card.classList.toggle('locked', locked);
     if (locked) {
       it._ownedEl.textContent = '🔒';
