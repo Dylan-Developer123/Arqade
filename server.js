@@ -163,7 +163,7 @@ const SCHEMA_SQLITE = `
   CREATE TABLE IF NOT EXISTS scores (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     game    TEXT NOT NULL,
-    score   BIGINT NOT NULL DEFAULT 0,
+    score   REAL NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, game)
   );
   CREATE TABLE IF NOT EXISTS game_likes (
@@ -232,7 +232,7 @@ const SCHEMA_PG = `
   CREATE TABLE IF NOT EXISTS scores (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     game    TEXT NOT NULL,
-    score   BIGINT NOT NULL DEFAULT 0,
+    score   DOUBLE PRECISION NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, game)
   );
   CREATE TABLE IF NOT EXISTS game_likes (
@@ -291,7 +291,7 @@ async function main() {
   try { await db.exec('ALTER TABLE users ADD COLUMN is_moderator INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
   try { await db.exec('ALTER TABLE users ADD COLUMN is_developer INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
   try { await db.exec('ALTER TABLE users ADD COLUMN hide_tags INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
-  try { await db.exec('ALTER TABLE scores ALTER COLUMN score TYPE BIGINT'); } catch (e) { /* sqlite (already 64-bit) or already bigint */ }
+  try { await db.exec('ALTER TABLE scores ALTER COLUMN score TYPE DOUBLE PRECISION'); } catch (e) { /* sqlite handles big values as REAL automatically */ }
   // The owner is the first registered account and holds all four tags for real.
   // Backfill once so badge display can use the real flags (no admin implies owner).
   try { await db.exec('UPDATE users SET is_owner = 1, is_admin = 1, is_moderator = 1, is_developer = 1 WHERE id = (SELECT MIN(id) FROM users)'); } catch (e) { /* no users yet */ }
@@ -556,7 +556,7 @@ async function main() {
     const game = String((req.body || {}).game || '');
     const score = Math.floor(Number((req.body || {}).score));
     if (!isPortalGame(game)) return res.status(400).json({ error: 'Unknown game.' });
-    const cap = game === 'clickersim' ? 8e18 : 1000000; /* clicker lifetime earnings go way past the arcade cap; 8e18 stays inside the BIGINT column */
+    const cap = game === 'clickersim' ? 1e308 : 1000000; /* clicker earnings are exponential — the score column is a float, so any finite number fits */
     if (!Number.isFinite(score) || score < 0 || score > cap) return res.status(400).json({ error: 'Bad score.' });
     const existing = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
     if (!existing) {
