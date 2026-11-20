@@ -123,11 +123,21 @@ var AUTO_ITEMS = [
   var AA = ['Factory', 'Empire', 'Swarm', 'Forge', 'Engine', 'Reactor', 'Network', 'Armada', 'Singularity', 'Throne'];
   var CE = ['🌟', '💫', '⭐', '🌠', '🔥', '⚡', '🌀', '🔮', '👑', '♾️'];
   var AE = ['🏭', '🛰️', '🛸', '⚙️', '🔋', '☢️', '🕸️', '🚀', '🕳️', '👑'];
-  for (var t = 5; t <= 300; t++) {
+  var CEN = ['', 'Ultra ', 'Hyper ', 'Mega ', 'Giga ', 'Tera '];
+  for (var t = 5; t <= 600; t++) {
     var i = t - 5, tier = Math.floor(i / 10), pos = i % 10;
-    var fam = P[tier % 10], cen = tier >= 20 ? 'Hyper ' : tier >= 10 ? 'Ultra ' : '';
-    CLICK_ITEMS.push({ id: 'rc' + t, name: CE[pos] + ' ' + cen + fam + ' ' + CA[pos], add: 300000 * Math.pow(5, t - 4), base: 90000000 * Math.pow(7, t - 4), req: t });
-    AUTO_ITEMS.push({ id: 'ra' + t, name: AE[pos] + ' ' + cen + fam + ' ' + AA[pos], add: 220000 * Math.pow(5, t - 4), base: 70000000 * Math.pow(7, t - 4), req: t });
+    var fam = P[tier % 10], cen = CEN[Math.floor(tier / 10)] || '';
+    var cAdd, cBase, aAdd, aBase;
+    if (t <= 300) {
+      cAdd = 300000 * Math.pow(5, t - 4); cBase = 90000000 * Math.pow(7, t - 4);
+      aAdd = 220000 * Math.pow(5, t - 4); aBase = 70000000 * Math.pow(7, t - 4);
+    } else {
+      /* gentler growth past 300 so the numbers stay finite all the way to 600 */
+      cAdd = 300000 * Math.pow(5, 296) * Math.pow(2, t - 300); cBase = 90000000 * Math.pow(7, 296) * Math.pow(1.35, t - 300);
+      aAdd = 220000 * Math.pow(5, 296) * Math.pow(2, t - 300); aBase = 70000000 * Math.pow(7, 296) * Math.pow(1.35, t - 300);
+    }
+    CLICK_ITEMS.push({ id: 'rc' + t, name: CE[pos] + ' ' + cen + fam + ' ' + CA[pos], add: cAdd, base: cBase, req: t });
+    AUTO_ITEMS.push({ id: 'ra' + t, name: AE[pos] + ' ' + cen + fam + ' ' + AA[pos], add: aAdd, base: aBase, req: t });
   }
 })();
 var GROWTH = 1.55;
