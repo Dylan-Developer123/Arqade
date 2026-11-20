@@ -210,6 +210,31 @@
   document.head.appendChild(st);
 })();
 </script>
+<button id="mc2-fs-btn" type="button" aria-label="Toggle fullscreen" style="position:fixed;left:12px;bottom:12px;z-index:40;background:rgba(30,30,48,.88);color:#f5c542;border:1.5px solid #55557a;border-radius:999px;padding:8px 14px;font:700 13px 'Segoe UI',system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4);">⛶ Fullscreen</button>
+<script>
+(function () {
+  var btn = document.getElementById('mc2-fs-btn');
+  function fsEl() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  function sync() { btn.textContent = fsEl() ? '⛶ Exit fullscreen' : '⛶ Fullscreen'; }
+  btn.addEventListener('click', function () {
+    try {
+      if (fsEl()) {
+        var exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) exit.call(document);
+      } else {
+        var el = document.documentElement;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (!req) { btn.textContent = '⛶ Not available here'; setTimeout(sync, 2000); return; }
+        var p = req.call(el);
+        if (p && p.catch) p.catch(function () {});
+      }
+    } catch (e) {}
+    setTimeout(sync, 300);
+  });
+  document.addEventListener('fullscreenchange', sync);
+  document.addEventListener('webkitfullscreenchange', sync);
+})();
+</script>
 <script src="game.js?v=51"></script>
 </body>
 </html>
