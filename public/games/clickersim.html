@@ -108,6 +108,20 @@ var AUTO_ITEMS = [
   { id: 'magma',   name: '🌋 Magma Core',    add: 45000, base: 9000000, req: 3 },
   { id: 'dyson',   name: '🛸 Dyson Swarm',   add: 220000, base: 70000000, req: 4 }
 ];
+/* Rebirth 5 → 100: a new click + auto upgrade unlocks at EVERY rebirth.
+   Power grows ×5 per tier, cost ×7 per tier, names escalate Comet → Infinity. */
+(function () {
+  var P = ['Comet', 'Nova', 'Pulsar', 'Quasar', 'Nebula', 'Void', 'Quantum', 'Cosmic', 'Omega', 'Infinity'];
+  var CA = ['Click', 'Tap', 'Smash', 'Slam', 'Strike', 'Punch', 'Blast', 'Burst', 'Crush', 'Surge'];
+  var AA = ['Factory', 'Empire', 'Swarm', 'Forge', 'Engine', 'Reactor', 'Network', 'Armada', 'Singularity', 'Throne'];
+  var CE = ['🌟', '💫', '⭐', '🌠', '🔥', '⚡', '🌀', '🔮', '👑', '♾️'];
+  var AE = ['🏭', '🛰️', '🛸', '⚙️', '🔋', '☢️', '🕸️', '🚀', '🕳️', '👑'];
+  for (var t = 5; t <= 100; t++) {
+    var i = t - 5, tier = Math.floor(i / 10), pos = i % 10;
+    CLICK_ITEMS.push({ id: 'rc' + t, name: CE[pos] + ' ' + P[tier] + ' ' + CA[pos], add: 300000 * Math.pow(5, t - 4), base: 90000000 * Math.pow(7, t - 4), req: t });
+    AUTO_ITEMS.push({ id: 'ra' + t, name: AE[pos] + ' ' + P[tier] + ' ' + AA[pos], add: 220000 * Math.pow(5, t - 4), base: 70000000 * Math.pow(7, t - 4), req: t });
+  }
+})();
 var GROWTH = 1.55;
 var SAVE_KEY = 'clickersim_save_v1';
 
@@ -130,7 +144,8 @@ function costOf(it, owned) { return Math.ceil(it.base * Math.pow(GROWTH, owned))
 function rebirthCost() { return 100000 * Math.pow(6, S.rebirths); }
 function fmt(n) {
   if (n < 1000) return String(Math.floor(n));
-  var units = [[1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  if (n >= 1e36) return n.toExponential(2).replace('e+', 'e');
+  var units = [[1e33, 'Dc'], [1e30, 'No'], [1e27, 'Oc'], [1e24, 'Sp'], [1e21, 'Sx'], [1e18, 'Qi'], [1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
   for (var i = 0; i < units.length; i++) if (n >= units[i][0]) {
     var v = n / units[i][0];
     return (v >= 100 ? Math.floor(v) : Math.round(v * 10) / 10) + units[i][1];
