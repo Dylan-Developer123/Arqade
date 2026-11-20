@@ -556,7 +556,7 @@ async function main() {
     const game = String((req.body || {}).game || '');
     const score = Math.floor(Number((req.body || {}).score));
     if (!isPortalGame(game)) return res.status(400).json({ error: 'Unknown game.' });
-    const cap = game === 'clickersim' ? 1e15 : 1000000; /* clicker lifetime earnings go way past the arcade cap */
+    const cap = game === 'clickersim' ? 8e18 : 1000000; /* clicker lifetime earnings go way past the arcade cap; 8e18 stays inside the BIGINT column */
     if (!Number.isFinite(score) || score < 0 || score > cap) return res.status(400).json({ error: 'Bad score.' });
     const existing = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
     if (!existing) {
