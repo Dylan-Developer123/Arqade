@@ -23,6 +23,11 @@
   @keyframes rise { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-72px); } }
   #msg { margin-top: 12px; font-size: 15px; min-height: 21px; text-align: center; max-width: 520px; }
   h2.shop-title { font-size: 19px; margin: 20px 0 8px; }
+  #shopFilter { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  #shopFilter button { background: #262640; color: #eee; border: 1.5px solid #3a3a5c; border-radius: 999px; padding: 8px 16px; font-weight: 800; font-size: 14px; cursor: pointer; }
+  #shopFilter button.on { background: #f5c542; color: #191920; border-color: #f5c542; }
+  .item.locked { opacity: .55; }
+  .item .req { color: #c4b5fd; font-weight: 700; }
   .shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 9px; width: min(560px, 94vw); }
   .item { background: #1e1e30; border: 1.5px solid #2c2c48; border-radius: 13px; padding: 11px 12px; text-align: left; }
   .item .nm { font-weight: 800; font-size: 15px; }
@@ -60,6 +65,11 @@
 </div>
 <div id="msg">Tap the coin to start earning!</div>
 
+<div id="shopFilter">
+  <button id="fltMine" class="on">🎚️ My rebirth &amp; below</button>
+  <button id="fltAll">🌐 Show all upgrades</button>
+</div>
+
 <h2 class="shop-title">👆 Click power</h2>
 <div class="shop" id="clickShop"></div>
 
@@ -68,7 +78,7 @@
 
 <div id="rebirthBox">
   <h2>✨ Rebirth</h2>
-  <p id="rebirthInfo">Reset your coins and upgrades for a permanent <b>+×1 multiplier</b> on everything.</p>
+  <p id="rebirthInfo">Reset your coins and upgrades to <b>double your multiplier</b> — and unlock stronger upgrades.</p>
   <button id="rebirthBtn">✨ Rebirth</button>
 </div>
 
@@ -78,17 +88,25 @@
 
 <script>
 var CLICK_ITEMS = [
-  { id: 'super',  name: '🖱️ Super Click',   add: 1,   base: 15 },
-  { id: 'glove',  name: '💪 Power Glove',   add: 5,   base: 120 },
-  { id: 'turbo',  name: '⚡ Turbo Finger',  add: 25,  base: 900 },
-  { id: 'rocket', name: '🚀 Rocket Click',  add: 125, base: 6500 },
-  { id: 'galaxy', name: '🌌 Galaxy Click',  add: 600, base: 45000 }
+  { id: 'super',  name: '🖱️ Super Click',   add: 1,     base: 15,     req: 0 },
+  { id: 'glove',  name: '💪 Power Glove',   add: 5,     base: 120,    req: 0 },
+  { id: 'turbo',  name: '⚡ Turbo Finger',  add: 25,    base: 900,    req: 0 },
+  { id: 'rocket', name: '🚀 Rocket Click',  add: 125,   base: 6500,   req: 0 },
+  { id: 'galaxy', name: '🌌 Galaxy Click',  add: 600,   base: 45000,  req: 0 },
+  { id: 'star',   name: '✨ Star Click',    add: 2500,  base: 250000, req: 1 },
+  { id: 'royal',  name: '👑 Royal Click',   add: 12000, base: 1500000, req: 2 },
+  { id: 'planet', name: '🪐 Planet Click',  add: 60000, base: 12000000, req: 3 },
+  { id: 'meteor', name: '☄️ Meteor Click',  add: 300000, base: 90000000, req: 4 }
 ];
 var AUTO_ITEMS = [
-  { id: 'auto',    name: '🤖 Auto Clicker',  add: 1,   base: 40 },
-  { id: 'factory', name: '🏭 Click Factory', add: 8,   base: 500 },
-  { id: 'volcano', name: '🌋 Coin Volcano',  add: 60,  base: 4000 },
-  { id: 'orbital', name: '🛰️ Orbital Miner', add: 450, base: 32000 }
+  { id: 'auto',    name: '🤖 Auto Clicker',  add: 1,     base: 40,     req: 0 },
+  { id: 'factory', name: '🏭 Click Factory', add: 8,     base: 500,    req: 0 },
+  { id: 'volcano', name: '🌋 Coin Volcano',  add: 60,    base: 4000,   req: 0 },
+  { id: 'orbital', name: '🛰️ Orbital Miner', add: 450,  base: 32000,  req: 0 },
+  { id: 'city',    name: '🏙️ Click City',    add: 2000, base: 200000, req: 1 },
+  { id: 'fleet',   name: '🚀 Rocket Fleet',  add: 9000, base: 1200000, req: 2 },
+  { id: 'magma',   name: '🌋 Magma Core',    add: 45000, base: 9000000, req: 3 },
+  { id: 'dyson',   name: '🛸 Dyson Swarm',   add: 220000, base: 70000000, req: 4 }
 ];
 var GROWTH = 1.55;
 var SAVE_KEY = 'clickersim_save_v1';
@@ -103,7 +121,7 @@ function loadSave() {
 }
 var hadSave = loadSave();
 
-function mult() { return 1 + S.rebirths; }
+function mult() { return Math.pow(2, S.rebirths); }
 function clickBase() { var t = 1; CLICK_ITEMS.forEach(function (it) { t += it.add * (S.clickOwned[it.id] || 0); }); return t; }
 function autoBase() { var t = 0; AUTO_ITEMS.forEach(function (it) { t += it.add * (S.autoOwned[it.id] || 0); }); return t; }
 function perClick() { return clickBase() * mult(); }
@@ -125,21 +143,24 @@ var coinBtn = document.getElementById('bigcoin');
 var msgEl = document.getElementById('msg');
 var dirty = false;
 
+var showAll = false;
 function buildShop(el, items, ownedMap, perLabel) {
   el.innerHTML = '';
   items.forEach(function (it) {
     var card = document.createElement('div');
     card.className = 'item';
-    card.innerHTML = '<span class="owned" data-owned>×0</span><div class="nm">' + it.name + '</div><div class="ef">+' + fmt(it.add) + ' ' + perLabel + ' each</div>';
+    var reqNote = it.req > 0 ? ' · <span class="req">✨ Rebirth ' + it.req + '</span>' : '';
+    card.innerHTML = '<span class="owned" data-owned>×0</span><div class="nm">' + it.name + '</div><div class="ef">+' + fmt(it.add) + ' ' + perLabel + ' each' + reqNote + '</div>';
     var b = document.createElement('button');
     b.className = 'buy';
     b.addEventListener('click', function () { buy(it, ownedMap); });
     card.appendChild(b);
     el.appendChild(card);
-    it._btn = b; it._ownedEl = card.querySelector('[data-owned]');
+    it._btn = b; it._ownedEl = card.querySelector('[data-owned]'); it._card = card;
   });
 }
 function buy(it, ownedMap) {
+  if ((it.req || 0) > S.rebirths) return;
   var owned = ownedMap[it.id] || 0;
   var c = costOf(it, owned);
   if (S.coins < c) return;
@@ -152,9 +173,25 @@ function buy(it, ownedMap) {
 buildShop(document.getElementById('clickShop'), CLICK_ITEMS, S.clickOwned, 'per click');
 buildShop(document.getElementById('autoShop'), AUTO_ITEMS, S.autoOwned, 'per sec');
 
+showAll = !!S.showAll;
+var fltMine = document.getElementById('fltMine'), fltAll = document.getElementById('fltAll');
+function syncFilter() { fltMine.classList.toggle('on', !showAll); fltAll.classList.toggle('on', showAll); }
+fltMine.addEventListener('click', function () { showAll = false; S.showAll = false; dirty = true; syncFilter(); render(); });
+fltAll.addEventListener('click', function () { showAll = true; S.showAll = true; dirty = true; syncFilter(); render(); });
+syncFilter();
+
 function renderShop(items, ownedMap) {
   items.forEach(function (it) {
     var owned = ownedMap[it.id] || 0;
+    var locked = it.req > S.rebirths;
+    it._card.style.display = (locked && !showAll) ? 'none' : '';
+    it._card.classList.toggle('locked', locked);
+    if (locked) {
+      it._ownedEl.textContent = '🔒';
+      it._btn.textContent = '🔒 Unlocks at Rebirth ' + it.req;
+      it._btn.disabled = true;
+      return;
+    }
     var c = costOf(it, owned);
     it._ownedEl.textContent = '×' + owned;
     it._btn.textContent = 'Buy · 🪙 ' + fmt(c);
@@ -172,7 +209,7 @@ function render() {
   renderShop(CLICK_ITEMS, S.clickOwned);
   renderShop(AUTO_ITEMS, S.autoOwned);
   var rc = rebirthCost();
-  document.getElementById('rebirthInfo').innerHTML = 'Hold <b>🪙 ' + fmt(rc) + ' coins</b> to rebirth. Resets coins + upgrades, and your multiplier goes from <b>×' + mult() + '</b> to <b>×' + (mult() + 1) + '</b> — forever.';
+  document.getElementById('rebirthInfo').innerHTML = 'Hold <b>🪙 ' + fmt(rc) + ' coins</b> to rebirth. Resets coins + upgrades, your multiplier <b>doubles</b> from <b>×' + mult() + '</b> to <b>×' + (mult() * 2) + '</b> — and stronger upgrades unlock.';
   rebirthBtn.disabled = S.coins < rc;
   rebirthBtn.textContent = rebirthArmed ? '⚠️ Tap again — really rebirth?' : '✨ Rebirth · 🪙 ' + fmt(rc);
   rebirthBtn.classList.toggle('armed', rebirthArmed);
