@@ -409,6 +409,7 @@ async function loadLb() {
 var lastSubmit = 0, lastSubmittedScore = 0;
 async function submitScore(force) {
   var s = Math.floor(S.totalEarned);
+  if (!isFinite(s) || s > 1e308) s = 1e308;
   if (!ME || s <= 0 || s === lastSubmittedScore) return;
   if (!force && Date.now() - lastSubmit < 8000) return;
   lastSubmit = Date.now();
