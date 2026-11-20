@@ -362,7 +362,7 @@ try { arqApplyAppearance(); } catch (e) {}
     ['🃏 Memory Match', 'memory'], ['🔢 2048', '2048'], ['🪙 Coin Clicker', 'clicker'],
     ['👆 Clicker Simulator', 'clickersim'],
     ['🏓 Pong', 'pong'], ['💣 Minesweeper', 'minesweeper'], ['👾 Space Invaders', 'invaders'],
-    ['🌕 Lunar Lander', 'lander'], ['🏎️ Turbo Racer 3D', 'racer'], ['🂡 Blackjack', 'blackjack'],
+    ['🌕 Lunar Lander', 'lander'], ['🏎️ Turbo Racer 3D', 'racer'],
     ['✏️ Word Guess', 'word'],
   ];
   const moreEl = panel.querySelector('#arq-more-games');
