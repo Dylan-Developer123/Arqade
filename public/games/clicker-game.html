@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Clicker Game — Arqade</title>
+<style>
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #12121e; color: #eef; margin: 0; padding: 14px; text-align: center; }
+  a.exit-game { display: inline-flex; background: #101828; color: #dcefe2; border: 1px solid #3b4b3f; border-radius: 9px; padding: 8px 14px; font-weight: 700; text-decoration: none; float: left; }
+  h1 { clear: both; padding-top: 10px; }
+  .btn { background: #f5c542; color: #191920; border: 0; border-radius: 10px; font-weight: 800; font-size: 16px; padding: 11px 22px; cursor: pointer; margin: 5px; }
+  .hud { font-size: 19px; font-weight: 800; margin: 10px 0; }
+  canvas { background: #0b0b14; border: 2px solid #2c2c48; border-radius: 10px; max-width: 92vw; }
+  .dpad button { width: 58px; height: 58px; font-size: 22px; margin: 3px; border-radius: 12px; border: 1.5px solid #3a3a5c; background: #262640; color: #eef; cursor: pointer; }
+  .cards { display: grid; grid-template-columns: repeat(4, 72px); gap: 9px; justify-content: center; margin: 12px auto; }
+  .mcard { height: 72px; font-size: 32px; border-radius: 12px; border: 2px solid #3a3a5c; background: #262640; color: #eef; cursor: pointer; }
+  .mcard.open { background: #f5c542; }
+  input[type=number] { width: 110px; padding: 10px; font-size: 17px; border-radius: 9px; border: 1.5px solid #3a3a5c; background: #14141f; color: #fff; text-align: center; }
+</style>
+</head>
+<body>
+<a class="exit-game" href="/">← All games</a>
+<h1>Clicker Game</h1>
+<div class="hud" id="sc">🪙 0 coins</div>
+<button id="big" style="font-size:84px;background:none;border:0;cursor:pointer;">🪙</button>
+<p>Tap the coin!</p>
+<button class="btn" id="up"></button><button class="btn" id="au"></button>
+<script src="/games/admin-panel.js"></script>
+<script>
+var coins = 0, per = 1, auto = 0, upCost = 25, autoCost = 60;
+function show() {
+  document.getElementById('sc').textContent = '🪙 ' + coins + ' coins';
+  document.getElementById('up').textContent = '⬆️ Stronger clicks (' + upCost + ') — now +' + per;
+  document.getElementById('au').textContent = '🤖 Auto clicker (' + autoCost + ') — ' + auto + '/sec';
+}
+document.getElementById('big').addEventListener('click', function () { coins += per; show(); });
+document.getElementById('up').addEventListener('click', function () { if (coins >= upCost) { coins -= upCost; per++; upCost = Math.round(upCost * 1.6); } show(); });
+document.getElementById('au').addEventListener('click', function () { if (coins >= autoCost) { coins -= autoCost; auto++; autoCost = Math.round(autoCost * 1.7); } show(); });
+setInterval(function () { if (auto > 0) { coins += auto; show(); } }, 1000);
+show();
+</script>
+</body>
+</html>
