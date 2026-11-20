@@ -369,15 +369,11 @@ document.getElementById('wipeBtn').addEventListener('click', function () {
   location.reload();
 });
 
-/* --- Admin panel section (owner + tag holders): live powers for this game --- */
-window.ARQ_GAME_ADMIN = {
-  title: '👆 Clicker Simulator',
-  actions: [
-    { label: '🪙 +100K coins', run: function () { S.coins += 100000; dirty = true; render(); return '🪙 +100K coins!'; } },
-    { label: '🪙 +10M coins', run: function () { S.coins += 10000000; dirty = true; render(); return '🪙 +10M coins!'; } },
-    { label: '✨ +10 tokens', run: function () { S.tokens += 10; dirty = true; render(); return '✨ +10 rebirth tokens!'; } },
-    { label: '⭐ +1 rebirth level', run: function () { S.rebirths++; dirty = true; render(); return '⭐ Rebirth level is now ' + S.rebirths + ' — multiplier ×' + mult() + ', new tiers unlocked! (No reset, no tokens — use the Rebirth button for those.)'; } }
-  ]
+/* --- Admin panel section: the panel's Clicker Simulator rows call these setters --- */
+window.ARQ_CS_ADMIN = {
+  setCoins: function (v) { S.coins = v; dirty = true; render(); return '🪙 Coins set to ' + fmt(S.coins) + '.'; },
+  setTokens: function (v) { S.tokens = v; dirty = true; render(); return '✨ Tokens set to ' + S.tokens + '.'; },
+  setRebirths: function (v) { S.rebirths = v; dirty = true; render(); return '⭐ Rebirth level set to ' + v + ' — multiplier ×' + mult() + ', tiers up to Rebirth ' + v + ' unlocked.'; }
 };
 
 /* --- Site account: lifetime coins earned is the leaderboard score --- */
