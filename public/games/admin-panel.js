@@ -244,7 +244,7 @@ try { arqApplyAppearance(); } catch (e) {}
       <button id="arq-reset-btn" class="danger">Reset progress</button>
     </div>
     <div class="row"><button id="arq-reset-self" class="danger">Reset MY progress</button></div>
-    <h4>🚓 City Pursuit 3D</h4>
+    <h4 id="arq-hooks-title">🚓 City Pursuit 3D</h4>
     <div id="arq-game-hooks"></div>
     <div class="game-row"><span>🏆 My best cash haul</span><button data-score-game="pursuit3d">Reset</button></div>
     <h4>🎮 More games — my best scores</h4>
@@ -355,6 +355,7 @@ try { arqApplyAppearance(); } catch (e) {}
   const MORE_GAMES = [
     ['🐍 Snake', 'snake'], ['🧱 Breakout', 'breakout'], ['🐤 Flappy Bird', 'flappy'],
     ['🃏 Memory Match', 'memory'], ['🔢 2048', '2048'], ['🪙 Coin Clicker', 'clicker'],
+    ['👆 Clicker Simulator', 'clickersim'],
     ['🏓 Pong', 'pong'], ['💣 Minesweeper', 'minesweeper'], ['👾 Space Invaders', 'invaders'],
     ['🌕 Lunar Lander', 'lander'], ['🏎️ Turbo Racer 3D', 'racer'], ['🂡 Blackjack', 'blackjack'],
     ['✏️ Word Guess', 'word'],
@@ -383,10 +384,11 @@ try { arqApplyAppearance(); } catch (e) {}
     const hooks = window.ARQ_GAME_ADMIN;
     const box = panel.querySelector('#arq-game-hooks');
     if (!hooks || !Array.isArray(hooks.actions) || !hooks.actions.length) {
-      box.innerHTML = '<div class="who">Open this panel inside City Pursuit 3D for live powers (cash, wanted, repairs).</div>';
+      box.innerHTML = '<div class="who">Open this panel inside a game for its live powers — City Pursuit 3D (cash, wanted, repairs) or Clicker Simulator (coins, tokens, rebirth level).</div>';
       return;
     }
     hooksBuilt = true;
+    if (hooks.title) panel.querySelector('#arq-hooks-title').textContent = hooks.title;
     box.innerHTML = '';
     const row = document.createElement('div');
     row.className = 'row';
