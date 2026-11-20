@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Clicker Simulator — Arqade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #12121c; color: #eee; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 16px; }
+  a.exit-game { display: inline-flex; align-items: center; align-self: flex-start; background: #26264a; color: #eee; border: 1px solid #55557a; border-radius: 9px; padding: 8px 14px; font-size: 15px; font-weight: 700; line-height: 1; text-decoration: none; }
+  h1 { font-size: 26px; margin: 8px 0 2px; }
+  .sub { opacity: .8; font-size: 14px; margin-bottom: 10px; text-align: center; }
+  #stats { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; max-width: 560px; }
+  .stat { background: #1e1e30; border: 1.5px solid #2c2c48; border-radius: 12px; padding: 8px 14px; text-align: center; min-width: 104px; }
+  .stat b { display: block; font-size: 19px; color: #f5c542; }
+  .stat span { font-size: 12px; opacity: .75; }
+  #stage { position: relative; width: min(480px, 94vw); padding: 26px 0 20px; border: 2px solid #8a6d1d; border-radius: 16px; background: radial-gradient(circle at 50% 38%, #4a3b12, #241d08 74%); display: flex; flex-direction: column; align-items: center; overflow: hidden; }
+  #bigcoin { width: 168px; height: 168px; border: 6px solid #b8860b; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff59d, #f5c542 58%, #c79400); color: #6d5200; font-size: 84px; cursor: pointer; box-shadow: 0 12px 32px rgba(0,0,0,.5); touch-action: manipulation; user-select: none; -webkit-user-select: none; transition: transform .05s; line-height: 1; }
+  #bigcoin:active { transform: scale(.94); }
+  #coinCount { font-size: 30px; font-weight: 900; color: #f5c542; margin-top: 14px; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  #coinLabel { font-size: 13px; opacity: .8; }
+  .floaty { position: absolute; font-weight: 900; font-size: 21px; color: #fde68a; text-shadow: 0 2px 6px rgba(0,0,0,.7); pointer-events: none; animation: rise 0.9s ease-out forwards; }
+  @keyframes rise { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-72px); } }
+  #msg { margin-top: 12px; font-size: 15px; min-height: 21px; text-align: center; max-width: 520px; }
+  h2.shop-title { font-size: 19px; margin: 20px 0 8px; }
+  .shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 9px; width: min(560px, 94vw); }
+  .item { background: #1e1e30; border: 1.5px solid #2c2c48; border-radius: 13px; padding: 11px 12px; text-align: left; }
+  .item .nm { font-weight: 800; font-size: 15px; }
+  .item .ef { font-size: 13px; opacity: .8; margin: 2px 0 8px; }
+  .item .owned { float: right; background: #262640; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 800; color: #f5c542; }
+  .buy { width: 100%; background: #f5c542; color: #191920; border: 0; border-radius: 9px; font-weight: 800; padding: 8px 6px; font-size: 14px; cursor: pointer; }
+  .buy:disabled { background: #33334d; color: #8a8aa5; cursor: not-allowed; }
+  #rebirthBox { margin-top: 22px; width: min(560px, 94vw); background: linear-gradient(135deg, #2b1740, #1e1e30); border: 2px solid #7c3aed; border-radius: 15px; padding: 15px 17px; text-align: center; }
+  #rebirthBox h2 { font-size: 20px; margin-bottom: 4px; }
+  #rebirthBox p { font-size: 14px; opacity: .88; margin-bottom: 10px; }
+  #rebirthBtn { background: #7c3aed; color: #fff; border: 0; border-radius: 10px; font-weight: 900; padding: 11px 24px; font-size: 16px; cursor: pointer; }
+  #rebirthBtn:disabled { background: #33334d; color: #8a8aa5; cursor: not-allowed; }
+  #rebirthBtn.armed { background: #dc2626; }
+  #wipeBtn { margin-top: 16px; background: none; border: 0; color: #77778f; font-size: 13px; cursor: pointer; text-decoration: underline; }
+  #acct { margin-top: 14px; font-size: 14px; opacity: .9; }
+  #lb { margin-top: 10px; font-size: 14px; text-align: left; min-width: 250px; padding-bottom: 26px; }
+</style>
+</head>
+<body>
+<a class="exit-game" href="/">← All games</a>
+<h1>👆 Clicker Simulator</h1>
+<div class="sub">Click the coin. Buy upgrades. <b>Rebirth</b> for a permanent multiplier!</div>
+
+<div id="stats">
+  <div class="stat"><b id="stPerClick">1</b><span>per click</span></div>
+  <div class="stat"><b id="stPerSec">0</b><span>per second</span></div>
+  <div class="stat"><b id="stMult">×1</b><span>multiplier</span></div>
+  <div class="stat"><b id="stRebirths">0</b><span>rebirths</span></div>
+</div>
+
+<div id="stage">
+  <button id="bigcoin" aria-label="Click the coin">🪙</button>
+  <div id="coinCount">0</div>
+  <div id="coinLabel">coins</div>
+</div>
+<div id="msg">Tap the coin to start earning!</div>
+
+<h2 class="shop-title">👆 Click power</h2>
+<div class="shop" id="clickShop"></div>
+
+<h2 class="shop-title">🤖 Auto earners</h2>
+<div class="shop" id="autoShop"></div>
+
+<div id="rebirthBox">
+  <h2>✨ Rebirth</h2>
+  <p id="rebirthInfo">Reset your coins and upgrades for a permanent <b>+×1 multiplier</b> on everything.</p>
+  <button id="rebirthBtn">✨ Rebirth</button>
+</div>
+
+<button id="wipeBtn">erase my clicker save</button>
+<div id="acct"></div>
+<div id="lb"></div>
+
+<script>
+var CLICK_ITEMS = [
+  { id: 'super',  name: '🖱️ Super Click',   add: 1,   base: 15 },
+  { id: 'glove',  name: '💪 Power Glove',   add: 5,   base: 120 },
+  { id: 'turbo',  name: '⚡ Turbo Finger',  add: 25,  base: 900 },
+  { id: 'rocket', name: '🚀 Rocket Click',  add: 125, base: 6500 },
+  { id: 'galaxy', name: '🌌 Galaxy Click',  add: 600, base: 45000 }
+];
+var AUTO_ITEMS = [
+  { id: 'auto',    name: '🤖 Auto Clicker',  add: 1,   base: 40 },
+  { id: 'factory', name: '🏭 Click Factory', add: 8,   base: 500 },
+  { id: 'volcano', name: '🌋 Coin Volcano',  add: 60,  base: 4000 },
+  { id: 'orbital', name: '🛰️ Orbital Miner', add: 450, base: 32000 }
+];
+var GROWTH = 1.55;
+var SAVE_KEY = 'clickersim_save_v1';
+
+var S = { coins: 0, totalEarned: 0, clickOwned: {}, autoOwned: {}, rebirths: 0, lastSeen: 0 };
+function loadSave() {
+  try {
+    var d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    if (d && typeof d.coins === 'number') { S = d; return true; }
+  } catch (e) {}
+  return false;
+}
+var hadSave = loadSave();
+
+function mult() { return 1 + S.rebirths; }
+function clickBase() { var t = 1; CLICK_ITEMS.forEach(function (it) { t += it.add * (S.clickOwned[it.id] || 0); }); return t; }
+function autoBase() { var t = 0; AUTO_ITEMS.forEach(function (it) { t += it.add * (S.autoOwned[it.id] || 0); }); return t; }
+function perClick() { return clickBase() * mult(); }
+function perSec() { return autoBase() * mult(); }
+function costOf(it, owned) { return Math.ceil(it.base * Math.pow(GROWTH, owned)); }
+function rebirthCost() { return 100000 * Math.pow(6, S.rebirths); }
+function fmt(n) {
+  if (n < 1000) return String(Math.floor(n));
+  var units = [[1e15, 'Qa'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  for (var i = 0; i < units.length; i++) if (n >= units[i][0]) {
+    var v = n / units[i][0];
+    return (v >= 100 ? Math.floor(v) : Math.round(v * 10) / 10) + units[i][1];
+  }
+  return String(Math.floor(n));
+}
+
+var stage = document.getElementById('stage');
+var coinBtn = document.getElementById('bigcoin');
+var msgEl = document.getElementById('msg');
+var dirty = false;
+
+function buildShop(el, items, ownedMap, perLabel) {
+  el.innerHTML = '';
+  items.forEach(function (it) {
+    var card = document.createElement('div');
+    card.className = 'item';
+    card.innerHTML = '<span class="owned" data-owned>×0</span><div class="nm">' + it.name + '</div><div class="ef">+' + fmt(it.add) + ' ' + perLabel + ' each</div>';
+    var b = document.createElement('button');
+    b.className = 'buy';
+    b.addEventListener('click', function () { buy(it, ownedMap); });
+    card.appendChild(b);
+    el.appendChild(card);
+    it._btn = b; it._ownedEl = card.querySelector('[data-owned]');
+  });
+}
+function buy(it, ownedMap) {
+  var owned = ownedMap[it.id] || 0;
+  var c = costOf(it, owned);
+  if (S.coins < c) return;
+  S.coins -= c;
+  ownedMap[it.id] = owned + 1;
+  dirty = true;
+  msgEl.textContent = it.name + ' bought! ' + (ownedMap === S.clickOwned ? 'Clicks are stronger now.' : 'Your earners are working harder.');
+  render();
+}
+buildShop(document.getElementById('clickShop'), CLICK_ITEMS, S.clickOwned, 'per click');
+buildShop(document.getElementById('autoShop'), AUTO_ITEMS, S.autoOwned, 'per sec');
+
+function renderShop(items, ownedMap) {
+  items.forEach(function (it) {
+    var owned = ownedMap[it.id] || 0;
+    var c = costOf(it, owned);
+    it._ownedEl.textContent = '×' + owned;
+    it._btn.textContent = 'Buy · 🪙 ' + fmt(c);
+    it._btn.disabled = S.coins < c;
+  });
+}
+var rebirthBtn = document.getElementById('rebirthBtn');
+var rebirthArmed = false, rebirthArmTimer = null;
+function render() {
+  document.getElementById('coinCount').textContent = fmt(S.coins);
+  document.getElementById('stPerClick').textContent = fmt(perClick());
+  document.getElementById('stPerSec').textContent = fmt(perSec());
+  document.getElementById('stMult').textContent = '×' + mult();
+  document.getElementById('stRebirths').textContent = S.rebirths;
+  renderShop(CLICK_ITEMS, S.clickOwned);
+  renderShop(AUTO_ITEMS, S.autoOwned);
+  var rc = rebirthCost();
+  document.getElementById('rebirthInfo').innerHTML = 'Hold <b>🪙 ' + fmt(rc) + ' coins</b> to rebirth. Resets coins + upgrades, and your multiplier goes from <b>×' + mult() + '</b> to <b>×' + (mult() + 1) + '</b> — forever.';
+  rebirthBtn.disabled = S.coins < rc;
+  rebirthBtn.textContent = rebirthArmed ? '⚠️ Tap again — really rebirth?' : '✨ Rebirth · 🪙 ' + fmt(rc);
+  rebirthBtn.classList.toggle('armed', rebirthArmed);
+}
+rebirthBtn.addEventListener('click', function () {
+  var rc = rebirthCost();
+  if (S.coins < rc) return;
+  if (!rebirthArmed) {
+    rebirthArmed = true;
+    render();
+    rebirthArmTimer = setTimeout(function () { rebirthArmed = false; render(); }, 3500);
+    return;
+  }
+  clearTimeout(rebirthArmTimer);
+  rebirthArmed = false;
+  S.coins = 0;
+  S.clickOwned = {};
+  S.autoOwned = {};
+  S.rebirths++;
+  buildShop(document.getElementById('clickShop'), CLICK_ITEMS, S.clickOwned, 'per click');
+  buildShop(document.getElementById('autoShop'), AUTO_ITEMS, S.autoOwned, 'per sec');
+  dirty = true;
+  msgEl.textContent = '✨ REBIRTH! Your multiplier is now ×' + mult() + ' — everything earns faster. Build it all back, bigger!';
+  render();
+  submitScore(true);
+});
+
+coinBtn.addEventListener('click', function (e) {
+  var gain = perClick();
+  S.coins += gain;
+  S.totalEarned += gain;
+  dirty = true;
+  var r = stage.getBoundingClientRect();
+  var f = document.createElement('div');
+  f.className = 'floaty';
+  f.textContent = '+' + fmt(gain);
+  var x = (e.clientX ? e.clientX - r.left : r.width / 2) - 18 + (Math.random() * 36 - 18);
+  var y = (e.clientY ? e.clientY - r.top : 90) - 14;
+  f.style.left = Math.max(4, Math.min(r.width - 60, x)) + 'px';
+  f.style.top = Math.max(4, y) + 'px';
+  stage.appendChild(f);
+  setTimeout(function () { f.remove(); }, 920);
+  render();
+});
+
+/* offline earnings: half rate, up to 8 hours away */
+if (hadSave && S.lastSeen) {
+  var awaySec = Math.min(28800, Math.max(0, Math.floor((Date.now() - S.lastSeen) / 1000)));
+  var offlineGain = perSec() * awaySec * 0.5;
+  if (offlineGain >= 10) {
+    S.coins += offlineGain;
+    S.totalEarned += offlineGain;
+    msgEl.textContent = '💤 While you were away, your earners made 🪙 ' + fmt(offlineGain) + '!';
+    dirty = true;
+  }
+}
+
+function saveNow() {
+  if (!dirty) return;
+  S.lastSeen = Date.now();
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
+  dirty = false;
+}
+setInterval(saveNow, 2000);
+document.addEventListener('visibilitychange', function () { if (document.hidden) { S.lastSeen = Date.now(); dirty = true; saveNow(); } });
+window.addEventListener('pagehide', function () { S.lastSeen = Date.now(); dirty = true; saveNow(); });
+
+setInterval(function () {
+  var gain = perSec() * 0.25;
+  if (gain > 0) { S.coins += gain; S.totalEarned += gain; dirty = true; }
+  render();
+}, 250);
+render();
+
+var wipeArmed = false;
+document.getElementById('wipeBtn').addEventListener('click', function () {
+  if (!wipeArmed) { wipeArmed = true; this.textContent = '⚠️ tap again to ERASE everything (coins, upgrades, rebirths)'; setTimeout(function () { wipeArmed = false; document.getElementById('wipeBtn').textContent = 'erase my clicker save'; }, 3500); return; }
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  location.reload();
+});
+
+/* --- Site account: lifetime coins earned is the leaderboard score --- */
+var ME = null;
+var esc = function (s) { return String(s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); };
+async function loadLb() {
+  try {
+    var d = await (await fetch('/api/scores/clickersim')).json();
+    document.getElementById('lb').innerHTML = '<b>🏆 Leaderboard</b> (lifetime coins earned)' + (d.scores.length ? d.scores.map(function (s, i) { return '<br>' + (i + 1) + '. ' + esc(s.displayName) + ' — ' + fmt(s.score); }).join('') : '<br>No scores yet — be the first!');
+  } catch (e) {}
+}
+var lastSubmit = 0, lastSubmittedScore = 0;
+async function submitScore(force) {
+  var s = Math.floor(S.totalEarned);
+  if (!ME || s <= 0 || s === lastSubmittedScore) return;
+  if (!force && Date.now() - lastSubmit < 8000) return;
+  lastSubmit = Date.now();
+  lastSubmittedScore = s;
+  try { await fetch('/api/scores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'clickersim', score: s }) }); loadLb(); } catch (e) {}
+}
+setInterval(function () { submitScore(false); }, 4000);
+(async function () {
+  try { var r = await fetch('/api/me'); if (r.ok) ME = (await r.json()).user; } catch (e) {}
+  document.getElementById('acct').innerHTML = ME ? '👤 Playing as <b>' + esc(ME.displayName) + '</b> — your lifetime coins save to the leaderboard' : '👤 <a href="/miner-cat-2" style="color:#f5c542;">Sign in</a> to save scores to your account';
+  loadLb();
+})();
+</script>
+<script src="/games/admin-panel.js"></script>
+</body>
+</html>
