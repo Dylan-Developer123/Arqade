@@ -54,7 +54,7 @@
   <div id="head">
     <div id="avatar">☄️</div>
     <div>
-      <h1>Meteor <span class="ver">1.1</span></h1>
+      <h1>Meteor <span class="ver">1.2</span></h1>
       <div id="statusLine"><span class="dot">●</span> Online · Arqade's AI, by Meteor</div>
     </div>
     <div id="modeBar">
@@ -209,7 +209,7 @@
     log.appendChild(t); scrollDown();
     setTimeout(function () {
       t.remove();
-      addMsg('bot', 'Meteor 1.1', text, code, pushSlug);
+      addMsg('bot', 'Meteor 1.2', text, code, pushSlug);
     }, delay || (450 + Math.random() * 550));
   }
 
@@ -246,7 +246,7 @@
   ];
   var jokeIdx = 0, fallbackIdx = 0, rpsActive = false;
   var FALLBACKS = [
-    'Hmm, that one\'s beyond my 1.1 brain for now. Try asking me for a joke, a game pick, or some math — and in Code mode I can even BUILD games!',
+    'Hmm, that one\'s beyond my 1.2 brain for now. Try asking me for a joke, a game pick, or some math — and in Code mode I can even BUILD games!',
     'I\'m still learning! Ask me "what games are on Arqade", "tell me a joke", or give me a math problem.',
     'Good question — that\'s one for a future version of me. Meanwhile: want a game recommendation?'
   ];
@@ -307,6 +307,145 @@
     return Math.round(out * 1e10) / 1e10;
   }
 
+  /* ---------------- 1.2 daily-use helpers ---------------- */
+  var triviaOn = false, triviaIdx = 0, triviaScore = 0, triviaOrder = [];
+  var TRIVIA = [
+    { q: 'How many legs does a spider have?', a: '8', ok: ['8', 'eight'] },
+    { q: 'What planet is known as the Red Planet?', a: 'Mars', ok: ['mars'] },
+    { q: 'How many sides does a hexagon have?', a: '6', ok: ['6', 'six'] },
+    { q: 'What is 9 × 6?', a: '54', ok: ['54'] },
+    { q: 'Which ocean is the biggest on Earth?', a: 'The Pacific Ocean', ok: ['pacific'] },
+    { q: 'How many minutes are in 3 hours?', a: '180', ok: ['180'] },
+    { q: 'What gas do plants breathe in?', a: 'Carbon dioxide (CO₂)', ok: ['carbon dioxide', 'co2'] },
+    { q: 'On Arqade, which game has wanted stars and police chases?', a: 'City Pursuit 3D', ok: ['city pursuit', 'pursuit'] }
+  ];
+  var meteorTimers = [];
+  function startTimer(ms, label) {
+    var id = setTimeout(function () {
+      botSay('⏰ Timer done! ' + label + ' — time\'s up!', null, 0);
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) { var ac = new AC(); var o = ac.createOscillator(); var g = ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value = 880; g.gain.value = 0.07; o.start(); setTimeout(function () { o.stop(); ac.close(); }, 700); }
+      } catch (e) {}
+    }, ms);
+    meteorTimers.push(id);
+  }
+  function loadList(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; } }
+  function saveList(key, arr) { try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {} }
+  function fmtNum(n) {
+    if (!isFinite(n)) return '∞';
+    var r = Math.round(n * 10000) / 10000;
+    return String(r);
+  }
+  var UNIT_DEFS = [
+    { names: ['miles', 'mile', 'mi'], base: 1609.34, group: 'len', label: 'miles' },
+    { names: ['kilometers', 'kilometer', 'km'], base: 1000, group: 'len', label: 'km' },
+    { names: ['meters', 'meter', 'm'], base: 1, group: 'len', label: 'meters' },
+    { names: ['feet', 'foot', 'ft'], base: 0.3048, group: 'len', label: 'feet' },
+    { names: ['inches', 'inch', 'in'], base: 0.0254, group: 'len', label: 'inches' },
+    { names: ['yards', 'yard', 'yd'], base: 0.9144, group: 'len', label: 'yards' },
+    { names: ['kilograms', 'kilogram', 'kg'], base: 1, group: 'wt', label: 'kg' },
+    { names: ['pounds', 'pound', 'lbs', 'lb'], base: 0.453592, group: 'wt', label: 'pounds' },
+    { names: ['ounces', 'ounce', 'oz'], base: 0.0283495, group: 'wt', label: 'ounces' },
+    { names: ['grams', 'gram', 'g'], base: 0.001, group: 'wt', label: 'grams' },
+    { names: ['liters', 'liter', 'l'], base: 1, group: 'vol', label: 'liters' },
+    { names: ['milliliters', 'milliliter', 'ml'], base: 0.001, group: 'vol', label: 'ml' },
+    { names: ['gallons', 'gallon', 'gal'], base: 3.78541, group: 'vol', label: 'gallons' },
+    { names: ['cups', 'cup'], base: 0.236588, group: 'vol', label: 'cups' },
+    { names: ['hours', 'hour', 'hrs', 'hr', 'h'], base: 3600, group: 'time', label: 'hours' },
+    { names: ['minutes', 'minute', 'mins', 'min'], base: 60, group: 'time', label: 'minutes' },
+    { names: ['seconds', 'second', 'secs', 'sec'], base: 1, group: 'time', label: 'seconds' },
+    { names: ['days', 'day'], base: 86400, group: 'time', label: 'days' },
+    { names: ['weeks', 'week'], base: 604800, group: 'time', label: 'weeks' }
+  ];
+  function findUnit(word) {
+    word = word.toLowerCase().replace(/°/g, '');
+    for (var i = 0; i < UNIT_DEFS.length; i++) if (UNIT_DEFS[i].names.indexOf(word) >= 0) return UNIT_DEFS[i];
+    return null;
+  }
+  function convertQuery(raw) {
+    var q = raw.toLowerCase();
+    var m = q.match(/(-?\d+(?:\.\d+)?)\s*(fahrenheit|celsius|kelvin|°f|°c|f|c)\s+(?:to|in)\s+(fahrenheit|celsius|kelvin|°f|°c|f|c)\b/);
+    if (m) {
+      var v = parseFloat(m[1]);
+      var from = m[2].replace('°', ''), to = m[3].replace('°', '');
+      var c = from === 'f' ? (v - 32) * 5 / 9 : from === 'kelvin' ? v - 273.15 : v;
+      var out = to === 'f' ? c * 9 / 5 + 32 : to === 'kelvin' ? c + 273.15 : c;
+      var nm = { f: '°F', c: '°C', kelvin: 'K' };
+      return '🌡️ ' + v + nm[from] + ' = ' + fmtNum(out) + nm[to];
+    }
+    m = q.match(/(-?\d+(?:\.\d+)?)\s*([a-z]+)\s+(?:to|in|=)\s*([a-z]+)\b/);
+    if (m) {
+      var a = findUnit(m[2]), b = findUnit(m[3]);
+      if (a && b && a.group === b.group) return '🔁 ' + m[1] + ' ' + a.label + ' = ' + fmtNum(parseFloat(m[1]) * a.base / b.base) + ' ' + b.label;
+      if (a && b) return '🤔 Those measure different things (' + a.group + ' vs ' + b.group + ') — can\'t convert those.';
+    }
+    return null;
+  }
+  var MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  function nextDate(month, day) {
+    var now = new Date(); now.setHours(0, 0, 0, 0);
+    var d = new Date(now.getFullYear(), month, day);
+    if (d < now) d = new Date(now.getFullYear() + 1, month, day);
+    return d;
+  }
+  function daysUntilQuery(q) {
+    var m = q.match(/days until ([a-z]+)\s+(\d{1,2})/) || q.match(/days until (\d{1,2})\s+([a-z]+)/);
+    var target = null, label = '';
+    if (m) {
+      var mon = MONTHS[(m[1] || '').slice(0, 3)] !== undefined ? MONTHS[m[1].slice(0, 3)] : MONTHS[(m[2] || '').slice(0, 3)];
+      var day = parseInt(MONTHS[(m[1] || '').slice(0, 3)] !== undefined ? m[2] : m[1], 10);
+      if (mon !== undefined && day >= 1 && day <= 31) { target = nextDate(mon, day); label = target.toLocaleDateString([], { month: 'long', day: 'numeric' }); }
+    }
+    if (!target) {
+      var EV = [['christmas', 11, 25, '🎄 Christmas'], ['new year', 0, 1, '🎆 New Year\'s Day'], ['halloween', 9, 31, '🎃 Halloween'], ['valentine', 1, 14, '💝 Valentine\'s Day'], ['july 4', 6, 4, '🇺🇸 July 4th'], ['fourth of july', 6, 4, '🇺🇸 July 4th']];
+      for (var i = 0; i < EV.length; i++) if (q.indexOf(EV[i][0]) >= 0) { target = nextDate(EV[i][1], EV[i][2]); label = EV[i][3]; break; }
+      if (!target && q.indexOf('thanksgiving') >= 0) {
+        var y = new Date().getFullYear();
+        var nov1 = new Date(y, 10, 1);
+        var th = new Date(y, 10, 1 + ((4 - nov1.getDay() + 7) % 7) + 21);
+        var now2 = new Date(); now2.setHours(0, 0, 0, 0);
+        if (th < now2) { var n1 = new Date(y + 1, 10, 1); th = new Date(y + 1, 10, 1 + ((4 - n1.getDay() + 7) % 7) + 21); }
+        target = th; label = '🦃 Thanksgiving';
+      }
+    }
+    if (!target) return null;
+    var now3 = new Date(); now3.setHours(0, 0, 0, 0);
+    var days = Math.round((target - now3) / 86400000);
+    if (days === 0) return '📅 ' + label + ' is TODAY!';
+    return '📅 ' + label + ' is in ' + days + ' day' + (days === 1 ? '' : 's') + ' — ' + target.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) + '.';
+  }
+  var WMO = { 0: '☀️ Clear sky', 1: '🌤️ Mostly clear', 2: '⛅ Partly cloudy', 3: '☁️ Cloudy', 45: '🌫️ Foggy', 48: '🌫️ Foggy', 51: '🌦️ Light drizzle', 53: '🌦️ Drizzle', 55: '🌦️ Drizzle', 61: '🌧️ Light rain', 63: '🌧️ Rain', 65: '🌧️ Heavy rain', 66: '🌧️ Freezing rain', 67: '🌧️ Freezing rain', 71: '🌨️ Light snow', 73: '🌨️ Snow', 75: '🌨️ Heavy snow', 77: '🌨️ Snow grains', 80: '🌦️ Light showers', 81: '🌦️ Showers', 82: '🌦️ Heavy showers', 95: '⛈️ Thunderstorm', 96: '⛈️ Thunderstorm with hail', 99: '⛈️ Thunderstorm with hail' };
+  function weatherReply(raw) {
+    var cityM = raw.match(/weather\s+(?:in|for)\s+([a-zA-Z .'-]+)/i);
+    var city = cityM ? cityM[1].trim() : 'Ladera Ranch';
+    function show(lat, lon, name) {
+      fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&temperature_unit=fahrenheit&timezone=auto&forecast_days=2')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var cur = Math.round(j.current.temperature_2m);
+          var label = WMO[j.current.weather_code] || '🌡️ Weather';
+          var hi = Math.round(j.daily.temperature_2m_max[0]), lo = Math.round(j.daily.temperature_2m_min[0]);
+          var rain = j.daily.precipitation_probability_max[0];
+          var tmr = WMO[j.daily.weather_code[1]] || '';
+          var thi = Math.round(j.daily.temperature_2m_max[1]), tlo = Math.round(j.daily.temperature_2m_min[1]);
+          botSay(label + ' in ' + name + ' right now: ' + cur + '°F.\nToday: high ' + hi + '°, low ' + lo + '°' + (rain !== null && rain !== undefined ? ', rain chance ' + rain + '%' : '') + '.\nTomorrow: ' + tmr + ', high ' + thi + '°, low ' + tlo + '°.', null, 100);
+        })
+        .catch(function () { botSay('⚠️ I couldn\'t reach the weather service just now — try again in a bit.', null, 100); });
+    }
+    if (cityM) {
+      fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) + '&count=1&language=en')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.results && j.results[0]) show(j.results[0].latitude, j.results[0].longitude, j.results[0].name);
+          else botSay('🤔 I couldn\'t find a place called "' + city + '".', null, 100);
+        })
+        .catch(function () { botSay('⚠️ I couldn\'t reach the weather service just now.', null, 100); });
+    } else {
+      show(33.5634, -117.7081, 'Ladera Ranch');
+    }
+  }
+
   function chatReply(raw) {
     var q = ' ' + raw.toLowerCase().trim() + ' ';
 
@@ -324,9 +463,9 @@
       rpsActive = true;
       return 'You\'re on! Pick one: 🪨 rock, 📄 paper, or ✂️ scissors.';
     }
-    if (/\b(hi|hello|hey|yo|sup)\b/.test(q) && q.length < 30) return 'Hey ' + myName + '! 👋 I\'m Meteor 1.1. Ask me for a joke, a game to play, or throw some math at me.';
-    if (q.indexOf('your name') >= 0 || q.indexOf('who are you') >= 0) return 'I\'m Meteor 1.1 ☄️ — Arqade\'s own AI, made by Meteor, the company behind Arqade. I chat, tell jokes, do math, help you pick games — and in Code mode I build whole playable mini-games.';
-    if (q.indexOf('who made you') >= 0 || q.indexOf('who created you') >= 0 || q.indexOf('who built you') >= 0) return 'Meteor made me — that\'s Dylan\'s company, the one that runs Arqade. I\'m version 1.1 — now with a real code engine that builds playable mini-games, not just page shells.';
+    if (/\b(hi|hello|hey|yo|sup)\b/.test(q) && q.length < 30) return 'Hey ' + myName + '! 👋 I\'m Meteor 1.2. Ask me for the weather, a timer, a joke, or throw some math at me.';
+    if (q.indexOf('your name') >= 0 || q.indexOf('who are you') >= 0) return 'I\'m Meteor 1.2 ☄️ — Arqade\'s own AI, made by Meteor, the company behind Arqade. I chat, check the weather, run timers, keep your notes and to-dos, do math — and in Code mode I build whole playable games.';
+    if (q.indexOf('who made you') >= 0 || q.indexOf('who created you') >= 0 || q.indexOf('who built you') >= 0) return 'Meteor made me — that\'s Dylan\'s company, the one that runs Arqade. I\'m version 1.2 — now with a real code engine, live weather, timers, notes and to-dos — your daily AI.';
     if (q.indexOf('dylan') >= 0) return 'Dylan is the owner of Arqade 👑 — he built this whole site and the company Meteor behind it.';
     if (q.indexOf('meteor') >= 0 && (q.indexOf('company') >= 0 || q.indexOf('business') >= 0)) return 'Meteor is the company behind Arqade — it runs Arqade and its other websites. And yes, it\'s also my name. ☄️';
     if (q.indexOf('joke') >= 0 || q.indexOf('funny') >= 0) { var j = JOKES[jokeIdx % JOKES.length]; jokeIdx++; return j; }
@@ -346,10 +485,75 @@
     if (pm && /,|\bor\b/.test(pm[1])) { var opts = pm[1].split(/,|\bor\b/).map(function (s) { return s.trim(); }).filter(Boolean); if (opts.length > 1) return '🎯 I pick: ' + opts[Math.floor(Math.random() * opts.length)] + '!'; }
     if (q.indexOf('roll') >= 0 && (q.indexOf('dice') >= 0 || q.indexOf('die') >= 0)) return '🎲 You rolled a ' + (1 + Math.floor(Math.random() * 6)) + '!';
     if (q.indexOf('flip') >= 0 && q.indexOf('coin') >= 0) return Math.random() < 0.5 ? '🪙 Heads!' : '🪙 Tails!';
+
+    /* -------- 1.2 daily use -------- */
+    var dm;
+    if (triviaOn) {
+      if (q.indexOf('stop') >= 0 || q.indexOf('quit') >= 0) { triviaOn = false; return '🧠 Quiz stopped. Your score was ' + triviaScore + '. Say "quiz me" anytime!'; }
+      var cur = TRIVIA[triviaOrder[triviaIdx]];
+      var ans = q.trim().toLowerCase();
+      var right = cur.ok.some(function (o) { return ans.indexOf(o) >= 0; });
+      var verdict = right ? '✅ Correct!' : '❌ Not quite — it was ' + cur.a + '.';
+      if (right) triviaScore++;
+      triviaIdx++;
+      if (triviaIdx >= triviaOrder.length) { triviaOn = false; return verdict + '\n🏁 Quiz over! You scored ' + triviaScore + ' / ' + triviaOrder.length + '. Say "quiz me" to play again!'; }
+      return verdict + ' Score: ' + triviaScore + '.\n❓ Question ' + (triviaIdx + 1) + ': ' + TRIVIA[triviaOrder[triviaIdx]].q;
+    }
+    if (q.indexOf('quiz me') >= 0 || q.indexOf('trivia') >= 0 || q.indexOf('test me') >= 0) {
+      triviaOrder = TRIVIA.map(function (_, i) { return i; }).sort(function () { return Math.random() - 0.5; });
+      triviaIdx = 0; triviaScore = 0; triviaOn = true;
+      return '🧠 Trivia time! ' + triviaOrder.length + ' questions — answer in chat, say "stop" to quit.\n❓ Question 1: ' + TRIVIA[triviaOrder[0]].q;
+    }
+    if ((dm = raw.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+)?(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i)) || (dm = raw.match(/(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\s+timer/i))) {
+      var n = parseInt(dm[1], 10), unit = dm[2].toLowerCase();
+      var ms = unit[0] === 'h' ? n * 3600000 : unit[0] === 'm' ? n * 60000 : n * 1000;
+      if (ms > 0 && ms <= 86400000) { startTimer(ms, n + ' ' + unit); return '⏰ Timer set for ' + n + ' ' + unit + '! I\'ll shout (and beep) when it\'s done — keep this page open.'; }
+      return '⏰ I can set timers up to 24 hours.';
+    }
+    if (q.indexOf('stop timer') >= 0 || q.indexOf('cancel timer') >= 0) { meteorTimers.forEach(clearTimeout); meteorTimers = []; return '⏰ All timers stopped.'; }
+    if ((dm = raw.match(/^(?:note|remember)[:\s]+(.+)/i))) {
+      var notes = loadList('meteor_notes'); notes.push(dm[1].trim()); saveList('meteor_notes', notes);
+      return '📝 Noted! That\'s note #' + notes.length + '. Say "my notes" to see them all.';
+    }
+    if (q.indexOf('clear notes') >= 0) { saveList('meteor_notes', []); return '📝 Notes cleared.'; }
+    if (q.indexOf('my notes') >= 0 || q.trim() === 'notes') {
+      var ns = loadList('meteor_notes');
+      return ns.length ? '📝 Your notes:\n' + ns.map(function (x, i) { return (i + 1) + '. ' + x; }).join('\n') : '📝 No notes yet — say "note buy milk" and I\'ll save it on this device.';
+    }
+    if ((dm = raw.match(/^(?:todo|add todo)[:\s]+(.+)/i))) {
+      var todos = loadList('meteor_todos'); todos.push({ text: dm[1].trim(), done: false }); saveList('meteor_todos', todos);
+      return '✅ Added to your to-dos (#' + todos.length + '). Say "my todos" to see the list.';
+    }
+    if (q.indexOf('clear todos') >= 0 || q.indexOf('clear to-dos') >= 0) { saveList('meteor_todos', []); return '✅ To-dos cleared.'; }
+    if ((dm = raw.match(/^done\s+(\d+)\s*$/i))) {
+      var ts = loadList('meteor_todos'); var di = parseInt(dm[1], 10) - 1;
+      if (ts[di]) { ts[di].done = true; saveList('meteor_todos', ts); return '✅ Done: "' + ts[di].text + '" — nice! Say "my todos" for what\'s left.'; }
+      return '🤔 There\'s no to-do #' + dm[1] + '. Say "my todos" to see the numbers.';
+    }
+    if (q.indexOf('my todos') >= 0 || q.indexOf('to-do list') >= 0 || q.trim() === 'todos') {
+      var tl = loadList('meteor_todos');
+      return tl.length ? '✅ Your to-dos:\n' + tl.map(function (x, i) { return (i + 1) + '. ' + (x.done ? '✔️ ' : '⬜ ') + x.text; }).join('\n') + '\nSay "done 2" to check one off.' : '✅ Nothing on your to-do list — say "todo finish homework" to add one.';
+    }
+    var conv = convertQuery(raw);
+    if (conv) return conv;
+    if ((dm = q.match(/(\d+(?:\.\d+)?)%\s*off\s*\$?(\d+(?:\.\d+)?)/))) { var off = parseFloat(dm[2]) * (1 - parseFloat(dm[1]) / 100); return '🏷️ ' + dm[1] + '% off $' + dm[2] + ' = $' + fmtNum(off) + ' (you save $' + fmtNum(parseFloat(dm[2]) - off) + ')'; }
+    if ((dm = q.match(/(\d+(?:\.\d+)?)%\s*tip on\s*\$?(\d+(?:\.\d+)?)/))) { var tip = parseFloat(dm[2]) * parseFloat(dm[1]) / 100; return '💵 A ' + dm[1] + '% tip on $' + dm[2] + ' is $' + fmtNum(tip) + ' — total $' + fmtNum(parseFloat(dm[2]) + tip) + '.'; }
+    if (q.indexOf('tip on') >= 0 && (dm = q.match(/tip on\s*\$?(\d+(?:\.\d+)?)/))) { var tip2 = parseFloat(dm[1]) * 0.18; return '💵 An 18% tip on $' + dm[1] + ' is $' + fmtNum(tip2) + ' — total $' + fmtNum(parseFloat(dm[1]) + tip2) + '. (Say a percent for a different tip.)'; }
+    if ((dm = q.match(/(\d+(?:\.\d+)?)%\s*of\s*\$?(\d+(?:\.\d+)?)/))) return '🧮 ' + dm[1] + '% of ' + dm[2] + ' = ' + fmtNum(parseFloat(dm[2]) * parseFloat(dm[1]) / 100);
+    if ((dm = q.match(/split\s*\$?(\d+(?:\.\d+)?)\s*(?:between|among|with)?\s*(\d+)\s*(?:people|ways|friends)?/))) { if (+dm[2] > 0) return '🧾 Splitting $' + dm[1] + ' between ' + dm[2] + ' people: $' + fmtNum(parseFloat(dm[1]) / parseFloat(dm[2])) + ' each.'; }
+    if (q.indexOf('days until') >= 0 || q.indexOf('how many days until') >= 0 || q.indexOf('days till') >= 0) { var du = daysUntilQuery(q); if (du) return du; }
+    if ((dm = raw.match(/solve\s+(-?\d*\.?\d*)\s*x\s*([+-]\s*\d+(?:\.\d+)?)?\s*=\s*(-?\d+(?:\.\d+)?)/i))) {
+      var a = dm[1] === '' || dm[1] === '+' ? 1 : dm[1] === '-' ? -1 : parseFloat(dm[1]);
+      var b = dm[2] ? parseFloat(dm[2].replace(/\s/g, '')) : 0;
+      var c = parseFloat(dm[3]);
+      if (a !== 0) return '🧮 ' + raw.replace(/^solve\s*/i, '') + '  →  x = ' + fmtNum((c - b) / a);
+    }
+    if (q.indexOf('what day is') >= 0 || q.indexOf('what is the date') >= 0 || q.indexOf('what\'s the date') >= 0 || q.indexOf('what date is') >= 0) return '📅 Today is ' + new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '.';
+
     if (q.indexOf('what time') >= 0 || q.indexOf('the time') >= 0) return 'It\'s ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' where you are. ⏰';
     if (q.indexOf('thank') >= 0) return 'Anytime! That\'s what I\'m here for. ☄️';
     if (q.indexOf('bye') >= 0) return 'See you soon, ' + myName + '! I\'ll be here in orbit. ☄️👋';
-    if (q.indexOf('help') >= 0 || q.indexOf('what can you do') >= 0) return 'Here\'s what Meteor 1.1 can do:\n• 💬 Chat and answer questions about Arqade\n• 🧮 Math — try "what is 24 x 7?"\n• 😂 Jokes — "tell me a joke"\n• 🎮 Game picks — "pick a game for me"\n• 🪨 Rock paper scissors — "let\'s play rock paper scissors"\n• 🎲 Dice, coin flips and random numbers\n• 💻 Code mode (owner + developer-tag players) — I build full playable mini-games';
+    if (q.indexOf('help') >= 0 || q.indexOf('what can you do') >= 0) return 'Here\'s what Meteor 1.2 can do:\n• 🌦️ Weather — "weather" or "weather in Paris" (real live forecast!)\n• ⏰ Timers — "set a timer for 5 minutes"\n• 📝 Notes & to-dos — "note buy milk", "todo finish homework", "my notes", "my todos", "done 1"\n• 🔁 Conversions — "convert 5 miles to km", "100 f to c"\n• 🧮 Everyday math — "15% of 80", "20% off 59.99", "split 90 between 4", "solve 2x + 3 = 7", plus regular math\n• 📅 Countdowns — "days until christmas"\n• 🧠 Trivia — "quiz me"\n• 😂 Jokes, 🎮 game picks, 🪨 rock paper scissors, 🎲 dice/coins/random picks\n• 💻 Code mode (owner + developer-tag players) — I build full playable games and whole pages';
 
     /* math: "what is 24 x 7", "calculate ...", or a bare expression */
     var expr = raw.replace(/^(what is|what's|calculate|calc|solve|math)[:\s]*/i, '').replace(/\?+\s*$/, '').trim();
@@ -370,7 +574,7 @@
     var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game';
     return '<a class="card" href="/games/' + slug + '">\n  <div class="art"><!-- cover art --></div>\n  <div class="body">\n    <span class="tag purple">NEW</span>\n    <h2>' + name + '</h2>\n    <p>One-line description of the game.</p>\n    <span class="play">▶ Play</span>\n  </div>\n</a>';
   }
-  /* ---------------- Meteor 1.1 code engine ---------------- */
+  /* ---------------- Meteor 1.2 code engine ---------------- */
   function slugify(name) { return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-game'; }
   function codeTail() {
     return canPublish && pushAvailable
@@ -547,12 +751,124 @@ document.getElementById('roll').addEventListener('click', function () {
   document.getElementById('dice').textContent = FACES[a - 1] + ' ' + FACES[b - 1];
   document.getElementById('msg').textContent = 'Total: ' + (a + b) + (a === b ? ' — DOUBLES! 🎉' : '');
 });`
+    },
+    breakout: {
+      label: 'Breakout',
+      body: `<div class="hud" id="sc">Score: 0 · Lives: 3</div>
+<canvas id="cv" width="300" height="300"></canvas>
+<p id="msg">Move with the mouse, touch, or arrow keys.</p>
+<button class="btn" id="start">▶ Start</button>`,
+      js: `var cv = document.getElementById('cv'), cx = cv.getContext('2d');
+var px = 115, ball, bricks, score, lives, run = false;
+function buildBricks() { bricks = []; for (var r = 0; r < 4; r++) for (var c = 0; c < 5; c++) bricks.push({ x: 8 + c * 58, y: 30 + r * 18, on: true }); }
+function show() { document.getElementById('sc').textContent = 'Score: ' + score + ' · Lives: ' + lives; }
+function draw() {
+  cx.fillStyle = '#0b0b14'; cx.fillRect(0, 0, 300, 300);
+  cx.fillStyle = '#f5c542'; cx.fillRect(px, 282, 70, 10);
+  cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(ball.x, ball.y, 6, 0, 7); cx.fill();
+  var colors = ['#ef4444', '#f97316', '#facc15', '#22c55e'];
+  bricks.forEach(function (b, i) { if (b.on) { cx.fillStyle = colors[Math.floor(i / 5) % 4]; cx.fillRect(b.x, b.y, 52, 12); } });
+}
+function reset(full) { ball = { x: 150, y: 240, vx: 2.4, vy: -2.8 }; if (full) { score = 0; lives = 3; buildBricks(); } show(); draw(); }
+function step() {
+  if (!run) return;
+  ball.x += ball.vx; ball.y += ball.vy;
+  if (ball.x < 6 || ball.x > 294) ball.vx *= -1;
+  if (ball.y < 6) ball.vy *= -1;
+  if (ball.y > 276 && ball.y < 292 && ball.x > px && ball.x < px + 70 && ball.vy > 0) { ball.vy *= -1; ball.vx += (ball.x - (px + 35)) / 22; }
+  if (ball.y > 306) { lives--; show(); if (lives <= 0) { run = false; document.getElementById('msg').textContent = '💥 Game over! Score: ' + score; } else { ball = { x: 150, y: 240, vx: 2.4, vy: -2.8 }; } }
+  bricks.forEach(function (b) {
+    if (b.on && ball.x > b.x && ball.x < b.x + 52 && ball.y > b.y && ball.y < b.y + 12) { b.on = false; ball.vy *= -1; score += 10; show(); }
+  });
+  if (bricks.every(function (b) { return !b.on; })) { run = false; document.getElementById('msg').textContent = '🎉 You cleared all the bricks! Score: ' + score; }
+  draw();
+  requestAnimationFrame(step);
+}
+function moveTo(x) { var r = cv.getBoundingClientRect(); px = Math.max(0, Math.min(230, (x - r.left) * (300 / r.width) - 35)); if (!run) draw(); }
+cv.addEventListener('mousemove', function (e) { moveTo(e.clientX); });
+cv.addEventListener('touchmove', function (e) { moveTo(e.touches[0].clientX); e.preventDefault(); }, { passive: false });
+document.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') px = Math.max(0, px - 18); if (e.key === 'ArrowRight') px = Math.min(230, px + 18); if (!run) draw(); });
+document.getElementById('start').addEventListener('click', function () { reset(true); run = true; document.getElementById('msg').textContent = ''; requestAnimationFrame(step); });
+reset(true);`
+    },
+    flappy: {
+      label: 'Flappy',
+      body: `<div class="hud" id="sc">Score: 0</div>
+<canvas id="cv" width="300" height="300"></canvas>
+<p id="msg">Tap, click, or press Space to flap. Tap the sky to start!</p>`,
+      js: `var cv = document.getElementById('cv'), cx = cv.getContext('2d');
+var y, v, pipes, score, state = 'ready', frame = 0;
+function reset() { y = 150; v = 0; pipes = []; score = 0; frame = 0; document.getElementById('sc').textContent = 'Score: 0'; }
+function flap() { if (state === 'ready') state = 'play'; if (state === 'play') v = -6.2; else if (state === 'over') { reset(); state = 'ready'; } }
+function draw() {
+  cx.fillStyle = '#0ea5e9'; cx.fillRect(0, 0, 300, 300);
+  cx.fillStyle = '#22c55e';
+  pipes.forEach(function (p) { cx.fillRect(p.x, 0, 46, p.top); cx.fillRect(p.x, p.top + 92, 46, 300); });
+  cx.font = '26px sans-serif'; cx.fillText('🐤', 56, y);
+  cx.fillStyle = '#14532d'; cx.fillRect(0, 292, 300, 8);
+}
+function step() {
+  if (state === 'play') {
+    v += 0.32; y += v; frame++;
+    if (frame % 95 === 0) pipes.push({ x: 300, top: 40 + Math.random() * 130, passed: false });
+    pipes.forEach(function (p) {
+      p.x -= 2.2;
+      if (!p.passed && p.x < 60) { p.passed = true; score++; document.getElementById('sc').textContent = 'Score: ' + score; }
+      if (82 > p.x && 56 < p.x + 46 && (y - 20 < p.top || y > p.top + 92)) state = 'over';
+    });
+    pipes = pipes.filter(function (p) { return p.x > -50; });
+    if (y > 292 || y < 0) state = 'over';
+    if (state === 'over') document.getElementById('msg').textContent = '💥 Game over! Score: ' + score + ' — tap to restart.';
+  }
+  draw();
+  requestAnimationFrame(step);
+}
+cv.addEventListener('click', flap);
+document.addEventListener('keydown', function (e) { if (e.code === 'Space') { flap(); e.preventDefault(); } });
+reset(); requestAnimationFrame(step);`
+    },
+    pong: {
+      label: 'Pong',
+      body: `<div class="hud" id="sc">You 0 · Bot 0</div>
+<canvas id="cv" width="300" height="300"></canvas>
+<p>Move with the mouse, touch, or ↑ ↓ keys. First to 5 wins!</p>`,
+      js: `var cv = document.getElementById('cv'), cx = cv.getContext('2d');
+var py = 110, by = 110, ball = { x: 150, y: 150, vx: 2.6, vy: 1.8 }, me = 0, bot = 0;
+function show() { document.getElementById('sc').textContent = 'You ' + me + ' · Bot ' + bot; }
+function serve(dir) { ball = { x: 150, y: 150, vx: 2.6 * dir, vy: (Math.random() * 2 - 1) * 2 }; }
+function draw() {
+  cx.fillStyle = '#0b0b14'; cx.fillRect(0, 0, 300, 300);
+  cx.fillStyle = '#2c2c48'; cx.fillRect(149, 0, 2, 300);
+  cx.fillStyle = '#f5c542'; cx.fillRect(6, py, 8, 70);
+  cx.fillStyle = '#f472b6'; cx.fillRect(286, by, 8, 70);
+  cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(ball.x, ball.y, 6, 0, 7); cx.fill();
+}
+function step() {
+  ball.x += ball.vx; ball.y += ball.vy;
+  if (ball.y < 6 || ball.y > 294) ball.vy *= -1;
+  by += Math.max(-2.2, Math.min(2.2, (ball.y - (by + 35)) * 0.06));
+  by = Math.max(0, Math.min(230, by));
+  if (ball.x < 20 && ball.y > py && ball.y < py + 70 && ball.vx < 0) { ball.vx *= -1; ball.vx *= 1.04; ball.vy += (ball.y - (py + 35)) / 20; }
+  if (ball.x > 280 && ball.y > by && ball.y < by + 70 && ball.vx > 0) { ball.vx *= -1; ball.vx *= 1.04; }
+  if (ball.x < -8) { bot++; show(); if (bot >= 5) { alert('🤖 Bot wins ' + bot + '–' + me + '! Refresh to rematch.'); me = 0; bot = 0; show(); } serve(1); }
+  if (ball.x > 308) { me++; show(); if (me >= 5) { alert('🎉 You win ' + me + '–' + bot + '! Refresh to rematch.'); me = 0; bot = 0; show(); } serve(-1); }
+  draw();
+  requestAnimationFrame(step);
+}
+function moveTo(y) { var r = cv.getBoundingClientRect(); py = Math.max(0, Math.min(230, (y - r.top) * (300 / r.height) - 35)); }
+cv.addEventListener('mousemove', function (e) { moveTo(e.clientY); });
+cv.addEventListener('touchmove', function (e) { moveTo(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+document.addEventListener('keydown', function (e) { if (e.key === 'ArrowUp') py = Math.max(0, py - 16); if (e.key === 'ArrowDown') py = Math.min(230, py + 16); });
+show(); draw(); requestAnimationFrame(step);`
     }
   };
 
   function detectGameType(text) {
     var q = ' ' + String(text).toLowerCase() + ' ';
     if (/snake/.test(q)) return 'snake';
+    if (/breakout|brick/.test(q)) return 'breakout';
+    if (/flappy|bird/.test(q)) return 'flappy';
+    if (/pong/.test(q)) return 'pong';
     if (/clicker|clicking|coin click/.test(q)) return 'clicker';
     if (/reaction/.test(q)) return 'reaction';
     if (/memory|matching/.test(q)) return 'memory';
@@ -561,7 +877,20 @@ document.getElementById('roll').addEventListener('click', function () {
     if (/dice/.test(q)) return 'dice';
     return null;
   }
-  function playablePage(name, type) { var g = GAME_TYPES[type]; return pageShell(name, g.body, g.js); }
+  function playablePage(name, type, raw) {
+    var g = GAME_TYPES[type];
+    var body = g.body, js = g.js;
+    if (raw && type === 'clicker') {
+      var EM = { gem: '💎', diamond: '💎', cookie: '🍪', star: '⭐', heart: '❤️', cat: '🐱', dog: '🐶', rocket: '🚀', pizza: '🍕', crystal: '🔮' };
+      var low = raw.toLowerCase();
+      for (var k in EM) { if (low.indexOf(k) >= 0) { body = body.split('🪙').join(EM[k]); js = js.split('🪙').join(EM[k]); break; } }
+    }
+    if (raw && type === 'snake') {
+      var low2 = raw.toLowerCase();
+      for (var c in COLOR_WORDS) { if (new RegExp('\\b' + c + '\\b').test(low2)) { js = js.split('#4ade80').join(COLOR_WORDS[c]); break; } }
+    }
+    return pageShell(name, body, js);
+  }
 
   var COLOR_WORDS = { red: '#ef4444', blue: '#3b82f6', green: '#22c55e', gold: '#f5c542', yellow: '#facc15', purple: '#a855f7', orange: '#f97316', pink: '#ec4899', black: '#111827', white: '#f8fafc' };
   function pickColor(raw) { var q = raw.toLowerCase(); for (var k in COLOR_WORDS) { if (new RegExp('\\b' + k + '\\b').test(q)) return COLOR_WORDS[k]; } return '#f5c542'; }
@@ -580,7 +909,52 @@ document.getElementById('roll').addEventListener('click', function () {
     if (kind === 'modal') return '<button onclick="document.getElementById(\'pop\').style.display=\'flex\'" style="background:#f5c542;color:#191920;border:0;border-radius:10px;font-weight:800;padding:11px 22px;cursor:pointer;">Open popup</button>\n<div id="pop" style="display:none;position:fixed;inset:0;background:rgba(5,5,12,.75);align-items:center;justify-content:center;z-index:50;">\n  <div style="background:#1e1e30;border:2px solid #f5c542;border-radius:14px;padding:22px;max-width:320px;text-align:center;">\n    <h3 style="margin:0 0 8px;">🎉 Popup!</h3>\n    <p style="opacity:.85;">Your message goes here.</p>\n    <button onclick="document.getElementById(\'pop\').style.display=\'none\'" style="background:#262640;color:#eef;border:1.5px solid #3a3a5c;border-radius:9px;font-weight:700;padding:9px 18px;cursor:pointer;">Close</button>\n  </div>\n</div>';
     if (kind === 'footer') return '<footer style="text-align:center;padding:22px 14px;opacity:.75;font-size:14px;border-top:1px solid #2c2c48;margin-top:30px;">\n  Made with ☄️ on Arqade · <a href="#" style="color:#f5c542;">Home</a> · <a href="#" style="color:#f5c542;">Games</a>\n</footer>';
     if (kind === 'gallery') return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:460px;">\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;font-size:34px;">🌅</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-size:34px;">🌊</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#14532d);display:flex;align-items:center;justify-content:center;font-size:34px;">🌲</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:34px;">🎆</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#facc15,#f97316);display:flex;align-items:center;justify-content:center;font-size:34px;">🏖️</div>\n  <div style="height:90px;border-radius:12px;background:linear-gradient(135deg,#334155,#0f172a);display:flex;align-items:center;justify-content:center;font-size:34px;">🌙</div>\n</div>';
+    if (kind === 'accordion') return '<div style="max-width:420px;">\n  <details style="background:#1e1e30;border:1.5px solid #2c2c48;border-radius:10px;padding:12px 15px;margin-bottom:8px;">\n    <summary style="font-weight:800;cursor:pointer;">❓ Question one</summary>\n    <p style="opacity:.85;">The answer goes here.</p>\n  </details>\n  <details style="background:#1e1e30;border:1.5px solid #2c2c48;border-radius:10px;padding:12px 15px;margin-bottom:8px;">\n    <summary style="font-weight:800;cursor:pointer;">❓ Question two</summary>\n    <p style="opacity:.85;">Another answer goes here.</p>\n  </details>\n</div>';
+    if (kind === 'carousel') return '<div style="display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px;max-width:460px;">\n  <div style="min-width:200px;height:120px;scroll-snap-align:center;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;font-size:40px;">🌅</div>\n  <div style="min-width:200px;height:120px;scroll-snap-align:center;border-radius:14px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:center;justify-content:center;font-size:40px;">🌊</div>\n  <div style="min-width:200px;height:120px;scroll-snap-align:center;border-radius:14px;background:linear-gradient(135deg,#22c55e,#14532d);display:flex;align-items:center;justify-content:center;font-size:40px;">🌲</div>\n</div>\n<p style="opacity:.7;font-size:13px;">← Swipe or scroll →</p>';
+    if (kind === 'darkmode') return '<button onclick="document.body.classList.toggle(\'dark\')" style="background:#262640;color:#eef;border:1.5px solid #3a3a5c;border-radius:999px;font-weight:800;padding:10px 20px;cursor:pointer;">🌙 Toggle dark mode</button>\n<style>\n  body { transition: background .3s, color .3s; }\n  body.dark { background: #0b0b14; color: #eef; }\n</style>';
+    if (kind === 'tabs') return '<div>\n  <button onclick="showTab1(this, \'p1\')" style="background:#f5c542;color:#191920;border:0;border-radius:9px 9px 0 0;font-weight:800;padding:9px 18px;cursor:pointer;">Tab One</button>\n  <button onclick="showTab1(this, \'p2\')" style="background:#262640;color:#eef;border:0;border-radius:9px 9px 0 0;font-weight:800;padding:9px 18px;cursor:pointer;">Tab Two</button>\n  <div id="p1" style="background:#1e1e30;border:2px solid #2c2c48;border-radius:0 12px 12px 12px;padding:16px;">First tab content.</div>\n  <div id="p2" style="display:none;background:#1e1e30;border:2px solid #2c2c48;border-radius:0 12px 12px 12px;padding:16px;">Second tab content.</div>\n</div>\n<script>\n  function showTab1(btn, id) {\n    document.getElementById(\'p1\').style.display = id === \'p1\' ? \'block\' : \'none\';\n    document.getElementById(\'p2\').style.display = id === \'p2\' ? \'block\' : \'none\';\n  }\n<\/script>';
     return '';
+  }
+
+  function explainCode(code) {
+    var lines = code.split('\n');
+    var out = ['📖 That\'s ' + lines.length + ' lines of code. Here\'s what it does:'];
+    var fns = code.match(/function\s+([A-Za-z_$][\w$]*)/g);
+    if (fns) out.push('• It defines ' + fns.length + ' function' + (fns.length > 1 ? 's' : '') + ' (' + fns.map(function (f) { return f.replace('function ', '') + '()'; }).slice(0, 6).join(', ') + ') — reusable jobs the code can run.');
+    var listeners = (code.match(/addEventListener/g) || []).length;
+    if (listeners) out.push('• It listens for ' + listeners + ' event' + (listeners > 1 ? 's' : '') + ' (addEventListener) — that\'s how it reacts to clicks, keys and touches.');
+    var loops = (code.match(/\b(for|while)\s*\(/g) || []).length;
+    if (loops) out.push('• It has ' + loops + ' loop' + (loops > 1 ? 's' : '') + ' — repeating jobs, like checking every brick or card.');
+    var ifs = (code.match(/\bif\s*\(/g) || []).length;
+    if (ifs) out.push('• It makes ' + ifs + ' decision' + (ifs > 1 ? 's' : '') + ' with if-statements — scores, collisions, wins and losses.');
+    if (/<canvas/i.test(code)) out.push('• It draws on a <canvas> — that\'s the game screen.');
+    if (/localStorage/.test(code)) out.push('• It uses localStorage — saving data in the browser between visits.');
+    if (/fetch\(/.test(code)) out.push('• It uses fetch() — talking to a server or API over the internet.');
+    if (/setInterval|requestAnimationFrame/.test(code)) out.push('• It runs on a timer/animation loop — that\'s what makes things move.');
+    if (/<style/i.test(code) || /style=/.test(code)) out.push('• It includes styling — colors, sizes and layout.');
+    if (out.length === 1) out.push('• Mostly structure and content — no big logic jumps out. Paste a game script and I\'ll dig deeper.');
+    out.push('Want a bug hunt too? Say "check" and paste it again.');
+    return out.join('\n');
+  }
+
+  function lintCode(code) {
+    var issues = [];
+    function bal(open, close, name) { var a = code.split(open).length - 1, b = code.split(close).length - 1; if (a !== b) issues.push(name + ': ' + a + ' opening vs ' + b + ' closing'); return b - a; }
+    var missBrace = bal('{', '}', 'Braces { }');
+    bal('(', ')', 'Parentheses ( )');
+    bal('[', ']', 'Brackets [ ]');
+    var isPage = /<!DOCTYPE html>/i.test(code) || /<html/i.test(code);
+    if (isPage && !/<\/html>/i.test(code)) issues.push('Missing the closing </html> tag');
+    if (isPage && !/<\/body>/i.test(code)) issues.push('Missing the closing </body> tag');
+    var so = (code.match(/<script/g) || []).length, sc2 = (code.match(/<\/script>/g) || []).length;
+    if (so !== sc2) issues.push('Script tags: ' + so + ' opening vs ' + sc2 + ' closing');
+    if (!issues.length) return { text: '✅ I checked it — braces, brackets and tags all balance, and the structure looks complete. No obvious breakage found!' };
+    var fixed = code;
+    if (missBrace < 0) { for (var i = 0; i < -missBrace; i++) fixed += '\n}'; }
+    if (isPage && !/<\/body>/i.test(fixed)) fixed += '\n</body>';
+    if (isPage && !/<\/html>/i.test(fixed)) fixed += '\n</html>';
+    var changed = fixed !== code;
+    return { text: '🔍 Found ' + issues.length + ' thing' + (issues.length > 1 ? 's' : '') + ' to look at:\n• ' + issues.join('\n• ') + (changed ? '\nHere\'s a version with the missing closers added — the rest is yours to review:' : ''), code: changed ? fixed : undefined };
   }
 
   var UTIL_SNIPPETS = {
@@ -590,32 +964,51 @@ document.getElementById('roll').addEventListener('click', function () {
     tip: '<input type="number" id="bill" placeholder="Bill $" style="padding:10px;"> <input type="number" id="pct" placeholder="Tip %" value="18" style="padding:10px;width:80px;">\n<button onclick="tipCalc()">Calculate</button>\n<p id="tipOut" style="font-weight:800;"></p>\n<script>\n  function tipCalc() {\n    var b = parseFloat(document.getElementById(\'bill\').value) || 0;\n    var p = parseFloat(document.getElementById(\'pct\').value) || 0;\n    var tip = b * p / 100;\n    document.getElementById(\'tipOut\').textContent = \'Tip: $\' + tip.toFixed(2) + \' · Total: $\' + (b + tip).toFixed(2);\n  }\n<\/script>'
   };
 
-  var CODE_HELP = '💻 Code mode 1.1 — I build REAL working code now:\n• 🎮 FULL playable games: "make a snake game", "make a clicker game", "reaction game", "memory game", "guessing game", "quiz game", "dice game" — or "game page called Rocket Jump with a snake game"\n• "game page called Rocket Jump" — an Arqade game page shell\n• 🧩 Page pieces: "make a navbar", "make a hero", "make a gold button saying Play", "make a form", "make a table", "make a modal", "make a gallery", "make a footer", "make a card"\n• 🛠 Utilities: "countdown code", "stopwatch code", "password generator code", "tip calculator code"\n• "portal card for Rocket Jump" — the home-page card\n• "gradient #ff0000 to #0000ff" — CSS gradient code\n• "encode hello world" / "decode aGVsbG8=" — Base64\n• "count the words in this text"\nEvery game page gets a 👁 Preview so you can play it right here. The owner publishes with 🚀 Push; developer-tag players tap 📨 Send to Dylan — he previews it in the 💌 Feedback app Dev requests tab and taps ✅ or ❌.\nFor one-of-a-kind custom features, Baxter in your Muse chat still codes those live — I build from my (much bigger) 1.1 patterns.';
+  var CODE_HELP = '💻 Code mode 1.2 — I build REAL working code:\n• 🎮 FULL playable games (10 now!): snake, breakout, flappy, pong, clicker, reaction, memory, guessing, quiz, dice — try "make a breakout game" or "game page called Gem Clicker with a clicker game" (name a gem/cookie/star and the clicker uses it!)\n• 🏗 Page builder: "build a page with a navbar and a hero and a footer" — I assemble the pieces into one page\n• 🧩 Page pieces: navbar, hero, button ("make a gold button saying Play"), card, form, table, modal, gallery, accordion, carousel, tabs, dark mode toggle, footer\n• 🔍 "explain" + paste code — I walk through what it does\n• 🛠 "check" + paste code — I hunt for unbalanced braces and missing tags, and fix the easy ones\n• Utilities: "countdown code", "stopwatch code", "password generator code", "tip calculator code"\n• "portal card for Rocket Jump" · "gradient #ff0000 to #0000ff" · "encode hello world" · "count the words in this text"\nEvery game page gets a 👁 Preview so you can play it right here. The owner publishes with 🚀 Push; developer-tag players tap 📨 Send to Dylan — he previews it in the 💌 Feedback app Dev requests tab and taps ✅ or ❌.\nFor one-of-a-kind custom features, Baxter in your Muse chat still codes those live — I build from my 1.2 patterns.';
 
   function codeReply(raw) {
     var q = raw.toLowerCase();
     var m;
     if (q.indexOf('help') >= 0 || q.trim() === '') return { text: CODE_HELP };
+    if (/^explain/i.test(raw.trim())) {
+      var ec = raw.replace(/^explain\s*(this\s*)?(code)?[:\s]*/i, '');
+      if (ec.length < 15) return { text: 'Paste the code right after the word "explain" and I\'ll walk through what it does, piece by piece. 📖' };
+      return { text: explainCode(ec) };
+    }
+    if (/^(check|fix|debug)/i.test(raw.trim())) {
+      var fc = raw.replace(/^(check|fix|debug)\s*(this\s*)?(code)?[:\s]*/i, '');
+      if (fc.length < 15) return { text: 'Paste the code after the word "check" and I\'ll hunt for unbalanced braces, unclosed tags and missing pieces. 🔍' };
+      return lintCode(fc);
+    }
     if ((m = raw.match(/game page (?:called|for)\s+(.+)/i))) {
       var gname = m[1].trim();
       var gtype = detectGameType(gname);
-      gname = gname.replace(/\s+with\s+(an?\s+|the\s+)?(snake|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(\s+game)?\s*$/i, '').trim() || m[1].trim();
+      gname = gname.replace(/\s+with\s+(an?\s+|the\s+)?(snake|breakout|flappy|pong|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(\s+game)?\s*$/i, '').trim() || m[1].trim();
       var gslug = slugify(gname);
-      if (gtype) return { text: 'Here\'s "' + gname + '" with a FULL playable ' + GAME_TYPES[gtype].label + ' game inside — the real game, not a blank page.' + codeTail(), code: playablePage(gname, gtype), slug: gslug };
+      if (gtype) return { text: 'Here\'s "' + gname + '" with a FULL playable ' + GAME_TYPES[gtype].label + ' game inside — the real game, not a blank page.' + codeTail(), code: playablePage(gname, gtype, raw), slug: gslug };
       return { text: 'Here\'s a starter page for "' + gname + '" — Arqade style, with the account gate built in.' + codeTail(), code: gameSkeleton(gname), slug: gslug };
     }
-    if ((m = raw.match(/(?:make|build|create|code)\s+(?:me\s+)?(?:an?\s+)?(snake|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(?:\s+game)?(?:\s+called\s+(.+))?/i))) {
+    if ((m = raw.match(/(?:make|build|create|code)\s+(?:me\s+)?(?:an?\s+)?(?:\w+\s+)?(snake|breakout|flappy|pong|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(?:\s+game)?(?:\s+called\s+(.+))?/i))) {
       var mtype = detectGameType(m[1]);
       var mname = (m[2] || (GAME_TYPES[mtype].label + ' Game')).trim();
-      return { text: 'One FULL playable ' + GAME_TYPES[mtype].label + ' game, coming up — the page is called "' + mname + '".' + codeTail(), code: playablePage(mname, mtype), slug: slugify(mname) };
+      return { text: 'One FULL playable ' + GAME_TYPES[mtype].label + ' game, coming up — the page is called "' + mname + '".' + codeTail(), code: playablePage(mname, mtype, raw), slug: slugify(mname) };
     }
-    if ((m = raw.match(/^(?:a\s+|an\s+)?(snake|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(?:\s+game)?\b/i))) {
+    if ((m = raw.match(/^(?:a\s+|an\s+)?(?:\w+\s+)?(snake|breakout|flappy|pong|clicker|reaction|memory|guessing|guess|quiz|trivia|dice)(?:\s+game)?\b/i))) {
       var btype = detectGameType(m[1]);
       var bname = GAME_TYPES[btype].label + ' Game';
-      return { text: 'One FULL playable ' + GAME_TYPES[btype].label + ' game, coming up — the page is called "' + bname + '".' + codeTail(), code: playablePage(bname, btype), slug: slugify(bname) };
+      return { text: 'One FULL playable ' + GAME_TYPES[btype].label + ' game, coming up — the page is called "' + bname + '".' + codeTail(), code: playablePage(bname, btype, raw), slug: slugify(bname) };
     }
     if ((m = raw.match(/(?:portal )?card (?:for|called)\s+(.+)/i))) return { text: 'Here\'s the portal card for "' + m[1].trim() + '":', code: cardSnippet(m[1].trim()) };
-    if ((m = raw.match(/(?:make|add|create|build|code)\s+(?:me\s+)?(?:an?\s+)?(?:\w+\s+)?(nav\s?bar|hero|button|card|form|table|modal|footer|gallery)\b/i))) {
+    var bk = [];
+    [['navbar', /nav\s?bar/], ['hero', /hero/], ['gallery', /gallery/], ['card', /\bcard\b/], ['table', /table/], ['form', /form/], ['modal', /modal/], ['accordion', /accordion/], ['footer', /footer/]].forEach(function (kd) { if (kd[1].test(q)) bk.push(kd[0]); });
+    if (bk.length >= 2 && /(page|site|website)/.test(q)) {
+      var nm2 = raw.match(/called\s+(.+)/i);
+      var pname = nm2 ? nm2[1].trim() : 'My Page';
+      var border = ['navbar', 'hero', 'gallery', 'card', 'table', 'form', 'accordion', 'modal', 'footer'];
+      var bparts = border.filter(function (k) { return bk.indexOf(k) >= 0; }).map(function (k) { return snippet(k, raw); });
+      return { text: 'Built you a whole page with ' + bparts.length + ' pieces (' + bk.join(' + ') + ') — all on one Arqade page.' + codeTail(), code: pageShell(pname, bparts.join('\n'), '// Page built with Meteor 1.2 page builder — pieces: ' + bk.join(', ')), slug: slugify(pname) };
+    }
+    if ((m = raw.match(/(?:make|add|create|build|code)\s+(?:me\s+)?(?:an?\s+)?(?:\w+\s+)?(nav\s?bar|hero|button|card|form|table|modal|footer|gallery|accordion|carousel|tabs|dark\s?mode)\b/i))) {
       var kind = m[1].toLowerCase().replace(/\s+/g, '');
       if (kind === 'navbar') kind = 'navbar';
       return { text: 'Here\'s your ' + m[1].toLowerCase() + ' — paste it into any page:', code: snippet(kind === 'nav' ? 'navbar' : kind, raw) };
@@ -632,12 +1025,12 @@ document.getElementById('roll').addEventListener('click', function () {
       var words = body.trim() ? body.trim().split(/\s+/).length : 0;
       return { text: '📊 Characters: ' + body.length + ' · Words: ' + words + ' · Lines: ' + (body ? body.split('\n').length : 0) };
     }
-    return { text: 'That build is beyond my 1.1 patterns — but my 1.1 patterns are BIG now: full playable mini-games (snake, clicker, reaction, memory, guessing, quiz, dice), game pages, page pieces like navbars and buttons, utilities, portal cards, gradients, Base64 and counts. For one-of-a-kind custom features, ask Baxter in your Muse chat and he\'ll code and ship it live, like always. Want the list? Say "help".' };
+    return { text: 'That build is beyond my 1.2 patterns — but they\'re BIG now: 10 full playable games, a page builder, page pieces, code explaining and bug-checking, utilities, portal cards, gradients, Base64 and counts. For one-of-a-kind custom features, ask Baxter in your Muse chat and he\'ll code and ship it live, like always. Want the list? Say "help".' };
   }
 
   /* ---------------- wiring ---------------- */
-  var CHAT_CHIPS = ['Tell me a joke 😂', 'Pick a game for me 🎮', 'What is 24 × 7?', 'What games are on Arqade?', 'Let\'s play rock paper scissors', 'Who made you?'];
-  var CODE_CHIPS = ['Help', 'Make a snake game', 'Game page called Gem Clicker with a clicker game', 'Make a navbar', 'Make a gold button saying Play', 'Countdown code'];
+  var CHAT_CHIPS = ['Weather today 🌦️', 'Set a timer for 1 minute ⏰', 'Quiz me 🧠', 'Tell me a joke 😂', 'Pick a game for me 🎮', 'Days until christmas 📅'];
+  var CODE_CHIPS = ['Help', 'Make a breakout game', 'Game page called Gem Clicker with a clicker game', 'Build a page with a navbar and a hero', 'Make a flappy game', 'Make a snake game'];
 
   function renderChips() {
     chipsBox.innerHTML = '';
@@ -670,6 +1063,9 @@ document.getElementById('roll').addEventListener('click', function () {
     if (mode === 'code') {
       var r = codeReply(raw);
       botSay(r.text, r.code, 600, r.slug);
+    } else if (/\bweather\b/i.test(raw)) {
+      botSay('🌦️ Checking the sky…', null, 350);
+      setTimeout(function () { weatherReply(raw); }, 700);
     } else {
       botSay(chatReply(raw));
     }
@@ -678,7 +1074,7 @@ document.getElementById('roll').addEventListener('click', function () {
   input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
 
   renderChips();
-  botSay('Hey! I\'m Meteor 1.1 ☄️ — Arqade\'s AI. Ask me anything, or tap one of the ideas below.', null, 300);
+  botSay('Hey! I\'m Meteor 1.2 ☄️ — Arqade\'s AI. Ask me anything, or tap one of the ideas below.', null, 300);
 
   fetch('/api/me').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
     if (d && d.user) {
