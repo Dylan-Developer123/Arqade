@@ -369,6 +369,17 @@ document.getElementById('wipeBtn').addEventListener('click', function () {
   location.reload();
 });
 
+/* --- Admin panel section (owner + tag holders): live powers for this game --- */
+window.ARQ_GAME_ADMIN = {
+  title: '👆 Clicker Simulator',
+  actions: [
+    { label: '🪙 +100K coins', run: function () { S.coins += 100000; dirty = true; render(); return '🪙 +100K coins!'; } },
+    { label: '🪙 +10M coins', run: function () { S.coins += 10000000; dirty = true; render(); return '🪙 +10M coins!'; } },
+    { label: '✨ +10 tokens', run: function () { S.tokens += 10; dirty = true; render(); return '✨ +10 rebirth tokens!'; } },
+    { label: '⭐ +1 rebirth level', run: function () { S.rebirths++; dirty = true; render(); return '⭐ Rebirth level is now ' + S.rebirths + ' — multiplier ×' + mult() + ', new tiers unlocked! (No reset, no tokens — use the Rebirth button for those.)'; } }
+  ]
+};
+
 /* --- Site account: lifetime coins earned is the leaderboard score --- */
 var ME = null;
 var esc = function (s) { return String(s).replace(/[&<>"']/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); };
