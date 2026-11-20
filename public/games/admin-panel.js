@@ -247,6 +247,11 @@ try { arqApplyAppearance(); } catch (e) {}
     <h4 id="arq-hooks-title">🚓 City Pursuit 3D</h4>
     <div id="arq-game-hooks"></div>
     <div class="game-row"><span>🏆 My best cash haul</span><button data-score-game="pursuit3d">Reset</button></div>
+    <h4>👆 Clicker Simulator</h4>
+    <div class="row"><input id="arq-cs-coins" type="number" min="0" placeholder="Coins amount"><button id="arq-cs-coins-btn">Set coins</button></div>
+    <div class="row"><input id="arq-cs-tokens" type="number" min="0" placeholder="Tokens amount"><button id="arq-cs-tokens-btn">Set tokens</button></div>
+    <div class="row"><input id="arq-cs-rebirths" type="number" min="0" placeholder="Rebirth level"><button id="arq-cs-rebirths-btn">Set rebirth</button></div>
+    <div class="who">Sets your Clicker Simulator save directly — works while you're on the Clicker Simulator page.</div>
     <h4>🎮 More games — my best scores</h4>
     <div id="arq-more-games"></div>
     <h4>Broadcast</h4>
@@ -377,6 +382,19 @@ try { arqApplyAppearance(); } catch (e) {}
       catch (ex) { status('⚠️ ' + ex.message); }
     };
   });
+  // Clicker Simulator setters: the game page exposes window.ARQ_CS_ADMIN (its save is local).
+  function csSet(inputSel, fn) {
+    const inp = panel.querySelector(inputSel);
+    if (!window.ARQ_CS_ADMIN) { status('👆 Open Clicker Simulator first — these set buttons only work on that page.'); return; }
+    const v = Number(inp.value);
+    if (!isFinite(v) || v < 0) { status('⚠️ Type a number (0 or more) first.'); return; }
+    try { status(window.ARQ_CS_ADMIN[fn](Math.floor(v))); inp.value = ''; }
+    catch (ex) { status('⚠️ ' + ex.message); }
+  }
+  panel.querySelector('#arq-cs-coins-btn').onclick = () => csSet('#arq-cs-coins', 'setCoins');
+  panel.querySelector('#arq-cs-tokens-btn').onclick = () => csSet('#arq-cs-tokens', 'setTokens');
+  panel.querySelector('#arq-cs-rebirths-btn').onclick = () => csSet('#arq-cs-rebirths', 'setRebirths');
+
   // Live in-game powers: a game page can register window.ARQ_GAME_ADMIN = { actions: [{label, run}] }.
   let hooksBuilt = false;
   function renderHooks() {
@@ -384,7 +402,7 @@ try { arqApplyAppearance(); } catch (e) {}
     const hooks = window.ARQ_GAME_ADMIN;
     const box = panel.querySelector('#arq-game-hooks');
     if (!hooks || !Array.isArray(hooks.actions) || !hooks.actions.length) {
-      box.innerHTML = '<div class="who">Open this panel inside a game for its live powers — City Pursuit 3D (cash, wanted, repairs) or Clicker Simulator (coins, tokens, rebirth level).</div>';
+      box.innerHTML = '<div class="who">Open this panel inside City Pursuit 3D for live powers (cash, wanted, repairs).</div>';
       return;
     }
     hooksBuilt = true;
