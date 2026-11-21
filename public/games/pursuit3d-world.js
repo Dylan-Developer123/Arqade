@@ -38,7 +38,7 @@ function mallFrontTexture() { // stone band over a glass storefront, mall-style
 function makeMall(cx, cz) { // two blocks wide: realistic storefront, entrance, roof gear, dressed-up lot
   const ux = cx + PITCH / 2, uz = cz;
   const side = FACES[5]; // brick for the side walls
-  const sideMat = new THREE.MeshStandardMaterial({ map: side.map, emissiveMap: side.glow, emissive: 0xffc37a, emissiveIntensity: 0.55, roughness: 0.9 });
+  const sideMat = new THREE.MeshStandardMaterial({ map: side.map, emissiveMap: side.glow, emissive: 0xffc37a, emissiveIntensity: 1.2, roughness: 0.9 });
   const frontMat = new THREE.MeshStandardMaterial({ map: mallFrontTexture(), roughness: 0.35, metalness: 0.25 });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x23262d, roughness: 0.95 });
   const backMat = new THREE.MeshStandardMaterial({ color: 0x8d8271, roughness: 0.95 });
@@ -82,7 +82,7 @@ function makeMall(cx, cz) { // two blocks wide: realistic storefront, entrance, 
 }
 function makeSchool(cx, cz, name) { // two blocks wide: twin halls + a sports field
   const ux = cx + PITCH / 2, uz = cz;
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0xd9cfc0, roughness: 0.9 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xc9bda6, roughness: 0.9 });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x8a4b3a, roughness: 0.95 });
   for (const off of [-26, 26]) {
     const bld = new THREE.Mesh(new THREE.BoxGeometry(38, 8, 22), [wallMat, wallMat, roofMat, roofMat, wallMat, wallMat]);
@@ -209,8 +209,8 @@ function makeBuilding(cx, cz, b) {
   const tex = FACES[Math.floor(Math.random() * FACES.length)];
   const glassy = Math.random() < 0.3;
   const mat = glassy
-    ? new THREE.MeshStandardMaterial({ map: tex.map, emissiveMap: tex.glow, emissive: 0xaad4ff, emissiveIntensity: 0.85, roughness: 0.22, metalness: 0.55, color: 0xcfe2f2 })
-    : new THREE.MeshStandardMaterial({ map: tex.map, emissiveMap: tex.glow, emissive: 0xffc37a, emissiveIntensity: 1.05, roughness: 0.88, metalness: 0.08, color: [0xffffff, 0xf3e9d6, 0xdfe7ee, 0xeeddcf, 0xe6e2d8][Math.floor(Math.random() * 5)] });
+    ? new THREE.MeshStandardMaterial({ map: tex.map, emissiveMap: tex.glow, emissive: 0xaad4ff, emissiveIntensity: 1.5, roughness: 0.22, metalness: 0.55, color: 0xcfe2f2 })
+    : new THREE.MeshStandardMaterial({ map: tex.map, emissiveMap: tex.glow, emissive: 0xffc37a, emissiveIntensity: 1.6, roughness: 0.88, metalness: 0.08, color: [0xffffff, 0xf3e9d6, 0xdfe7ee, 0xeeddcf, 0xe6e2d8][Math.floor(Math.random() * 5)] });
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x23262d, roughness: 0.95 });
   const grp = new THREE.Group(); grp.position.set(bx, 0, bz);
   const style = Math.random();
@@ -230,7 +230,7 @@ function makeBuilding(cx, cz, b) {
     const r = Math.min(w, d) / 2;
     const cMap = tex.map.clone(); cMap.needsUpdate = true; cMap.wrapS = THREE.RepeatWrapping; cMap.repeat.set(3, 2);
     const cGlow = tex.glow.clone(); cGlow.needsUpdate = true; cGlow.wrapS = THREE.RepeatWrapping; cGlow.repeat.set(3, 2);
-    const cm = new THREE.MeshStandardMaterial({ map: cMap, emissiveMap: cGlow, emissive: glassy ? 0xaad4ff : 0xffc37a, emissiveIntensity: 1.0, roughness: 0.7, metalness: 0.15 });
+    const cm = new THREE.MeshStandardMaterial({ map: cMap, emissiveMap: cGlow, emissive: glassy ? 0xaad4ff : 0xffc37a, emissiveIntensity: 1.5, roughness: 0.7, metalness: 0.15 });
     const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.07, hgt, 18), cm);
     m.position.y = hgt / 2; grp.add(m);
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.38, r * 0.78, 2.4, 18), roofMat);
@@ -476,12 +476,15 @@ async function buildCity() {
   // the plain renderer is used — the game never breaks over eye candy.
   try {
     if (THREE.EffectComposer && THREE.RenderPass && THREE.ShaderPass && THREE.UnrealBloomPass && THREE.GammaCorrectionShader) {
-      const rt = new THREE.WebGLRenderTarget(720, 460, { samples: renderer.capabilities.isWebGL2 ? 4 : 0 });
+      const hdrOk = renderer.capabilities.isWebGL2 && (renderer.extensions.get('EXT_color_buffer_float') || renderer.extensions.get('EXT_color_buffer_half_float'));
+      const rt = hdrOk
+        ? new THREE.WebGLRenderTarget(720, 460, { type: THREE.HalfFloatType })
+        : new THREE.WebGLRenderTarget(720, 460, { samples: renderer.capabilities.isWebGL2 ? 4 : 0 });
       composer = new THREE.EffectComposer(renderer, rt);
       composer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
       composer.setSize(720, 460);
       composer.addPass(new THREE.RenderPass(scene, camera));
-      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), 0.65, 0.6, 0.9);
+      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), hdrOk ? 0.7 : 0.65, 0.6, hdrOk ? 1.15 : 0.9);
       composer.addPass(bloomPass);
       composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
     }
