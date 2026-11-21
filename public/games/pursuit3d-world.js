@@ -481,7 +481,7 @@ async function buildCity() {
       composer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
       composer.setSize(720, 460);
       composer.addPass(new THREE.RenderPass(scene, camera));
-      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), 0.85, 0.7, 0.55);
+      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), 0.65, 0.6, 0.68);
       composer.addPass(bloomPass);
       composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
     }
