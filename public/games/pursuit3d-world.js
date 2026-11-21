@@ -73,7 +73,7 @@ function makeMall(cx, cz) { // two blocks wide: realistic storefront, entrance, 
     const bush = new THREE.Mesh(new THREE.SphereGeometry(0.85, 8, 6), bushMat); bush.position.set(ux + sx, 1.0, uz + 4.6); bush.castShadow = true; scene.add(bush);
   }
   const lampMat = new THREE.MeshStandardMaterial({ color: 0x2f3540, roughness: 0.6, metalness: 0.6 });
-  const lampHead = new THREE.MeshStandardMaterial({ color: 0x444444, emissive: 0xffe6a3, emissiveIntensity: 2.4 });
+  const lampHead = new THREE.MeshStandardMaterial({ color: 0x444444, emissive: 0xffe6a3, emissiveIntensity: 3.0 });
   for (const lx of [-42, 0, 42]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 5.4, 8), lampMat); pole.position.set(ux + lx, 2.7, uz + 21); scene.add(pole);
     const head = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.18, 0.5), lampHead); head.position.set(ux + lx, 5.45, uz + 21); scene.add(head);
@@ -481,7 +481,7 @@ async function buildCity() {
       composer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
       composer.setSize(720, 460);
       composer.addPass(new THREE.RenderPass(scene, camera));
-      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), 0.55, 0.65, 0.8);
+      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), 0.85, 0.7, 0.55);
       composer.addPass(bloomPass);
       composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
     }
@@ -685,20 +685,20 @@ async function buildCity() {
   const neonGlowTex = glowTexture();
   function neonSign(word, color, big) {
     const grp = new THREE.Group();
-    const w = big ? 9.5 : 3.6, h = big ? 2.1 : 1.0, top = big ? 8.2 : 3.7;
+    const w = big ? 9.5 : 5.2, h = big ? 2.1 : 1.5, top = big ? 8.2 : 4.3;
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, top, 6), neonPoleMat);
     pole.position.y = top / 2; pole.castShadow = true; grp.add(pole);
     const body = new THREE.Mesh(new THREE.BoxGeometry(w + 0.25, h + 0.25, 0.22), neonBodyMat);
     body.position.y = top; grp.add(body);
     const tex = makeSignTexture(word, color);
-    const sm = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 1.9, roughness: 0.6 });
+    const sm = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 2.6, roughness: 0.6 });
     for (const s of [1, -1]) {
       const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), sm);
       p.position.set(0, top, s * 0.13); if (s < 0) p.rotation.y = Math.PI;
       grp.add(p);
     }
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: neonGlowTex, color: new THREE.Color(color), transparent: true, opacity: 0.33, blending: THREE.AdditiveBlending, depthWrite: false }));
-    spr.scale.set(w * 1.7, h * 3.4, 1); spr.position.y = top; grp.add(spr);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: neonGlowTex, color: new THREE.Color(color), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+    spr.scale.set(w * 1.9, h * 4.2, 1); spr.position.y = top; grp.add(spr);
     return grp;
   }
   const NEON_WORDS = [['ARQADE', '#ffd23e'], ['TURBO', '#22d3ee'], ['DINER', '#ff5da2'], ['HOTEL', '#a78bfa'], ['CINEMA', '#f87171'], ['RAMEN', '#fb923c'], ['DISCO', '#4ade80'], ['PIZZA', '#facc15'], ['GYM', '#38bdf8'], ['MART', '#f472b6']];
@@ -707,12 +707,23 @@ async function buildCity() {
     for (const side of [1, -1]) {
       const nw = NEON_WORDS[neonI++ % NEON_WORDS.length];
       const s = neonSign(nw[0], nw[1], false);
-      s.position.set(side * 12.8, 0, roadCoord(j) - side * 12.8);
+      s.position.set(side * 12.2, 0, roadCoord(j) - side * 12.2);
       s.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       scene.add(s);
     }
   }
-  const bb1 = neonSign('ARQADE', '#ffd23e', true); bb1.position.set(14.5, 0, -18); bb1.rotation.y = -Math.PI / 2; scene.add(bb1);
-  const bb2 = neonSign('CITY PURSUIT', '#22d3ee', true); bb2.position.set(-14.5, 0, 98); bb2.rotation.y = Math.PI / 2; scene.add(bb2);
+  const bb1 = neonSign('ARQADE', '#ffd23e', true); bb1.position.set(13.5, 0, -18); bb1.rotation.y = -Math.PI / 2; scene.add(bb1);
+  const bb2 = neonSign('CITY PURSUIT', '#22d3ee', true); bb2.position.set(-13.5, 0, 98); bb2.rotation.y = Math.PI / 2; scene.add(bb2);
+  // a few more along Chapman Ave (the east-west road through spawn) so the
+  // neon shows from the very first drive, whichever way you turn
+  for (const i of [-1, 1]) {
+    for (const side of [1, -1]) {
+      const nw = NEON_WORDS[neonI++ % NEON_WORDS.length];
+      const s = neonSign(nw[0], nw[1], false);
+      s.position.set(roadCoord(i) - side * 12.2, 0, side * 12.2);
+      s.rotation.y = side > 0 ? Math.PI : 0;
+      scene.add(s);
+    }
+  }
   clock = new THREE.Clock();
 }
