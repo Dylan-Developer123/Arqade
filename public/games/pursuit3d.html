@@ -103,6 +103,13 @@ window.addEventListener('error', function (e) {
 });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 if (!window.THREE) { $('msg').textContent = '⚠️ The 3D library could not load — check your connection and refresh.'; }
@@ -127,7 +134,7 @@ let cash = 0, heat = 0, wanted = 0, health = 100, bustTimer = 0, seenByCop = fal
 let gameMode = localStorage.getItem('cp_mode') || 'pursuit';
 if (!['explore', 'multiplayer', 'pursuit'].includes(gameMode)) gameMode = 'pursuit';
 let elapsed = 0, shake = 0, flashT = 0, submitted = false, heli = null, heliSpot = { x: 0, z: 0 };
-let smokePool = [], driftTime = 0, topSpeed = 0, sunLight = null, clouds = [], headlight = null, underLight = null, ceilMesh = null, groundMesh = null, terrMesh = null;
+let smokePool = [], driftTime = 0, topSpeed = 0, sunLight = null, clouds = [], headlight = null, underLight = null, ceilMesh = null, groundMesh = null, terrMesh = null, composer = null, bloomPass = null;
 // ============================== TEXTURES ==============================
 function buildingTexture(base, lit, rows, cols) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 512;
@@ -1772,6 +1779,20 @@ function minimap(now) {
   if (lbl !== minimap._st) { minimap._st = lbl; const el = $('streetHud'); if (el) el.textContent = '📍 ' + lbl; }
 }
 // ============================== MAIN LOOP ==============================
+// Render through the bloom composer when it is available; plain renderer
+// otherwise. Auto-degrades: if frames stay slow, bloom switches itself off.
+let __frT = 0, __frN = 0, __frSlow = 0;
+function renderFrame() {
+  if (!composer) { renderer.render(scene, camera); return; }
+  const now = performance.now();
+  if (__frT) {
+    __frN++;
+    if (now - __frT > 26) __frSlow++;
+    if (__frN >= 240) { if (__frSlow > 150) composer = null; __frN = 0; __frSlow = 0; }
+  }
+  __frT = now;
+  if (composer) composer.render(); else renderer.render(scene, camera);
+}
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -1879,7 +1900,7 @@ function animate() {
       updateChar(dt);
       charGroundY = groundHeightAt(char.position.x, char.position.z, charGroundY);
       char.position.y += charGroundY;
-      if (state !== 'play') { renderer.render(scene, camera); return; }
+      if (state !== 'play') { renderFrame(); return; }
     }
     // ---------- AI cars ----------
     for (const car of cars) {
@@ -2035,7 +2056,7 @@ function animate() {
     } else headlight.intensity = 0;
   }
   for (const cl of clouds) { cl.position.x += dt * 1.1; if (cl.position.x > 900) cl.position.x = -900; }
-  renderer.render(scene, camera);
+  renderFrame();
 }
 // ============================== INPUT ==============================
 function syncTouch() {
@@ -2045,7 +2066,7 @@ function syncTouch() {
   $('touchFoot').classList.toggle('on', touch && mode === 'foot');
 }
 </script>
-<script src="/games/pursuit3d-world.js?v=7"></script>
+<script src="/games/pursuit3d-world.js?v=8"></script>
 <script src="/games/pursuit3d-b.js?v=16"></script>
 <script src="/games/admin-panel.js"></script>
 </body>
