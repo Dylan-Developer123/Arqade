@@ -130,8 +130,19 @@ function step() {
 function draw() {
   ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#dbeafe'; for (const s of stars) ctx.fillRect(s.x, s.y, s.s, s.s);
-  ctx.fillStyle = '#e5e7eb'; ctx.beginPath(); ctx.arc(W - 56, 46, 21, 0, 7); ctx.fill();
-  ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.arc(W - 64, 40, 5, 0, 7); ctx.arc(W - 48, 54, 4, 0, 7); ctx.fill();
+  // Earth in the sky — you are standing ON the moon, so the moon can't be up there
+  ctx.save();
+  ctx.beginPath(); ctx.arc(W - 56, 46, 21, 0, 7); ctx.clip();
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(W - 77, 25, 42, 42);
+  ctx.fillStyle = '#22c55e';
+  ctx.beginPath(); ctx.arc(W - 66, 38, 7, 0, 7); ctx.arc(W - 58, 33, 5, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(W - 46, 52, 6, 0, 7); ctx.arc(W - 52, 58, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#a3e635'; ctx.beginPath(); ctx.arc(W - 70, 52, 3.4, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.beginPath(); ctx.arc(W - 60, 44, 5, 0, 7); ctx.arc(W - 52, 42, 4, 0, 7); ctx.arc(W - 64, 58, 4.4, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,40,.28)'; ctx.beginPath(); ctx.arc(W - 40, 46, 19, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(125,180,255,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W - 56, 46, 21.5, 0, 7); ctx.stroke();
   // terrain
   ctx.beginPath(); ctx.moveTo(0, H);
   for (const t of terrain) ctx.lineTo(t.x, t.y);
