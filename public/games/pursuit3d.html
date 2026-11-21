@@ -847,8 +847,8 @@ function makeCarMesh(color, opts = {}) {
   }
   g.userData.wheels = wheels;
   // emissive lights + headlight glow + pool of light on the road ahead
-  const headMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, emissive: 0xffe6a3, emissiveIntensity: 2.2 });
-  const tailMat = new THREE.MeshStandardMaterial({ color: 0x2a0d0d, emissive: 0xff2a22, emissiveIntensity: 1.8 });
+  const headMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, emissive: 0xffe6a3, emissiveIntensity: 3.0 });
+  const tailMat = new THREE.MeshStandardMaterial({ color: 0x2a0d0d, emissive: 0xff2a22, emissiveIntensity: 2.6 });
   if (!makeCarMesh.glowTex) makeCarMesh.glowTex = glowTexture();
   for (const sx of [-0.62, 0.62]) {
     bx(0.44, 0.15, 0.05, headMat, sx, 0.68, -2.16);
@@ -1785,7 +1785,7 @@ let __frT = 0, __frN = 0, __frSlow = 0;
 function renderFrame() {
   if (!composer) { renderer.render(scene, camera); return; }
   const now = performance.now();
-  if (__frT) {
+  if (__frT && state === 'play') {
     __frN++;
     if (now - __frT > 26) __frSlow++;
     if (__frN >= 240) { if (__frSlow > 150) composer = null; __frN = 0; __frSlow = 0; }
@@ -2066,7 +2066,7 @@ function syncTouch() {
   $('touchFoot').classList.toggle('on', touch && mode === 'foot');
 }
 </script>
-<script src="/games/pursuit3d-world.js?v=8"></script>
+<script src="/games/pursuit3d-world.js?v=9"></script>
 <script src="/games/pursuit3d-b.js?v=16"></script>
 <script src="/games/admin-panel.js"></script>
 </body>
