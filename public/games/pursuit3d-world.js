@@ -3,6 +3,7 @@
 // Loaded between part A and part B; everything here is called at build time.
 const SUPER = { '4,1': 'bigpark', '1,-3': 'mall', '-2,-4': 'school', '-4,-2': 'hoodbig', '-5,-5': 'park2x2', '5,2': 'bigpark', '-3,2': 'hoodbig', '2,4': 'school2' };
 const SUPER_SKIP = new Set(['4,2', '2,-3', '-1,-4', '-4,-1', '-4,-5', '-5,-4', '-4,-4', '5,3', '-3,3', '3,4']);
+const roadMats = []; // every road surface, so rain can make them all glossy at once
 function parkSign(x, z, text) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), new THREE.MeshBasicMaterial({ map: makeSignTexture(text, '#4ade80'), side: THREE.DoubleSide }));
   m.position.set(x, 2.4, z); scene.add(m);
@@ -72,7 +73,7 @@ function makeMall(cx, cz) { // two blocks wide: realistic storefront, entrance, 
     const bush = new THREE.Mesh(new THREE.SphereGeometry(0.85, 8, 6), bushMat); bush.position.set(ux + sx, 1.0, uz + 4.6); bush.castShadow = true; scene.add(bush);
   }
   const lampMat = new THREE.MeshStandardMaterial({ color: 0x2f3540, roughness: 0.6, metalness: 0.6 });
-  const lampHead = new THREE.MeshStandardMaterial({ color: 0x444444, emissive: 0xffe6a3, emissiveIntensity: 1.6 });
+  const lampHead = new THREE.MeshStandardMaterial({ color: 0x444444, emissive: 0xffe6a3, emissiveIntensity: 2.4 });
   for (const lx of [-42, 0, 42]) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 5.4, 8), lampMat); pole.position.set(ux + lx, 2.7, uz + 21); scene.add(pole);
     const head = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.18, 0.5), lampHead); head.position.set(ux + lx, 5.45, uz + 21); scene.add(head);
@@ -378,7 +379,9 @@ function ribbonMesh(pts, width, closed) { // a road ribbon that follows a curve
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: roadTextures(), roughness: 0.93, side: THREE.DoubleSide }));
+  const cm = new THREE.MeshStandardMaterial({ map: roadTextures(), roughness: 0.93, side: THREE.DoubleSide });
+  roadMats.push({ mat: cm, r: 0.93, m: 0 });
+  const m = new THREE.Mesh(g, cm);
   m.receiveShadow = true;
   return m;
 }
@@ -431,6 +434,9 @@ function updateWeather(dt) {
   if (hemiL) hemiL.intensity = wxCur.hemi + bolt * 0.9;
   if (wxFlash) wxFlash.style.opacity = (bolt * 0.38).toFixed(2);
   for (const c of clouds) { c.material.color.copy(wxCur.cloudC); c.material.opacity = Math.min(0.85, (c.userData.baseOp || 0.2) * wxCur.cloudMul); }
+  // wet streets: as rain builds, every road surface goes glossy and mirror-like
+  const wet = wxCur.rain;
+  for (const e of roadMats) { e.mat.roughness = e.r - wet * 0.55; e.mat.metalness = e.m + wet * 0.3; e.mat.envMapIntensity = 1 + wet * 1.5; }
   rainPts.material.opacity = wxCur.rain * 0.55;
   rainPts.visible = wxCur.rain > 0.02;
   if (rainPts.visible) {
@@ -465,6 +471,21 @@ async function buildCity() {
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromEquirectangular(skyTex).texture;
   pmrem.dispose();
+  // ===== BLOOM ===== cinematic glow pass. Guarded: if the extra libraries
+  // failed to load or the GPU rejects the buffers, composer stays null and
+  // the plain renderer is used — the game never breaks over eye candy.
+  try {
+    if (THREE.EffectComposer && THREE.RenderPass && THREE.ShaderPass && THREE.UnrealBloomPass && THREE.GammaCorrectionShader) {
+      const rt = new THREE.WebGLRenderTarget(720, 460, { samples: renderer.capabilities.isWebGL2 ? 4 : 0 });
+      composer = new THREE.EffectComposer(renderer, rt);
+      composer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+      composer.setSize(720, 460);
+      composer.addPass(new THREE.RenderPass(scene, camera));
+      bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(720, 460), 0.55, 0.65, 0.8);
+      composer.addPass(bloomPass);
+      composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
+    }
+  } catch (e) { composer = null; bloomPass = null; }
   scene.add(new THREE.HemisphereLight(0xcdd8ff, 0x2a2419, 1.0));
   sunLight = new THREE.DirectionalLight(0xffd2a0, 1.3);
   sunLight.position.set(-60, 95, -50);
@@ -529,14 +550,18 @@ async function buildCity() {
   const roadTex = roadTextures();
   const mkRoad = (w, l) => {
     const t = roadTex.clone(); t.needsUpdate = true; t.repeat.set(1, l / 16);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), new THREE.MeshStandardMaterial({ map: t, roughness: 0.93, metalness: 0.02 }));
+    const rm = new THREE.MeshStandardMaterial({ map: t, roughness: 0.93, metalness: 0.02 });
+    roadMats.push({ mat: rm, r: 0.93, m: 0.02 });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), rm);
     m.rotation.x = -Math.PI / 2; m.position.y = 0.01; m.receiveShadow = true;
     return m;
   };
   const mkRoadH = (w, l) => {
     // same tile as a vertical road, mesh spun 90° in-plane so the dashes run along x
     const t = roadTex.clone(); t.needsUpdate = true; t.repeat.set(1, l / 16);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), new THREE.MeshStandardMaterial({ map: t, roughness: 0.93, metalness: 0.02 }));
+    const rm = new THREE.MeshStandardMaterial({ map: t, roughness: 0.93, metalness: 0.02 });
+    roadMats.push({ mat: rm, r: 0.93, m: 0.02 });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), rm);
     m.rotation.x = -Math.PI / 2; m.rotation.z = Math.PI / 2; m.position.y = 0.01; m.receiveShadow = true;
     return m;
   };
@@ -566,6 +591,7 @@ async function buildCity() {
   }
   // intersection patches (plain asphalt squares kill the double-line look)
   const patchMat = new THREE.MeshStandardMaterial({ map: crosswalkTexture(), roughness: 0.95 });
+  roadMats.push({ mat: patchMat, r: 0.95, m: 0 });
   for (let i = -GRID; i <= GRID; i++) for (let j = -GRID; j <= GRID; j++) {
     const anySeg = (j > -GRID && segClear('v', i, j - 1)) || (j < GRID && segClear('v', i, j)) ||
                    (i > -GRID && segClear('h', j, i - 1)) || (i < GRID && segClear('h', j, i));
@@ -652,5 +678,41 @@ async function buildCity() {
     scene.add(sp);
     smokePool.push({ sp, life: 0, max: 1 });
   }
+  // ===== NEON DISTRICT ===== glowing signs along Main St + two big billboards.
+  // Emissive intensity near 2 is what feeds the bloom pass — the GTA-glow layer.
+  const neonPoleMat = new THREE.MeshStandardMaterial({ color: 0x23262e, roughness: 0.55, metalness: 0.7 });
+  const neonBodyMat = new THREE.MeshStandardMaterial({ color: 0x0b0b12, roughness: 0.7 });
+  const neonGlowTex = glowTexture();
+  function neonSign(word, color, big) {
+    const grp = new THREE.Group();
+    const w = big ? 9.5 : 3.6, h = big ? 2.1 : 1.0, top = big ? 8.2 : 3.7;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, top, 6), neonPoleMat);
+    pole.position.y = top / 2; pole.castShadow = true; grp.add(pole);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w + 0.25, h + 0.25, 0.22), neonBodyMat);
+    body.position.y = top; grp.add(body);
+    const tex = makeSignTexture(word, color);
+    const sm = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 1.9, roughness: 0.6 });
+    for (const s of [1, -1]) {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), sm);
+      p.position.set(0, top, s * 0.13); if (s < 0) p.rotation.y = Math.PI;
+      grp.add(p);
+    }
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: neonGlowTex, color: new THREE.Color(color), transparent: true, opacity: 0.33, blending: THREE.AdditiveBlending, depthWrite: false }));
+    spr.scale.set(w * 1.7, h * 3.4, 1); spr.position.y = top; grp.add(spr);
+    return grp;
+  }
+  const NEON_WORDS = [['ARQADE', '#ffd23e'], ['TURBO', '#22d3ee'], ['DINER', '#ff5da2'], ['HOTEL', '#a78bfa'], ['CINEMA', '#f87171'], ['RAMEN', '#fb923c'], ['DISCO', '#4ade80'], ['PIZZA', '#facc15'], ['GYM', '#38bdf8'], ['MART', '#f472b6']];
+  let neonI = 0;
+  for (let j = -2; j <= 2; j++) {
+    for (const side of [1, -1]) {
+      const nw = NEON_WORDS[neonI++ % NEON_WORDS.length];
+      const s = neonSign(nw[0], nw[1], false);
+      s.position.set(side * 12.8, 0, roadCoord(j) - side * 12.8);
+      s.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      scene.add(s);
+    }
+  }
+  const bb1 = neonSign('ARQADE', '#ffd23e', true); bb1.position.set(14.5, 0, -18); bb1.rotation.y = -Math.PI / 2; scene.add(bb1);
+  const bb2 = neonSign('CITY PURSUIT', '#22d3ee', true); bb2.position.set(-14.5, 0, 98); bb2.rotation.y = Math.PI / 2; scene.add(bb2);
   clock = new THREE.Clock();
 }
