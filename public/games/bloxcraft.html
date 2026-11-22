@@ -48,6 +48,15 @@
   .modeCard.sel { border-color: #f5c542; box-shadow: 0 0 0 2px rgba(245,197,66,.35), 0 8px 22px rgba(0,0,0,.45); }
   #btnPlay { background: linear-gradient(180deg, #ffd75e, #e8a90c); color: #231a02; border: none; font-size: 24px; font-weight: 900; padding: 13px 58px; border-radius: 14px; cursor: pointer; box-shadow: 0 6px 0 #8a5a13, 0 12px 26px rgba(0,0,0,.5); font-family: inherit; }
   #btnPlay:active { transform: translateY(3px); box-shadow: 0 3px 0 #8a5a13; }
+  #worldList { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-height: 172px; overflow: auto; }
+  .wrow { display: flex; align-items: center; gap: 8px; background: rgba(18,20,38,.85); border: 2px solid #55557a; border-radius: 11px; color: #fff; padding: 8px 10px; font-size: 13.5px; text-align: left; cursor: pointer; width: 100%; box-sizing: border-box; }
+  .wrow.cur { border-color: #f5c542; }
+  .wrow .wn { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+  .wrow .wm { opacity: .8; font-size: 12px; flex: 1; white-space: nowrap; }
+  .wrow .del { flex: 0 0 auto; font-size: 15px; padding: 2px 6px; cursor: pointer; }
+  .nwRow { display: flex; gap: 8px; margin-top: 10px; }
+  .nwRow input { flex: 1; background: rgba(18,20,38,.85); border: 2px solid #55557a; border-radius: 11px; color: #fff; padding: 9px 10px; font-size: 14px; font-family: inherit; min-width: 0; }
+  #btnNewWorld { background: #2c2c4a; color: #fff; border: 2px solid #55557a; border-radius: 11px; padding: 9px 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; }
   .homeStats { margin-top: 14px; font-size: 13.5px; text-shadow: 0 1px 3px #000; }
   .homeHow { margin-top: 6px; font-size: 12px; opacity: .85; text-shadow: 0 1px 3px #000; line-height: 1.5; }
   @media (pointer: coarse) { #joy { display: block; } #btns { display: flex; } #deskBtns { display: none; } #lb { display: none; } }
@@ -85,13 +94,15 @@
   <div id="home">
     <div class="homeCard">
       <div class="homeTitle">🧊 BLOXCRAFT</div>
-      <div class="homeSub">🌍 <b>Earth</b> — the real continents, block by block<br>300 × 150 world · you start in California 🇺🇸</div>
+      <div class="homeSub">🌍 <b>Earth</b> — the real continents, block by block<br>600 × 300 world · you start in California 🇺🇸</div>
       <div class="modeRow">
         <button class="modeCard sel" id="modeCreative">🎨<b>Creative</b><span>Fly free · endless blocks · instant mining</span></button>
         <button class="modeCard" id="modeSurvival">❤️<b>Survival</b><span>Hearts + hunger · mine blocks to build · watch your step!</span></button>
       </div>
       <button id="btnPlay">▶ Play</button>
       <div class="homeStats">🧱 <span id="hsPlaced">0</span> placed · ⛏ <span id="hsBroken">0</span> mined · 🌲 explore the whole planet</div>
+      <div id="worldList"></div>
+      <div class="nwRow"><input id="nwName" maxlength="24" placeholder="Name a new world…"><button id="btnNewWorld">➕ New world</button></div>
       <div class="homeHow">Desktop: WASD + mouse · F fly (Creative) · E eat apple (Survival)<br>iPad: bottom-left corner to move · drag to look · buttons to mine + place</div>
     </div>
   </div>
@@ -102,7 +113,8 @@
 'use strict';
 /* ================= Bloxcraft — a 3D block world =================
    Mine blocks, place blocks, fly, build anything. World saves itself. */
-var W_X = 300, W_Z = 150, WATER_Y = 4;
+var W_X = 600, W_Z = 300, WATER_Y = 4;
+var CELL = 10, SPAWN_X = 105, SPAWN_Z = 85, CHUNK = 20;
 var TYPES = [null,
   { name: 'Grass',  tex: 'grass'  },
   { name: 'Dirt',   tex: 'dirt'   },
@@ -116,7 +128,7 @@ var TYPES = [null,
 ];
 var T_WATER = 10;
 var blocks = new Map(); // "x,y,z" -> type
-function key(x, y, z) { return (x * 256 + z) * 64 + y; }
+function key(x, y, z) { return (x * 1024 + z) * 64 + y; }
 function getB(x, y, z) { return blocks.get(key(x, y, z)) || 0; }
 function isSolid(x, y, z) { var t = getB(x, y, z); return t !== 0 && t !== T_WATER; }
 function hash2(x, z) { var s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); }
@@ -153,26 +165,33 @@ function cellElev(cx, cz) {
 }
 function heightAt(x, z) {
   // bilinear blend between cell centres (cells are 5 blocks, centres at c*5+2) + rolling noise
-  var fx = (x - 2) / 5, fz = (z - 2) / 5;
+  var fx = (x - 5) / 10, fz = (z - 5) / 10;
   var cx0 = Math.floor(fx), cz0 = Math.floor(fz), tx = fx - cx0, tz = fz - cz0;
   var e00 = cellElev(cx0, cz0), e10 = cellElev(cx0 + 1, cz0), e01 = cellElev(cx0, cz0 + 1), e11 = cellElev(cx0 + 1, cz0 + 1);
   var elev = (e00 * (1 - tx) + e10 * tx) * (1 - tz) + (e01 * (1 - tx) + e11 * tx) * tz;
   var n = 1.3 * Math.sin(x * 0.11) * Math.cos(z * 0.09) + 0.9 * Math.sin(x * 0.023 + 1.3) * Math.sin(z * 0.019 + 0.5);
   return Math.max(1, Math.min(14, Math.round(elev + n)));
 }
-function genWorld() {
-  blocks.clear(); decorList = [];
-  for (var x = 0; x < W_X; x++) for (var z = 0; z < W_Z; z++) {
+/* ---------- chunked world: terrain generates + renders around the player ---------- */
+var chunks = {};
+function chunkId(cx, cz) { return cx + ',' + cz; }
+function genChunk(cx, cz) {
+  var id = chunkId(cx, cz);
+  if (chunks[id]) return chunks[id];
+  var ch = { decor: [], built: false, group: null };
+  chunks[id] = ch;
+  var x0 = cx * CHUNK, z0 = cz * CHUNK, x1 = Math.min(W_X, x0 + CHUNK), z1 = Math.min(W_Z, z0 + CHUNK);
+  for (var x = x0; x < x1; x++) for (var z = z0; z < z1; z++) {
     var h = heightAt(x, z), y;
-    var ct = cellType(Math.floor(x / 5), Math.floor(z / 5));
+    var ct = cellType(Math.floor(x / CELL), Math.floor(z / CELL));
     var shore = h <= WATER_Y + 1;
     for (y = 0; y <= h; y++) {
       var t;
       if (y === h) {
-        if (shore) t = 7;                                   // sand beaches + ocean floor shallows
-        else if (ct === 'i') t = 7;                         // pale ice cap (Greenland / far north)
-        else if (ct === 'm' || h >= 11) t = 3;              // rocky peaks
-        else t = 1;                                         // grass
+        if (shore) t = 7;
+        else if (ct === 'i') t = 7;
+        else if (ct === 'm' || h >= 11) t = 3;
+        else t = 1;
       }
       else if (y >= h - 2) t = shore ? 7 : 2;
       else t = 3;
@@ -180,7 +199,7 @@ function genWorld() {
     }
     if (!shore && ct !== 'i' && ct !== 'm') {
       var th2 = hash2(x * 5 + 31, z * 5 + 17);
-      var nearSpawn = Math.abs(x - 52) + Math.abs(z - 42) <= 6;
+      var nearSpawn = Math.abs(x - SPAWN_X) + Math.abs(z - SPAWN_Z) <= 6;
       if (!nearSpawn && th2 > 0.972) {
         var th = 3 + Math.floor(hash2(x, z) * 3);
         for (y = h + 1; y <= h + th; y++) blocks.set(key(x, y, z), 4);
@@ -188,11 +207,13 @@ function genWorld() {
           if (dx === 0 && dz === 0 && dy === 0) continue;
           if (Math.abs(dx) === 1 && Math.abs(dz) === 1 && hash2(x + dx * 7, z + dz * 7) < 0.45) continue;
           var lx = x + dx, ly = h + th + dy, lz = z + dz;
-          if (lx >= 0 && lx < W_X && lz >= 0 && lz < W_Z && !getB(lx, ly, lz)) blocks.set(key(lx, ly, lz), 6);
+          if (lx >= x0 && lx < x1 && lz >= z0 && lz < z1 && !getB(lx, ly, lz)) blocks.set(key(lx, ly, lz), 6);
         }
         blocks.set(key(x, h + th + 2, z), 6);
-        blocks.set(key(x + 1, h + th + 2, z), 6); blocks.set(key(x - 1, h + th + 2, z), 6);
-        blocks.set(key(x, h + th + 2, z + 1), 6); blocks.set(key(x, h + th + 2, z - 1), 6);
+        if (x + 1 < x1) blocks.set(key(x + 1, h + th + 2, z), 6);
+        if (x - 1 >= x0) blocks.set(key(x - 1, h + th + 2, z), 6);
+        if (z + 1 < z1) blocks.set(key(x, h + th + 2, z + 1), 6);
+        if (z - 1 >= z0) blocks.set(key(x, h + th + 2, z - 1), 6);
       } else if (!nearSpawn && th2 < 0.012 && h >= 8) {
         var ph = 5 + Math.floor(hash2(z, x) * 2);
         for (y = h + 1; y <= h + ph; y++) blocks.set(key(x, y, z), 4);
@@ -201,18 +222,105 @@ function genWorld() {
           for (var px = -rr; px <= rr; px++) for (var pz = -rr; pz <= rr; pz++) {
             if (Math.abs(px) === rr && Math.abs(pz) === rr && ri < 2) continue;
             var qx = x + px, qz = z + pz;
-            if (qx >= 0 && qx < W_X && qz >= 0 && qz < W_Z && !getB(qx, ry, qz)) blocks.set(key(qx, ry, qz), 6);
+            if (qx >= x0 && qx < x1 && qz >= z0 && qz < z1 && !getB(qx, ry, qz)) blocks.set(key(qx, ry, qz), 6);
           }
         }
         blocks.set(key(x, h + ph + 1, z), 6);
       }
       var dh = hash2(x * 13 + 3, z * 13 + 29);
-      if (dh > 0.978) decorList.push([x, h + 1, z, dh > 0.989 ? 2 : 1]);
-      else if (dh < 0.06) decorList.push([x, h + 1, z, 0]);
+      if (dh > 0.978) ch.decor.push([x, h + 1, z, dh > 0.989 ? 2 : 1]);
+      else if (dh < 0.06) ch.decor.push([x, h + 1, z, 0]);
     }
   }
+  removedKeys.forEach(function (k) {
+    var kx = Math.floor(k / 65536), kz = Math.floor(k / 64) % 1024;
+    if (kx >= x0 && kx < x1 && kz >= z0 && kz < z1) blocks.delete(k);
+  });
+  addedMap.forEach(function (t, k) {
+    var kx = Math.floor(k / 65536), kz = Math.floor(k / 64) % 1024;
+    if (kx >= x0 && kx < x1 && kz >= z0 && kz < z1) blocks.set(k, t);
+  });
+  return ch;
 }
-var decorList = [];
+var decorGeoCache = null, decorMatCache = null;
+function buildChunk(cx, cz) {
+  var ch = chunks[chunkId(cx, cz)]; if (!ch) return;
+  if (ch.group) { worldGroup.remove(ch.group); ch.group = null; }
+  var g = new THREE.Group();
+  var x0 = cx * CHUNK, z0 = cz * CHUNK, x1 = Math.min(W_X, x0 + CHUNK), z1 = Math.min(W_Z, z0 + CHUNK);
+  var lists = {};
+  for (var x = x0; x < x1; x++) for (var z = z0; z < z1; z++) for (var y = 0; y <= 40; y++) {
+    var t = getB(x, y, z);
+    if (!t || t === T_WATER || !exposed(x, y, z)) continue;
+    (lists[t] = lists[t] || []).push([x, y, z]);
+  }
+  Object.keys(lists).forEach(function (tk) {
+    var arr = lists[tk];
+    var im = new THREE.InstancedMesh(boxGeo, MATS[tk], arr.length);
+    for (var i = 0; i < arr.length; i++) {
+      dummy.position.set(arr[i][0] + 0.5, arr[i][1] + 0.5, arr[i][2] + 0.5);
+      dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix);
+    }
+    im.instanceMatrix.needsUpdate = true;
+    im.castShadow = tk !== '8'; im.receiveShadow = true;
+    g.add(im);
+  });
+  if (!decorGeoCache) {
+    decorGeoCache = { tuft: new THREE.BoxGeometry(0.3, 0.55, 0.3), flower: new THREE.BoxGeometry(0.24, 0.3, 0.24) };
+    decorMatCache = [new THREE.MeshLambertMaterial({ color: 0x4c9438 }), new THREE.MeshLambertMaterial({ color: 0xe23b3b }), new THREE.MeshLambertMaterial({ color: 0xf5c542 })];
+  }
+  var dLists = [[], [], []];
+  for (var di = 0; di < ch.decor.length; di++) {
+    var d = ch.decor[di];
+    if (getB(d[0], d[1] - 1, d[2]) === 1 && getB(d[0], d[1], d[2]) === 0) dLists[d[3]].push(d);
+  }
+  for (var dk = 0; dk < 3; dk++) {
+    if (!dLists[dk].length) continue;
+    var dm = new THREE.InstancedMesh(decorGeoCache[dk === 0 ? 'tuft' : 'flower'], decorMatCache[dk], dLists[dk].length);
+    for (var dj = 0; dj < dLists[dk].length; dj++) {
+      dummy.position.set(dLists[dk][dj][0] + 0.5, dLists[dk][dj][1] + (dk === 0 ? 0.27 : 0.55), dLists[dk][dj][2] + 0.5);
+      dummy.updateMatrix(); dm.setMatrixAt(dj, dummy.matrix);
+    }
+    dm.instanceMatrix.needsUpdate = true;
+    g.add(dm);
+  }
+  worldGroup.add(g);
+  ch.group = g; ch.built = true;
+}
+function disposeChunk(cx, cz) {
+  var id = chunkId(cx, cz), ch = chunks[id]; if (!ch) return;
+  if (ch.group) worldGroup.remove(ch.group);
+  var x0 = cx * CHUNK, z0 = cz * CHUNK, x1 = Math.min(W_X, x0 + CHUNK), z1 = Math.min(W_Z, z0 + CHUNK);
+  for (var x = x0; x < x1; x++) for (var z = z0; z < z1; z++) for (var y = 0; y <= 40; y++) blocks.delete(key(x, y, z));
+  delete chunks[id];
+}
+function ensureChunks() {
+  var pcx = Math.floor(player.x / CHUNK), pcz = Math.floor(player.z / CHUNK);
+  var GEN_R = 6, BUILD_R = 5, KEEP_R = 7;
+  var maxCx = Math.ceil(W_X / CHUNK), maxCz = Math.ceil(W_Z / CHUNK);
+  for (var dx = -GEN_R; dx <= GEN_R; dx++) for (var dz = -GEN_R; dz <= GEN_R; dz++) {
+    var cx = pcx + dx, cz = pcz + dz;
+    if (cx < 0 || cz < 0 || cx >= maxCx || cz >= maxCz) continue;
+    var ch = genChunk(cx, cz);
+    if (Math.max(Math.abs(dx), Math.abs(dz)) <= BUILD_R && !ch.built) buildChunk(cx, cz);
+  }
+  Object.keys(chunks).forEach(function (id) {
+    var p = id.split(','), cx = +p[0], cz = +p[1];
+    if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > KEEP_R) disposeChunk(cx, cz);
+  });
+}
+function rebuildAt(x, z) {
+  var cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+  var cxs = [cx], czs = [cz];
+  if (x % CHUNK === 0) cxs.push(cx - 1);
+  if (x % CHUNK === CHUNK - 1) cxs.push(cx + 1);
+  if (z % CHUNK === 0) czs.push(cz - 1);
+  if (z % CHUNK === CHUNK - 1) czs.push(cz + 1);
+  for (var i = 0; i < cxs.length; i++) for (var j = 0; j < czs.length; j++) {
+    var ch = chunks[chunkId(cxs[i], czs[j])];
+    if (ch && ch.built) buildChunk(cxs[i], czs[j]);
+  }
+}
 /* ---------- textures (tiny canvas paintings, one per block type) ---------- */
 function makeTextures() {
   function cnv(draw) {
@@ -240,7 +348,7 @@ function makeTextures() {
 /* ---------- three.js scene ---------- */
 var stage = document.getElementById('stage');
 var scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xb9dcf2, 90, 300);
+scene.fog = new THREE.Fog(0xb9dcf2, 60, 210);
 var camera = new THREE.PerspectiveCamera(72, 1, 0.1, 1100);
 var renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
@@ -262,7 +370,7 @@ stage.appendChild(renderer.domElement);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   var dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }));
-  dome.position.set(150, 0, 75);
+  dome.position.set(300, 0, 150);
   scene.add(dome);
 })();
 scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x5d8a4a, 0.85));
@@ -276,12 +384,12 @@ sun.shadow.bias = -0.0006;
 sun.position.set(90, 80, 70); scene.add(sun); scene.add(sun.target);
 var TEX = makeTextures();
 TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
-TEX.water.repeat.set(64, 48);
+TEX.water.repeat.set(96, 72);
 var waterMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(780, 580),
+  new THREE.PlaneGeometry(1150, 850),
   new THREE.MeshLambertMaterial({ map: TEX.water, transparent: true, opacity: 0.74 }));
 waterMesh.rotation.x = -Math.PI / 2;
-waterMesh.position.set(150, WATER_Y + 0.86, 75);
+waterMesh.position.set(300, WATER_Y + 0.86, 150);
 scene.add(waterMesh);
 var MATS = {};
 for (var ti = 1; ti <= 9; ti++) MATS[ti] = new THREE.MeshLambertMaterial({ map: TEX[TYPES[ti].tex], transparent: ti === 8, opacity: ti === 8 ? 0.85 : 1 });
@@ -294,7 +402,7 @@ var clouds = [];
   var cm = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
   for (var i = 0; i < 12; i++) {
     var c = new THREE.Mesh(new THREE.BoxGeometry(9 + Math.random() * 11, 1.4, 6 + Math.random() * 7), cm);
-    c.position.set(Math.random() * 360 - 30, 34 + Math.random() * 7, Math.random() * 220 - 35);
+    c.position.set(Math.random() * 680 - 40, 34 + Math.random() * 7, Math.random() * 380 - 40);
     scene.add(c); clouds.push(c);
   }
 })();
@@ -311,66 +419,25 @@ function exposed(x, y, z) {
   return false;
 }
 var dummy = new THREE.Object3D();
-function rebuild() {
-  while (worldGroup.children.length) {
-    var old = worldGroup.children.pop();
-    worldGroup.remove(old); old.dispose && old.dispose();
-  }
-  var lists = {};
-  blocks.forEach(function (t, k) {
-    var x = Math.floor(k / 16384), y = k % 64, z = Math.floor(k / 64) % 256;
-    if (t !== T_WATER && !exposed(x, y, z)) return;
-    (lists[t] = lists[t] || []).push([x, y, z]);
-  });
-  Object.keys(lists).forEach(function (tk) {
-    var arr = lists[tk];
-    var im = new THREE.InstancedMesh(boxGeo, MATS[tk], arr.length);
-    for (var i = 0; i < arr.length; i++) {
-      dummy.position.set(arr[i][0] + 0.5, arr[i][1] + 0.5, arr[i][2] + 0.5);
-      dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix);
-    }
-    im.instanceMatrix.needsUpdate = true;
-    im.castShadow = tk !== '8'; im.receiveShadow = true;
-    worldGroup.add(im);
-  });
-  // flowers + grass tufts (decor placed by world gen; hide if their ground is gone)
-  var decorGeo = { tuft: new THREE.BoxGeometry(0.3, 0.55, 0.3), flower: new THREE.BoxGeometry(0.24, 0.3, 0.24) };
-  var decorMat = [new THREE.MeshLambertMaterial({ color: 0x4c9438 }), new THREE.MeshLambertMaterial({ color: 0xe23b3b }), new THREE.MeshLambertMaterial({ color: 0xf5c542 })];
-  var dLists = [[], [], []];
-  for (var di = 0; di < decorList.length; di++) {
-    var d = decorList[di];
-    if (getB(d[0], d[1] - 1, d[2]) === 1 && getB(d[0], d[1], d[2]) === 0) dLists[d[3]].push(d);
-  }
-  for (var dk = 0; dk < 3; dk++) {
-    if (!dLists[dk].length) continue;
-    var dm = new THREE.InstancedMesh(decorGeo[dk === 0 ? 'tuft' : 'flower'], decorMat[dk], dLists[dk].length);
-    for (var dj = 0; dj < dLists[dk].length; dj++) {
-      dummy.position.set(dLists[dk][dj][0] + 0.5, dLists[dk][dj][1] + (dk === 0 ? 0.27 : 0.55), dLists[dk][dj][2] + 0.5);
-      dummy.updateMatrix(); dm.setMatrixAt(dj, dummy.matrix);
-    }
-    dm.instanceMatrix.needsUpdate = true;
-    worldGroup.add(dm);
-  }
-}
 /* ---------- player ---------- */
-var player = { x: 52.5, y: 16, z: 42.5, vx: 0, vy: 0, vz: 0, yaw: Math.PI * 0.75, pitch: -0.15, fly: false, onGround: false };
+var player = { x: 105.5, y: 16, z: 85.5, vx: 0, vy: 0, vz: 0, yaw: Math.PI * 0.75, pitch: -0.15, fly: false, onGround: false };
 var placed = 0, broken = 0, sel = 1;
 var removedKeys = new Set(), addedMap = new Map();
 function save() {
   try {
-    localStorage.setItem('bloxcraft_save_v3', JSON.stringify({
+    localStorage.setItem(saveKey(), JSON.stringify({
       p: placed, b: broken, rem: Array.from(removedKeys),
       add: Array.from(addedMap.entries()),
       pos: [player.x, player.y, player.z], fly: player.fly ? 1 : 0, mode: MODE, inv: INV, ap: apples, hp: hp, hu: hunger
     }));
+    touchWorldMeta();
   } catch (e) {}
 }
 var saveTimer = null;
 function saveSoon() { if (!saveTimer) saveTimer = setTimeout(function () { saveTimer = null; save(); }, 800); }
 function load() {
-  genWorld();
   try {
-    var s = JSON.parse(localStorage.getItem('bloxcraft_save_v3') || 'null');
+    var s = JSON.parse(localStorage.getItem(saveKey()) || 'null');
     if (s) {
       placed = s.p || 0; broken = s.b || 0;
       (s.rem || []).forEach(function (k) { blocks.delete(k); removedKeys.add(k); });
@@ -381,7 +448,7 @@ function load() {
       INV = s.inv || {}; apples = s.ap || 0; hp = s.hp == null ? 20 : s.hp; hunger = s.hu == null ? 20 : s.hu;
     }
   } catch (e) {}
-  if (!localStorage.getItem('bloxcraft_save_v3')) player.y = heightAt(52, 42) + 2;
+  if (!localStorage.getItem(saveKey())) player.y = heightAt(SPAWN_X, SPAWN_Z) + 2;
 }
 function collideAxis(axis, amount) {
   if (amount === 0) return;
@@ -434,7 +501,7 @@ function doBreak() {
     else if (t0 >= 1) INV[t0] = (INV[t0] || 0) + 1;
     renderCounts();
   }
-  rebuild(); saveSoon(); updateStats();
+  rebuildAt(hit.x, hit.z); saveSoon(); updateStats();
 }
 function doPlace() {
   var hit = raycastBlock(); if (!hit) return;
@@ -448,7 +515,7 @@ function doPlace() {
   blocks.set(k, sel);
   removedKeys.delete(k); addedMap.set(k, sel);
   if (MODE === 'survival') { INV[sel]--; renderCounts(); }
-  placed++; rebuild(); saveSoon(); updateStats();
+  placed++; rebuildAt(x, z); saveSoon(); updateStats();
 }
 /* ---------- hotbar ---------- */
 var hotbarEl = document.getElementById('hotbar');
@@ -583,9 +650,11 @@ document.getElementById('btnReset').addEventListener('click', function (e) {
   e.stopPropagation();
   var b = e.currentTarget;
   if (!resetArm) { resetArm = true; b.textContent = '⚠️ Sure? Tap again'; setTimeout(function () { resetArm = false; b.textContent = '↺ New world'; }, 2600); return; }
-  localStorage.removeItem('bloxcraft_save_v3');
+  localStorage.removeItem(saveKey());
   removedKeys.clear(); addedMap.clear(); placed = 0; broken = 0; INV = {}; apples = 0; hp = 20; hunger = 20; breath = 10; renderCounts(); renderVitals();
-  load(); player.y = heightAt(52, 42) + 2; rebuild(); updateStats();
+  Object.keys(chunks).forEach(function (id) { var p = id.split(','); disposeChunk(+p[0], +p[1]); });
+  player.x = SPAWN_X + 0.5; player.z = SPAWN_Z + 0.5; player.y = heightAt(SPAWN_X, SPAWN_Z) + 2;
+  ensureChunks(); updateStats();
   b.textContent = '↺ New world'; resetArm = false; toast('🌍 Fresh world generated');
 });
 var toastTimer = null;
@@ -594,6 +663,95 @@ function toast(msg) {
   t.textContent = msg; t.style.display = 'block';
   clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.style.display = 'none'; }, 1800);
 }
+/* ---------- worlds: saved on exit, listed under Play ---------- */
+var WREG_KEY = 'bloxcraft_worlds_v1';
+var wreg = { list: [], active: null };
+function saveKey() { return 'bloxcraft_w_' + wreg.active; }
+function loadRegistry() {
+  try { var r = JSON.parse(localStorage.getItem(WREG_KEY) || 'null'); if (r && r.list && r.list.length && r.active) { wreg = r; return; } } catch (e) {}
+  var id = 'w' + Date.now().toString(36);
+  wreg = { list: [{ id: id, name: 'World 1', placed: 0, last: Date.now() }], active: id };
+  saveRegistry();
+}
+function saveRegistry() { try { localStorage.setItem(WREG_KEY, JSON.stringify(wreg)); } catch (e) {} }
+function touchWorldMeta() {
+  for (var i = 0; i < wreg.list.length; i++) if (wreg.list[i].id === wreg.active) { wreg.list[i].placed = placed; wreg.list[i].last = Date.now(); }
+  saveRegistry();
+}
+function fmtDate(ts) { var d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate(); }
+function wireTap(el, fn) {
+  el.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+  el.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+}
+function renderWorlds() {
+  var box = document.getElementById('worldList'); if (!box) return;
+  box.innerHTML = '';
+  var sorted = wreg.list.slice().sort(function (a, b) { return b.last - a.last; });
+  sorted.forEach(function (w) {
+    var row = document.createElement('div');
+    row.className = 'wrow' + (w.id === wreg.active ? ' cur' : '');
+    row.innerHTML = '<span>🌍</span><span class="wn"></span><span class="wm">🧱 ' + (w.placed || 0) + ' placed · ' + fmtDate(w.last) + (w.id === wreg.active ? ' · current' : '') + '</span>';
+    row.querySelector('.wn').textContent = w.name;
+    wireTap(row, function () { enterWorld(w.id, true); });
+    var del = document.createElement('span');
+    del.className = 'del'; del.textContent = '🗑';
+    var arm = false;
+    wireTap(del, function () {
+      if (!arm) { arm = true; del.textContent = '⚠️'; setTimeout(function () { arm = false; del.textContent = '🗑'; }, 2400); return; }
+      deleteWorld(w.id);
+    });
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function clearWorldState() {
+  Object.keys(chunks).forEach(function (id) { var p = id.split(','); disposeChunk(+p[0], +p[1]); });
+  removedKeys.clear(); addedMap.clear();
+  placed = 0; broken = 0; INV = {}; apples = 0; hp = 20; hunger = 20; breath = 10;
+  player.x = SPAWN_X + 0.5; player.z = SPAWN_Z + 0.5; player.y = heightAt(SPAWN_X, SPAWN_Z) + 2; player.vy = 0; player.fly = false;
+  document.getElementById('btnFly').classList.remove('on'); document.getElementById('btnFly2').classList.remove('on');
+}
+function enterWorld(id, play) {
+  if (id !== wreg.active) {
+    save();
+    wreg.active = id; saveRegistry();
+    clearWorldState();
+    load(); applyMode(); ensureChunks(); updateStats(); renderCounts(); renderVitals();
+  }
+  renderWorlds();
+  if (play) {
+    started = true;
+    document.getElementById('home').style.display = 'none';
+    if (!isTouch && !locked) renderer.domElement.requestPointerLock();
+  }
+}
+function createWorld() {
+  save();
+  var inp = document.getElementById('nwName');
+  var name = (inp.value || '').trim() || ('World ' + (wreg.list.length + 1));
+  var id = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 999);
+  wreg.list.push({ id: id, name: name, placed: 0, last: Date.now() });
+  inp.value = '';
+  wreg.active = id; saveRegistry();
+  clearWorldState();
+  MODE = 'creative';
+  applyMode(); ensureChunks(); updateStats(); renderCounts(); renderVitals(); renderWorlds();
+  toast('🌍 New world: ' + name);
+}
+function deleteWorld(id) {
+  if (wreg.list.length <= 1) { toast('You need at least one world!'); return; }
+  try { localStorage.removeItem('bloxcraft_w_' + id); } catch (e) {}
+  wreg.list = wreg.list.filter(function (w) { return w.id !== id; });
+  if (wreg.active === id) {
+    wreg.active = wreg.list[0].id; saveRegistry();
+    clearWorldState(); load(); applyMode(); ensureChunks(); updateStats(); renderCounts(); renderVitals();
+  }
+  saveRegistry(); renderWorlds();
+  toast('🗑 World deleted');
+}
+wireTap(document.getElementById('btnNewWorld'), createWorld);
+addEventListener('pagehide', function () { save(); });
+addEventListener('beforeunload', function () { save(); });
 /* ---------- modes: home screen + survival ---------- */
 var MODE = 'creative', started = false;
 var INV = {}, apples = 0, hp = 20, hunger = 20, breath = 10;
@@ -619,7 +777,7 @@ function hurt(n) {
 }
 function die() {
   toast('💀 You died! Back to California…');
-  player.x = 52.5; player.z = 42.5; player.y = heightAt(52, 42) + 2; player.vy = 0; fallPeak = player.y;
+  player.x = SPAWN_X + 0.5; player.z = SPAWN_Z + 0.5; player.y = heightAt(SPAWN_X, SPAWN_Z) + 2; player.vy = 0; fallPeak = player.y;
   hp = 20; if (hunger < 12) hunger = 12; breath = 10;
   renderVitals(); saveSoon();
 }
@@ -653,7 +811,7 @@ function applyMode() {
 }
 function setMode(m) { MODE = m; applyMode(); saveSoon(); }
 function goHome() {
-  started = false; save();
+  started = false; save(); renderWorlds();
   document.getElementById('home').style.display = 'flex';
   if (document.exitPointerLock) document.exitPointerLock();
 }
@@ -701,15 +859,15 @@ function resize() {
   renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
-var last = performance.now(), actTimer = 0, orbitT = 0;
+var last = performance.now(), actTimer = 0, orbitT = 0, chunkT = 0;
 function animate(now) {
   requestAnimationFrame(animate);
   var dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (!started) {
     orbitT += dt;
-    var gy = heightAt(52, 42);
-    camera.position.set(52.5 + Math.cos(orbitT * 0.07) * 30, gy + 16, 42.5 + Math.sin(orbitT * 0.07) * 30);
-    camera.lookAt(52.5, gy + 2, 42.5);
+    var gy = heightAt(SPAWN_X, SPAWN_Z);
+    camera.position.set(SPAWN_X + 0.5 + Math.cos(orbitT * 0.07) * 30, gy + 16, SPAWN_Z + 0.5 + Math.sin(orbitT * 0.07) * 30);
+    camera.lookAt(SPAWN_X + 0.5, gy + 2, SPAWN_Z + 0.5);
     highlight.visible = false;
   } else {
   // movement input
@@ -776,7 +934,9 @@ function animate(now) {
   if (hit) { highlight.visible = true; highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5); }
   else highlight.visible = false;
   }
-  for (var ci = 0; ci < clouds.length; ci++) { clouds[ci].position.x += dt * 0.4; if (clouds[ci].position.x > 340) clouds[ci].position.x = -45; }
+  chunkT -= dt;
+  if (chunkT <= 0) { chunkT = 0.3; ensureChunks(); }
+  for (var ci = 0; ci < clouds.length; ci++) { clouds[ci].position.x += dt * 0.4; if (clouds[ci].position.x > 680) clouds[ci].position.x = -50; }
   var spx = Math.round(player.x), spz = Math.round(player.z);
   sun.position.set(spx + 42, 80, spz + 28);
   sun.target.position.set(spx, 0, spz);
@@ -784,9 +944,11 @@ function animate(now) {
   waterMesh.material.opacity = 0.72 + Math.sin(now * 0.0006) * 0.04;
   renderer.render(scene, camera);
 }
+loadRegistry();
 load();
 applyMode();
-rebuild();
+ensureChunks();
+renderWorlds();
 updateStats();
 if (player.fly) { document.getElementById('btnFly').classList.add('on'); document.getElementById('btnFly2').classList.add('on'); }
 if (isTouch) document.getElementById('hint').textContent = 'Bottom-left corner to move · drag to look · ⛏ mine · 🧱 place';
