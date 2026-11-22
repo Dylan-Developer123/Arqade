@@ -34,6 +34,8 @@
   #brk { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); width: 130px; height: 8px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 5px; z-index: 6; display: none; }
   #brkBar { height: 100%; width: 0%; background: #f5c542; border-radius: 5px; }
   #dmg { position: absolute; inset: 0; z-index: 7; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(220,30,30,.55) 100%); opacity: 0; transition: opacity .35s; }
+  .slot.empty { opacity: .45; }
+  .slot.empty .sw, .slot.empty .nm, .slot.empty .ct { visibility: hidden; }
   .slot .ct { position: absolute; right: 3px; bottom: 1px; font-size: 10px; font-weight: 800; color: #ffd75e; text-shadow: 0 1px 2px #000; }
   #home { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(5,8,20,.18), rgba(5,8,20,.55)); padding: 14px; overflow: auto; }
   .homeCard { text-align: center; color: #fff; max-width: 520px; width: 100%; }
@@ -466,7 +468,10 @@ function selectSlot(t) {
   hotbarEl.querySelectorAll('.slot').forEach(function (s) { s.classList.toggle('sel', +s.dataset.t === t); });
 }
 function renderCounts() {
-  for (var t = 1; t <= 9; t++) if (slotEls[t]) slotEls[t].querySelector('.ct').textContent = MODE === 'creative' ? '∞' : (INV[t] || 0);
+  for (var t = 1; t <= 9; t++) if (slotEls[t]) {
+    slotEls[t].querySelector('.ct').textContent = MODE === 'creative' ? '∞' : (INV[t] || 0);
+    slotEls[t].classList.toggle('empty', MODE === 'survival' && !(INV[t] > 0));
+  }
   var eb = document.getElementById('btnEat'); if (eb) eb.textContent = '🍎 ' + apples;
 }
 function updateStats() {
@@ -573,8 +578,6 @@ function toggleFly() {
   toast(player.fly ? '🕊 Flying' : '🚶 Walking');
   saveSoon();
 }
-document.getElementById('btnFly').addEventListener('click', function (e) { e.stopPropagation(); toggleFly(); });
-document.getElementById('btnFly2').addEventListener('click', function (e) { e.stopPropagation(); toggleFly(); });
 var resetArm = false;
 document.getElementById('btnReset').addEventListener('click', function (e) {
   e.stopPropagation();
@@ -664,9 +667,17 @@ document.getElementById('btnPlay').addEventListener('click', function () {
   document.getElementById('home').style.display = 'none';
   if (!isTouch && !locked) renderer.domElement.requestPointerLock();
 });
-document.getElementById('btnHome').addEventListener('click', function (e) { e.stopPropagation(); goHome(); });
-document.getElementById('btnHome2').addEventListener('click', function (e) { e.stopPropagation(); goHome(); });
-document.getElementById('btnEat').addEventListener('click', function (e) { e.stopPropagation(); eatApple(); });
+function tapBtn(id, fn) {
+  var el = document.getElementById(id); if (!el) return;
+  el.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
+  el.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+  el.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+}
+tapBtn('btnHome', goHome);
+tapBtn('btnHome2', goHome);
+tapBtn('btnEat', eatApple);
+tapBtn('btnFly', toggleFly);
+tapBtn('btnFly2', toggleFly);
 addEventListener('keydown', function (e) { if (e.code === 'KeyE') eatApple(); });
 /* ---------- score + leaderboard ---------- */
 function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
