@@ -519,6 +519,7 @@ var joyVec = { x: 0, y: 0 }, joyId = null, lookId = null, lookLast = null;
 var joyEl = document.getElementById('joy'), knob = document.getElementById('joyKnob');
 var joyOX = 0, joyOY = 0;
 stage.addEventListener('touchstart', function (e) {
+  if (!started) return;
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
     if (joyId === null && t.clientX < innerWidth * 0.46 && t.clientY > innerHeight * 0.42) { joyId = t.identifier; joyOX = t.clientX; joyOY = t.clientY; }
@@ -527,6 +528,7 @@ stage.addEventListener('touchstart', function (e) {
   e.preventDefault();
 }, { passive: false });
 stage.addEventListener('touchmove', function (e) {
+  if (!started) return;
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
     if (t.identifier === joyId) {
@@ -653,6 +655,9 @@ function goHome() {
   if (document.exitPointerLock) document.exitPointerLock();
 }
 document.getElementById('modeCreative').addEventListener('click', function () { setMode('creative'); });
+document.getElementById('modeCreative').addEventListener('touchend', function (e) { e.preventDefault(); setMode('creative'); }, { passive: false });
+document.getElementById('modeSurvival').addEventListener('touchend', function (e) { e.preventDefault(); setMode('survival'); }, { passive: false });
+document.getElementById('btnPlay').addEventListener('touchend', function (e) { e.preventDefault(); started = true; document.getElementById('home').style.display = 'none'; }, { passive: false });
 document.getElementById('modeSurvival').addEventListener('click', function () { setMode('survival'); });
 document.getElementById('btnPlay').addEventListener('click', function () {
   started = true;
