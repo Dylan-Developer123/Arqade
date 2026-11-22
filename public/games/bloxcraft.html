@@ -16,12 +16,12 @@
   #stage canvas { display: block; touch-action: none; }
   #cross { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 20px; font-weight: 300; text-shadow: 0 0 4px #000; pointer-events: none; z-index: 5; }
   #hotbar { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 4px; z-index: 6; background: rgba(10,10,20,.55); padding: 4px; border-radius: 10px; }
-  .slot { width: 44px; height: 48px; border: 2px solid #55557a; border-radius: 7px; background: #1c1c30; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; padding: 2px; }
+  .slot { position: relative; width: 44px; height: 48px; border: 2px solid #55557a; border-radius: 7px; background: #1c1c30; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; padding: 2px; }
   .slot.sel { border-color: #f5c542; box-shadow: 0 0 8px rgba(245,197,66,.6); }
   .slot .sw { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,.4); }
   .slot .nm { font-size: 8.5px; color: #cfcfe6; margin-top: 2px; line-height: 1; }
-  #joy { position: absolute; left: 18px; bottom: 74px; width: 112px; height: 112px; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.25); z-index: 6; display: none; }
-  #joyKnob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,.35); transform: translate(-50%, -50%); }
+  #joy { position: absolute; left: 0; bottom: 0; width: 46%; height: 58%; background: transparent; border: none; z-index: 5; display: none; pointer-events: none; }
+  #joyKnob { display: none; }
   #btns { position: absolute; right: 14px; bottom: 74px; display: none; flex-direction: column; gap: 8px; z-index: 6; }
   #btns button, #deskBtns button { background: rgba(20,20,38,.78); color: #fff; border: 2px solid #55557a; border-radius: 10px; font-size: 15px; padding: 10px 12px; cursor: pointer; min-width: 74px; }
   #btns button.on, #deskBtns button.on { border-color: #f5c542; color: #f5c542; }
@@ -30,6 +30,24 @@
   #lb { position: absolute; left: 12px; top: 12px; background: rgba(10,10,20,.6); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; line-height: 1.5; z-index: 6; max-width: 210px; }
   #lb b { color: #f5c542; }
   #toast { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); background: rgba(10,10,20,.75); padding: 6px 14px; border-radius: 999px; font-size: 13px; z-index: 7; display: none; }
+  #vitals { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); z-index: 6; text-align: center; font-size: 14px; line-height: 1.35; letter-spacing: 1px; text-shadow: 0 1px 3px rgba(0,0,0,.85); display: none; pointer-events: none; }
+  #brk { position: absolute; left: 50%; top: 56%; transform: translateX(-50%); width: 130px; height: 8px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 5px; z-index: 6; display: none; }
+  #brkBar { height: 100%; width: 0%; background: #f5c542; border-radius: 5px; }
+  #dmg { position: absolute; inset: 0; z-index: 7; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(220,30,30,.55) 100%); opacity: 0; transition: opacity .35s; }
+  .slot .ct { position: absolute; right: 3px; bottom: 1px; font-size: 10px; font-weight: 800; color: #ffd75e; text-shadow: 0 1px 2px #000; }
+  #home { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(5,8,20,.18), rgba(5,8,20,.55)); padding: 14px; overflow: auto; }
+  .homeCard { text-align: center; color: #fff; max-width: 520px; width: 100%; }
+  .homeTitle { font-size: 44px; font-weight: 900; letter-spacing: 1px; color: #f5c542; text-shadow: 0 3px 0 #8a5a13, 0 6px 22px rgba(0,0,0,.6); }
+  .homeSub { margin-top: 6px; font-size: 15px; line-height: 1.45; text-shadow: 0 1px 4px rgba(0,0,0,.9); }
+  .modeRow { display: flex; gap: 10px; margin: 18px 0 14px; }
+  .modeCard { flex: 1; background: rgba(18,20,38,.85); border: 2px solid #55557a; border-radius: 14px; color: #fff; padding: 12px 8px; font-size: 26px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; align-items: center; font-family: inherit; }
+  .modeCard b { font-size: 17px; }
+  .modeCard span { font-size: 11.5px; opacity: .85; line-height: 1.35; }
+  .modeCard.sel { border-color: #f5c542; box-shadow: 0 0 0 2px rgba(245,197,66,.35), 0 8px 22px rgba(0,0,0,.45); }
+  #btnPlay { background: linear-gradient(180deg, #ffd75e, #e8a90c); color: #231a02; border: none; font-size: 24px; font-weight: 900; padding: 13px 58px; border-radius: 14px; cursor: pointer; box-shadow: 0 6px 0 #8a5a13, 0 12px 26px rgba(0,0,0,.5); font-family: inherit; }
+  #btnPlay:active { transform: translateY(3px); box-shadow: 0 3px 0 #8a5a13; }
+  .homeStats { margin-top: 14px; font-size: 13.5px; text-shadow: 0 1px 3px #000; }
+  .homeHow { margin-top: 6px; font-size: 12px; opacity: .85; text-shadow: 0 1px 3px #000; line-height: 1.5; }
   @media (pointer: coarse) { #joy { display: block; } #btns { display: flex; } #deskBtns { display: none; } #lb { display: none; } }
 </style>
 </head>
@@ -46,6 +64,8 @@
   <div id="hotbar"></div>
   <div id="joy"><div id="joyKnob"></div></div>
   <div id="btns">
+    <button class="tbtn" id="btnEat" style="display:none">🍎 0</button>
+    <button class="tbtn" id="btnHome2">🏠</button>
     <button id="btnFly">🕊 Fly</button>
     <button id="btnUp">⬆ Jump</button>
     <button id="btnDown">⬇ Down</button>
@@ -53,8 +73,25 @@
     <button id="btnPlace">🧱 Place</button>
   </div>
   <div id="deskBtns">
+    <button id="btnHome">🏠 Home</button>
     <button id="btnFly2">🕊 Fly (F)</button>
     <button id="btnReset">↺ New world</button>
+  </div>
+  <div id="vitals"></div>
+  <div id="brk"><div id="brkBar"></div></div>
+  <div id="dmg"></div>
+  <div id="home">
+    <div class="homeCard">
+      <div class="homeTitle">🧊 BLOXCRAFT</div>
+      <div class="homeSub">🌍 <b>Earth</b> — the real continents, block by block<br>300 × 150 world · you start in California 🇺🇸</div>
+      <div class="modeRow">
+        <button class="modeCard sel" id="modeCreative">🎨<b>Creative</b><span>Fly free · endless blocks · instant mining</span></button>
+        <button class="modeCard" id="modeSurvival">❤️<b>Survival</b><span>Hearts + hunger · mine blocks to build · watch your step!</span></button>
+      </div>
+      <button id="btnPlay">▶ Play</button>
+      <div class="homeStats">🧱 <span id="hsPlaced">0</span> placed · ⛏ <span id="hsBroken">0</span> mined · 🌲 explore the whole planet</div>
+      <div class="homeHow">Desktop: WASD + mouse · F fly (Creative) · E eat apple (Survival)<br>iPad: bottom-left corner to move · drag to look · buttons to mine + place</div>
+    </div>
   </div>
   <div id="toast"></div>
 </div>
@@ -63,7 +100,7 @@
 'use strict';
 /* ================= Bloxcraft — a 3D block world =================
    Mine blocks, place blocks, fly, build anything. World saves itself. */
-var WORLD = 96, WATER_Y = 4;
+var W_X = 300, W_Z = 150, WATER_Y = 4;
 var TYPES = [null,
   { name: 'Grass',  tex: 'grass'  },
   { name: 'Dirt',   tex: 'dirt'   },
@@ -77,58 +114,96 @@ var TYPES = [null,
 ];
 var T_WATER = 10;
 var blocks = new Map(); // "x,y,z" -> type
-function key(x, y, z) { return x + ',' + y + ',' + z; }
+function key(x, y, z) { return (x * 256 + z) * 64 + y; }
 function getB(x, y, z) { return blocks.get(key(x, y, z)) || 0; }
 function isSolid(x, y, z) { var t = getB(x, y, z); return t !== 0 && t !== T_WATER; }
 function hash2(x, z) { var s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); }
+/* ======= EARTH MAP: 60x30 coarse cells, each 5x5 blocks -> 300x150 world =======
+   Segments are [firstCol, lastCol] of land per row (row 0 = far north). */
+var EARTH_LAND = [
+  [[8,12],[48,56]], [[0,4],[6,16],[35,57]], [[0,17],[30,58]], [[6,17],[29,58]],
+  [[7,17],[28,57]], [[7,16],[29,56]], [[7,16],[29,53],[54,55]], [[8,15],[36,52],[54,54]],
+  [[8,14],[35,50]], [[9,12],[28,37],[36,49]], [[10,12],[27,38],[44,48]], [[13,16],[27,38],[39,40],[44,52]],
+  [[13,18],[28,37],[43,53]], [[13,19],[28,37],[44,52]], [[14,19],[29,37],[47,50]], [[14,19],[29,36],[47,53]],
+  [[14,18],[29,36],[38,38],[46,53]], [[14,18],[30,35],[38,38],[46,52]], [[15,17],[30,34],[47,51]],
+  [[15,17],[31,33],[49,51],[57,58]], [[15,16],[56,57]], [[15,16]], [[15,15]],
+  [], [], [], [], [], [], []
+];
+var EARTH_ICE = { '0,8':1,'0,9':1,'0,10':1,'0,11':1,'0,12':1,'0,48':1,'0,49':1,'0,50':1,'0,51':1,'0,52':1,'0,53':1,'0,54':1,'0,55':1,'0,56':1,
+  '1,20':1,'1,21':1,'1,22':1,'1,23':1,'1,24':1,'1,25':1, '2,20':1,'2,21':1,'2,22':1,'2,23':1,'2,24':1, '3,21':1,'3,22':1,'3,23':1 };
+var EARTH_HM = { // hills + mountains by "row,col"
+  '4,8':'m','5,8':'m','6,8':'m', '12,13':'m','13,13':'m','14,14':'m','15,14':'m','16,14':'m','17,14':'m','18,15':'m',
+  '5,31':'m', '6,37':'m', '7,41':'m','7,42':'m','8,41':'m', '9,28':'m', '12,36':'m','13,36':'m', '19,57':'m',
+  '2,37':'h','3,37':'h','4,37':'h', '6,15':'h', '13,18':'h','14,18':'h', '2,31':'h','3,31':'h',
+  '10,38':'h', '17,52':'h','18,51':'h', '2,45':'h','3,45':'h', '5,10':'h','5,11':'h', '15,30':'h'
+};
+function cellType(cx, cz) {
+  if (cx < 0 || cx >= 60 || cz < 0 || cz >= 30) return '.';
+  var hm = EARTH_HM[cz + ',' + cx]; if (hm) return hm;
+  if (EARTH_ICE[cz + ',' + cx]) return 'i';
+  var row = EARTH_LAND[cz] || [];
+  for (var i = 0; i < row.length; i++) if (cx >= row[i][0] && cx <= row[i][1]) return 'l';
+  return '.';
+}
+function cellElev(cx, cz) {
+  var t = cellType(cx, cz);
+  return t === '.' ? 2 : t === 'h' ? 8.5 : t === 'm' ? 11.5 : 6;
+}
 function heightAt(x, z) {
-  var h = 6 + Math.round(3.0 * Math.sin(x * 0.055) * Math.cos(z * 0.05)
-    + 2.2 * Math.sin(x * 0.021 + 1.7) * Math.sin(z * 0.017 + 0.6)
-    + 1.4 * Math.sin((x + z) * 0.09));
-  return Math.max(2, Math.min(13, h));
+  // bilinear blend between cell centres (cells are 5 blocks, centres at c*5+2) + rolling noise
+  var fx = (x - 2) / 5, fz = (z - 2) / 5;
+  var cx0 = Math.floor(fx), cz0 = Math.floor(fz), tx = fx - cx0, tz = fz - cz0;
+  var e00 = cellElev(cx0, cz0), e10 = cellElev(cx0 + 1, cz0), e01 = cellElev(cx0, cz0 + 1), e11 = cellElev(cx0 + 1, cz0 + 1);
+  var elev = (e00 * (1 - tx) + e10 * tx) * (1 - tz) + (e01 * (1 - tx) + e11 * tx) * tz;
+  var n = 1.3 * Math.sin(x * 0.11) * Math.cos(z * 0.09) + 0.9 * Math.sin(x * 0.023 + 1.3) * Math.sin(z * 0.019 + 0.5);
+  return Math.max(1, Math.min(14, Math.round(elev + n)));
 }
 function genWorld() {
   blocks.clear(); decorList = [];
-  for (var x = 0; x < WORLD; x++) for (var z = 0; z < WORLD; z++) {
+  for (var x = 0; x < W_X; x++) for (var z = 0; z < W_Z; z++) {
     var h = heightAt(x, z), y;
+    var ct = cellType(Math.floor(x / 5), Math.floor(z / 5));
+    var shore = h <= WATER_Y + 1;
     for (y = 0; y <= h; y++) {
       var t;
-      if (y === h) t = h <= WATER_Y + 1 ? 7 : 1;         // sand near water, else grass
-      else if (y >= h - 2) t = h <= WATER_Y + 1 ? 7 : 2; // dirt (sand all the way at the shore)
-      else t = 3;                                        // stone
+      if (y === h) {
+        if (shore) t = 7;                                   // sand beaches + ocean floor shallows
+        else if (ct === 'i') t = 7;                         // pale ice cap (Greenland / far north)
+        else if (ct === 'm' || h >= 11) t = 3;              // rocky peaks
+        else t = 1;                                         // grass
+      }
+      else if (y >= h - 2) t = shore ? 7 : 2;
+      else t = 3;
       blocks.set(key(x, y, z), t);
     }
-    if (h > WATER_Y + 1) {
+    if (!shore && ct !== 'i' && ct !== 'm') {
       var th2 = hash2(x * 5 + 31, z * 5 + 17);
-      if (th2 > 0.972 && Math.abs(x - 48) + Math.abs(z - 48) > 6) {
-        // oak: trunk 3-5, two-layer canopy
-        var th = 3 + Math.floor(hash2(x, z) * 3), ly2;
+      var nearSpawn = Math.abs(x - 52) + Math.abs(z - 42) <= 6;
+      if (!nearSpawn && th2 > 0.972) {
+        var th = 3 + Math.floor(hash2(x, z) * 3);
         for (y = h + 1; y <= h + th; y++) blocks.set(key(x, y, z), 4);
         for (var dx = -1; dx <= 1; dx++) for (var dz = -1; dz <= 1; dz++) for (var dy = 0; dy <= 1; dy++) {
           if (dx === 0 && dz === 0 && dy === 0) continue;
-          if (Math.abs(dx) === 1 && Math.abs(dz) === 1 && hash2(x + dx * 7, z + dz * 7) < 0.45) continue; // ragged corners
+          if (Math.abs(dx) === 1 && Math.abs(dz) === 1 && hash2(x + dx * 7, z + dz * 7) < 0.45) continue;
           var lx = x + dx, ly = h + th + dy, lz = z + dz;
-          if (lx >= 0 && lx < WORLD && lz >= 0 && lz < WORLD && !getB(lx, ly, lz)) blocks.set(key(lx, ly, lz), 6);
+          if (lx >= 0 && lx < W_X && lz >= 0 && lz < W_Z && !getB(lx, ly, lz)) blocks.set(key(lx, ly, lz), 6);
         }
         blocks.set(key(x, h + th + 2, z), 6);
         blocks.set(key(x + 1, h + th + 2, z), 6); blocks.set(key(x - 1, h + th + 2, z), 6);
         blocks.set(key(x, h + th + 2, z + 1), 6); blocks.set(key(x, h + th + 2, z - 1), 6);
-      } else if (th2 < 0.012 && h >= 8 && Math.abs(x - 48) + Math.abs(z - 48) > 6) {
-        // pine: tall trunk, shrinking leaf cone
+      } else if (!nearSpawn && th2 < 0.012 && h >= 8) {
         var ph = 5 + Math.floor(hash2(z, x) * 2);
         for (y = h + 1; y <= h + ph; y++) blocks.set(key(x, y, z), 4);
-        var rings = [[3, 1], [2, 1], [1, 1]];
         for (var ri = 0; ri < 3; ri++) {
           var ry = h + ph - 2 + ri, rr = 2 - ri;
           for (var px = -rr; px <= rr; px++) for (var pz = -rr; pz <= rr; pz++) {
             if (Math.abs(px) === rr && Math.abs(pz) === rr && ri < 2) continue;
             var qx = x + px, qz = z + pz;
-            if (qx >= 0 && qx < WORLD && qz >= 0 && qz < WORLD && !getB(qx, ry, qz)) blocks.set(key(qx, ry, qz), 6);
+            if (qx >= 0 && qx < W_X && qz >= 0 && qz < W_Z && !getB(qx, ry, qz)) blocks.set(key(qx, ry, qz), 6);
           }
         }
         blocks.set(key(x, h + ph + 1, z), 6);
       }
-      // flowers + grass tufts (decor, not blocks)
       var dh = hash2(x * 13 + 3, z * 13 + 29);
       if (dh > 0.978) decorList.push([x, h + 1, z, dh > 0.989 ? 2 : 1]);
       else if (dh < 0.06) decorList.push([x, h + 1, z, 0]);
@@ -163,8 +238,8 @@ function makeTextures() {
 /* ---------- three.js scene ---------- */
 var stage = document.getElementById('stage');
 var scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xb9dcf2, 85, 230);
-var camera = new THREE.PerspectiveCamera(72, 1, 0.1, 700);
+scene.fog = new THREE.Fog(0xb9dcf2, 90, 300);
+var camera = new THREE.PerspectiveCamera(72, 1, 0.1, 1100);
 var renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.shadowMap.enabled = true;
@@ -175,17 +250,17 @@ renderer.toneMappingExposure = 1.12;
 stage.appendChild(renderer.domElement);
 // gradient sky dome
 (function () {
-  var geo = new THREE.SphereGeometry(420, 18, 12);
+  var geo = new THREE.SphereGeometry(520, 18, 12);
   var pos = geo.attributes.position, colors = [];
   var top = new THREE.Color(0x3d8bd4), mid = new THREE.Color(0x8ec9ee), low = new THREE.Color(0xd9f0fb), c = new THREE.Color();
   for (var vi = 0; vi < pos.count; vi++) {
-    var t = Math.max(0, Math.min(1, pos.getY(vi) / 420 * 0.5 + 0.5));
+    var t = Math.max(0, Math.min(1, pos.getY(vi) / 520 * 0.5 + 0.5));
     if (t > 0.55) c.copy(mid).lerp(top, (t - 0.55) / 0.45); else c.copy(low).lerp(mid, t / 0.55);
     colors.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   var dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }));
-  dome.position.set(48, 0, 48);
+  dome.position.set(150, 0, 75);
   scene.add(dome);
 })();
 scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x5d8a4a, 0.85));
@@ -199,12 +274,12 @@ sun.shadow.bias = -0.0006;
 sun.position.set(90, 80, 70); scene.add(sun); scene.add(sun.target);
 var TEX = makeTextures();
 TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
-TEX.water.repeat.set(34, 34);
+TEX.water.repeat.set(64, 48);
 var waterMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(240, 240),
+  new THREE.PlaneGeometry(780, 580),
   new THREE.MeshLambertMaterial({ map: TEX.water, transparent: true, opacity: 0.74 }));
 waterMesh.rotation.x = -Math.PI / 2;
-waterMesh.position.set(48, WATER_Y + 0.86, 48);
+waterMesh.position.set(150, WATER_Y + 0.86, 75);
 scene.add(waterMesh);
 var MATS = {};
 for (var ti = 1; ti <= 9; ti++) MATS[ti] = new THREE.MeshLambertMaterial({ map: TEX[TYPES[ti].tex], transparent: ti === 8, opacity: ti === 8 ? 0.85 : 1 });
@@ -217,7 +292,7 @@ var clouds = [];
   var cm = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
   for (var i = 0; i < 12; i++) {
     var c = new THREE.Mesh(new THREE.BoxGeometry(9 + Math.random() * 11, 1.4, 6 + Math.random() * 7), cm);
-    c.position.set(Math.random() * 190 - 45, 32 + Math.random() * 6, Math.random() * 190 - 45);
+    c.position.set(Math.random() * 360 - 30, 34 + Math.random() * 7, Math.random() * 220 - 35);
     scene.add(c); clouds.push(c);
   }
 })();
@@ -241,7 +316,7 @@ function rebuild() {
   }
   var lists = {};
   blocks.forEach(function (t, k) {
-    var p = k.split(','); var x = +p[0], y = +p[1], z = +p[2];
+    var x = Math.floor(k / 16384), y = k % 64, z = Math.floor(k / 64) % 256;
     if (t !== T_WATER && !exposed(x, y, z)) return;
     (lists[t] = lists[t] || []).push([x, y, z]);
   });
@@ -276,15 +351,15 @@ function rebuild() {
   }
 }
 /* ---------- player ---------- */
-var player = { x: 48.5, y: 16, z: 48.5, vx: 0, vy: 0, vz: 0, yaw: Math.PI * 0.75, pitch: -0.15, fly: false, onGround: false };
+var player = { x: 52.5, y: 16, z: 42.5, vx: 0, vy: 0, vz: 0, yaw: Math.PI * 0.75, pitch: -0.15, fly: false, onGround: false };
 var placed = 0, broken = 0, sel = 1;
 var removedKeys = new Set(), addedMap = new Map();
 function save() {
   try {
-    localStorage.setItem('bloxcraft_save_v2', JSON.stringify({
+    localStorage.setItem('bloxcraft_save_v3', JSON.stringify({
       p: placed, b: broken, rem: Array.from(removedKeys),
       add: Array.from(addedMap.entries()),
-      pos: [player.x, player.y, player.z], fly: player.fly ? 1 : 0
+      pos: [player.x, player.y, player.z], fly: player.fly ? 1 : 0, mode: MODE, inv: INV, ap: apples, hp: hp, hu: hunger
     }));
   } catch (e) {}
 }
@@ -293,16 +368,18 @@ function saveSoon() { if (!saveTimer) saveTimer = setTimeout(function () { saveT
 function load() {
   genWorld();
   try {
-    var s = JSON.parse(localStorage.getItem('bloxcraft_save_v2') || 'null');
+    var s = JSON.parse(localStorage.getItem('bloxcraft_save_v3') || 'null');
     if (s) {
       placed = s.p || 0; broken = s.b || 0;
       (s.rem || []).forEach(function (k) { blocks.delete(k); removedKeys.add(k); });
       (s.add || []).forEach(function (e) { blocks.set(e[0], e[1]); addedMap.set(e[0], e[1]); });
       if (s.pos) { player.x = s.pos[0]; player.y = s.pos[1]; player.z = s.pos[2]; }
       player.fly = !!s.fly;
+      if (s.mode === 'survival' || s.mode === 'creative') MODE = s.mode;
+      INV = s.inv || {}; apples = s.ap || 0; hp = s.hp == null ? 20 : s.hp; hunger = s.hu == null ? 20 : s.hu;
     }
   } catch (e) {}
-  if (!localStorage.getItem('bloxcraft_save_v2')) player.y = heightAt(48, 48) + 2;
+  if (!localStorage.getItem('bloxcraft_save_v3')) player.y = heightAt(52, 42) + 2;
 }
 function collideAxis(axis, amount) {
   if (amount === 0) return;
@@ -345,30 +422,41 @@ function raycastBlock() {
 }
 function doBreak() {
   var hit = raycastBlock(); if (!hit) return;
+  var t0 = getB(hit.x, hit.y, hit.z);
   var k = key(hit.x, hit.y, hit.z);
   blocks.delete(k);
   addedMap.delete(k); removedKeys.add(k);
-  broken++; rebuild(); saveSoon(); updateStats();
+  broken++;
+  if (MODE === 'survival') {
+    if (t0 === 6) { if (Math.random() < 0.25) { apples++; toast('🍎 +1 apple from the leaves!'); } }
+    else if (t0 >= 1) INV[t0] = (INV[t0] || 0) + 1;
+    renderCounts();
+  }
+  rebuild(); saveSoon(); updateStats();
 }
 function doPlace() {
   var hit = raycastBlock(); if (!hit) return;
   var x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
-  if (x < 0 || x >= WORLD || z < 0 || z >= WORLD || y < 0 || y > 40) return;
+  if (x < 0 || x >= W_X || z < 0 || z >= W_Z || y < 0 || y > 40) return;
   if (getB(x, y, z) !== 0 && getB(x, y, z) !== T_WATER) return;
   // don't place inside the player
   if (x + 1 > player.x - 0.3 && x < player.x + 0.3 && z + 1 > player.z - 0.3 && z < player.z + 0.3 && y + 1 > player.y && y < player.y + 1.8) return;
+  if (MODE === 'survival' && !(INV[sel] > 0)) { toast('No ' + TYPES[sel].name + ' blocks left — mine some first!'); return; }
   var k = key(x, y, z);
   blocks.set(k, sel);
   removedKeys.delete(k); addedMap.set(k, sel);
+  if (MODE === 'survival') { INV[sel]--; renderCounts(); }
   placed++; rebuild(); saveSoon(); updateStats();
 }
 /* ---------- hotbar ---------- */
 var hotbarEl = document.getElementById('hotbar');
+var slotEls = {};
 var SWATCH = { grass: '#58a83c', dirt: '#8a5a33', stone: '#8d8d94', log: '#6e4f2a', planks: '#b08948', leaves: '#3e7d2c', sand: '#ddd29a', glass: '#bfe0f5', brick: '#a03c30' };
 for (var hi = 1; hi <= 9; hi++) (function (t) {
   var d = document.createElement('div');
   d.className = 'slot' + (t === sel ? ' sel' : ''); d.dataset.t = t;
-  d.innerHTML = '<div class="sw" style="background:' + SWATCH[TYPES[t].tex] + '"></div><div class="nm">' + TYPES[t].name + '</div>';
+  d.innerHTML = '<div class="sw" style="background:' + SWATCH[TYPES[t].tex] + '"></div><div class="nm">' + TYPES[t].name + '</div><div class="ct">∞</div>';
+  slotEls[t] = d;
   d.addEventListener('pointerdown', function (e) { e.stopPropagation(); selectSlot(t); });
   hotbarEl.appendChild(d);
 })(hi);
@@ -377,9 +465,15 @@ function selectSlot(t) {
   sel = t;
   hotbarEl.querySelectorAll('.slot').forEach(function (s) { s.classList.toggle('sel', +s.dataset.t === t); });
 }
+function renderCounts() {
+  for (var t = 1; t <= 9; t++) if (slotEls[t]) slotEls[t].querySelector('.ct').textContent = MODE === 'creative' ? '∞' : (INV[t] || 0);
+  var eb = document.getElementById('btnEat'); if (eb) eb.textContent = '🍎 ' + apples;
+}
 function updateStats() {
   document.getElementById('stPlaced').textContent = placed;
   document.getElementById('stBroken').textContent = broken;
+  document.getElementById('hsPlaced').textContent = placed;
+  document.getElementById('hsBroken').textContent = broken;
 }
 /* ---------- input: keyboard + mouse ---------- */
 var keys = {};
@@ -408,7 +502,7 @@ document.addEventListener('mousemove', function (e) {
 var mouseBreak = false, mousePlace = false;
 document.addEventListener('mousedown', function (e) {
   if (!locked) return;
-  if (e.button === 0) { mouseBreak = true; doBreak(); }
+  if (e.button === 0) { mouseBreak = true; if (MODE === 'creative') doBreak(); }
   if (e.button === 2) { mousePlace = true; doPlace(); }
 });
 document.addEventListener('mouseup', function (e) {
@@ -423,12 +517,12 @@ addEventListener('wheel', function (e) {
 /* ---------- input: touch ---------- */
 var joyVec = { x: 0, y: 0 }, joyId = null, lookId = null, lookLast = null;
 var joyEl = document.getElementById('joy'), knob = document.getElementById('joyKnob');
+var joyOX = 0, joyOY = 0;
 stage.addEventListener('touchstart', function (e) {
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
-    var r = joyEl.getBoundingClientRect();
-    if (t.clientX >= r.left - 14 && t.clientX <= r.right + 14 && t.clientY >= r.top - 14 && t.clientY <= r.bottom + 14 && joyId === null) joyId = t.identifier;
-    else if (lookId === null && t.clientX > innerWidth * 0.35) { lookId = t.identifier; lookLast = { x: t.clientX, y: t.clientY }; }
+    if (joyId === null && t.clientX < innerWidth * 0.46 && t.clientY > innerHeight * 0.42) { joyId = t.identifier; joyOX = t.clientX; joyOY = t.clientY; }
+    else if (lookId === null) { lookId = t.identifier; lookLast = { x: t.clientX, y: t.clientY }; }
   }
   e.preventDefault();
 }, { passive: false });
@@ -436,11 +530,9 @@ stage.addEventListener('touchmove', function (e) {
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
     if (t.identifier === joyId) {
-      var r = joyEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-      var dx = (t.clientX - cx) / (r.width / 2), dy = (t.clientY - cy) / (r.height / 2);
+      var dx = (t.clientX - joyOX) / 52, dy = (t.clientY - joyOY) / 52;
       var len = Math.hypot(dx, dy); if (len > 1) { dx /= len; dy /= len; }
       joyVec.x = dx; joyVec.y = dy;
-      knob.style.transform = 'translate(calc(-50% + ' + dx * 30 + 'px), calc(-50% + ' + dy * 30 + 'px))';
     } else if (t.identifier === lookId && lookLast) {
       player.yaw -= (t.clientX - lookLast.x) * 0.005;
       player.pitch -= (t.clientY - lookLast.y) * 0.005;
@@ -453,7 +545,7 @@ stage.addEventListener('touchmove', function (e) {
 function touchEnd(e) {
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
-    if (t.identifier === joyId) { joyId = null; joyVec.x = 0; joyVec.y = 0; knob.style.transform = 'translate(-50%, -50%)'; }
+    if (t.identifier === joyId) { joyId = null; joyVec.x = 0; joyVec.y = 0; }
     if (t.identifier === lookId) { lookId = null; lookLast = null; }
   }
 }
@@ -469,9 +561,10 @@ function bindHold(id, set) {
 }
 bindHold('btnUp', function (v) { holdUp = v; if (v && !player.fly && player.onGround) player.vy = 8.6; });
 bindHold('btnDown', function (v) { holdDown = v; });
-bindHold('btnBreak', function (v) { holdBreak = v; if (v) doBreak(); });
+bindHold('btnBreak', function (v) { holdBreak = v; if (v && MODE === 'creative') doBreak(); });
 bindHold('btnPlace', function (v) { holdPlace = v; if (v) doPlace(); });
 function toggleFly() {
+  if (MODE === 'survival') { toast('❤️ Survival mode: no flying!'); return; }
   player.fly = !player.fly; player.vy = 0;
   document.getElementById('btnFly').classList.toggle('on', player.fly);
   document.getElementById('btnFly2').classList.toggle('on', player.fly);
@@ -485,9 +578,9 @@ document.getElementById('btnReset').addEventListener('click', function (e) {
   e.stopPropagation();
   var b = e.currentTarget;
   if (!resetArm) { resetArm = true; b.textContent = '⚠️ Sure? Tap again'; setTimeout(function () { resetArm = false; b.textContent = '↺ New world'; }, 2600); return; }
-  localStorage.removeItem('bloxcraft_save_v2');
-  removedKeys.clear(); addedMap.clear(); placed = 0; broken = 0;
-  load(); player.y = heightAt(48, 48) + 2; rebuild(); updateStats();
+  localStorage.removeItem('bloxcraft_save_v3');
+  removedKeys.clear(); addedMap.clear(); placed = 0; broken = 0; INV = {}; apples = 0; hp = 20; hunger = 20; breath = 10; renderCounts(); renderVitals();
+  load(); player.y = heightAt(52, 42) + 2; rebuild(); updateStats();
   b.textContent = '↺ New world'; resetArm = false; toast('🌍 Fresh world generated');
 });
 var toastTimer = null;
@@ -496,6 +589,80 @@ function toast(msg) {
   t.textContent = msg; t.style.display = 'block';
   clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.style.display = 'none'; }, 1800);
 }
+/* ---------- modes: home screen + survival ---------- */
+var MODE = 'creative', started = false;
+var INV = {}, apples = 0, hp = 20, hunger = 20, breath = 10;
+var hungerT = 0, regenT = 0, starveT = 0, drownT = 0, fallPeak = 0, mineKey = null, mineProg = 0, inWaterNow = false;
+var BT = { 1: 0.35, 2: 0.3, 3: 1.6, 4: 0.9, 5: 0.9, 6: 0.06, 7: 0.3, 8: 0.25, 9: 1.6 };
+var brkWrap = document.getElementById('brk'), brkBar = document.getElementById('brkBar');
+var lastVit = '';
+function renderVitals() {
+  if (MODE !== 'survival') return;
+  var out = '';
+  for (var i = 0; i < 10; i++) { var v = hp - i * 2; out += v >= 2 ? '❤️' : v === 1 ? '💔' : '🖤'; }
+  out += '<br>';
+  for (var j = 0; j < 10; j++) { var w = hunger - j * 2; out += w >= 2 ? '🍗' : w === 1 ? '🍖' : '🦴'; }
+  if (breath < 9.95) { out += '<br>'; var bb = Math.max(0, Math.ceil(breath)); for (var b = 0; b < 10; b++) out += b < bb ? '🫧' : '·'; }
+  if (out !== lastVit) { lastVit = out; document.getElementById('vitals').innerHTML = out; }
+}
+function hurt(n) {
+  if (n <= 0 || !started || MODE !== 'survival') return;
+  hp = Math.max(0, hp - n);
+  var d = document.getElementById('dmg'); d.style.opacity = '0.55'; setTimeout(function () { d.style.opacity = '0'; }, 140);
+  renderVitals(); saveSoon();
+  if (hp <= 0) die();
+}
+function die() {
+  toast('💀 You died! Back to California…');
+  player.x = 52.5; player.z = 42.5; player.y = heightAt(52, 42) + 2; player.vy = 0; fallPeak = player.y;
+  hp = 20; if (hunger < 12) hunger = 12; breath = 10;
+  renderVitals(); saveSoon();
+}
+function eatApple() {
+  if (MODE !== 'survival' || !started) return;
+  if (apples <= 0) { toast('No apples — break 🍃 leaves to find some!'); return; }
+  if (hunger >= 20) { toast('You are full!'); return; }
+  apples--; hunger = Math.min(20, hunger + 6);
+  renderCounts(); renderVitals(); saveSoon(); toast('🍎 Yum!');
+}
+function tickSurvival(dt, moving) {
+  if (!started) return;
+  hungerT += dt * (moving ? 1 / 38 : 1 / 85);
+  if (hungerT >= 1) { hungerT = 0; if (hunger > 0) { hunger--; renderVitals(); saveSoon(); } }
+  if (hunger >= 18 && hp < 20) { regenT += dt; if (regenT >= 4) { regenT = 0; hp++; renderVitals(); } } else regenT = 0;
+  if (hunger <= 0) { starveT += dt; if (starveT >= 4) { starveT = 0; if (hp > 1) { hp--; renderVitals(); } } } else starveT = 0;
+  var eyeUnder = player.y + 1.62 < WATER_Y + 0.86;
+  if (eyeUnder) { breath -= dt; if (breath <= 0) { drownT += dt; if (drownT >= 1) { drownT = 0; hurt(2); } } }
+  else if (breath < 10) breath = Math.min(10, breath + dt * 3.5);
+  if (breath < 9.95 || eyeUnder) renderVitals();
+}
+function applyMode() {
+  document.getElementById('modeCreative').classList.toggle('sel', MODE === 'creative');
+  document.getElementById('modeSurvival').classList.toggle('sel', MODE === 'survival');
+  document.getElementById('vitals').style.display = MODE === 'survival' ? 'block' : 'none';
+  document.getElementById('btnEat').style.display = MODE === 'survival' ? '' : 'none';
+  if (MODE === 'survival' && player.fly) { player.fly = false; document.getElementById('btnFly').classList.remove('on'); document.getElementById('btnFly2').classList.remove('on'); }
+  document.getElementById('btnFly').style.opacity = MODE === 'survival' ? '0.45' : '';
+  document.getElementById('btnFly2').style.opacity = MODE === 'survival' ? '0.45' : '';
+  renderCounts(); renderVitals();
+}
+function setMode(m) { MODE = m; applyMode(); saveSoon(); }
+function goHome() {
+  started = false; save();
+  document.getElementById('home').style.display = 'flex';
+  if (document.exitPointerLock) document.exitPointerLock();
+}
+document.getElementById('modeCreative').addEventListener('click', function () { setMode('creative'); });
+document.getElementById('modeSurvival').addEventListener('click', function () { setMode('survival'); });
+document.getElementById('btnPlay').addEventListener('click', function () {
+  started = true;
+  document.getElementById('home').style.display = 'none';
+  if (!isTouch && !locked) renderer.domElement.requestPointerLock();
+});
+document.getElementById('btnHome').addEventListener('click', function (e) { e.stopPropagation(); goHome(); });
+document.getElementById('btnHome2').addEventListener('click', function (e) { e.stopPropagation(); goHome(); });
+document.getElementById('btnEat').addEventListener('click', function (e) { e.stopPropagation(); eatApple(); });
+addEventListener('keydown', function (e) { if (e.code === 'KeyE') eatApple(); });
 /* ---------- score + leaderboard ---------- */
 function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 async function loadLb() {
@@ -518,10 +685,17 @@ function resize() {
   renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
-var last = performance.now(), actTimer = 0;
+var last = performance.now(), actTimer = 0, orbitT = 0;
 function animate(now) {
   requestAnimationFrame(animate);
   var dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!started) {
+    orbitT += dt;
+    var gy = heightAt(52, 42);
+    camera.position.set(52.5 + Math.cos(orbitT * 0.07) * 30, gy + 16, 42.5 + Math.sin(orbitT * 0.07) * 30);
+    camera.lookAt(52.5, gy + 2, 42.5);
+    highlight.visible = false;
+  } else {
   // movement input
   var fwd = 0, str = 0;
   if (keys['KeyW'] || keys['ArrowUp']) fwd += 1;
@@ -535,32 +709,58 @@ function animate(now) {
   var mx = (str * cos - fwd * sin) * speed * dt;
   var mz = (-fwd * cos - str * sin) * speed * dt;
   collideAxis('x', mx); collideAxis('z', mz);
+  inWaterNow = (WATER_Y + 0.86) - player.y > 1.1;
   if (player.fly) {
     var vy = 0;
     if (keys['Space'] || holdUp) vy += 8;
     if (keys['ShiftLeft'] || keys['ShiftRight'] || holdDown) vy -= 8;
     collideAxis('y', vy * dt);
+  } else if (inWaterNow) {
+    player.vy -= 7 * dt; if (player.vy < -2.5) player.vy = -2.5;
+    if (keys['Space'] || holdUp) player.vy = 3.4;
+    player.onGround = false;
+    collideAxis('y', player.vy * dt);
   } else {
     player.vy -= 26 * dt;
     if ((keys['Space'] || holdUp) && player.onGround) { player.vy = 8.6; }
     player.onGround = false;
     collideAxis('y', player.vy * dt);
   }
-  player.x = Math.max(0.35, Math.min(WORLD - 0.35, player.x));
-  player.z = Math.max(0.35, Math.min(WORLD - 0.35, player.z));
+  if (MODE === 'survival') {
+    if (player.onGround) { var fd = fallPeak - player.y; if (fd > 3.6 && !inWaterNow) hurt(Math.floor(fd - 3.6)); fallPeak = player.y; }
+    else fallPeak = inWaterNow ? player.y : Math.max(fallPeak, player.y);
+    tickSurvival(dt, Math.abs(fwd) + Math.abs(str) > 0.1);
+  }
+  player.x = Math.max(0.35, Math.min(W_X - 0.35, player.x));
+  player.z = Math.max(0.35, Math.min(W_Z - 0.35, player.z));
   if (player.y < -5) { player.y = heightAt(Math.floor(player.x), Math.floor(player.z)) + 2; player.vy = 0; }
   camera.position.set(player.x, player.y + 1.62, player.z);
   camera.rotation.set(0, 0, 0);
   camera.rotateY(player.yaw); camera.rotateX(player.pitch);
   // held actions repeat
   actTimer -= dt;
-  if (actTimer <= 0 && (mouseBreak || holdBreak)) { doBreak(); actTimer = 0.22; }
-  else if (actTimer <= 0 && (mousePlace || holdPlace)) { doPlace(); actTimer = 0.22; }
+  if (MODE === 'creative') {
+    if (actTimer <= 0 && (mouseBreak || holdBreak)) { doBreak(); actTimer = 0.22; }
+    else if (actTimer <= 0 && (mousePlace || holdPlace)) { doPlace(); actTimer = 0.22; }
+  } else {
+    if ((mousePlace || holdPlace) && actTimer <= 0) { doPlace(); actTimer = 0.22; }
+    if (mouseBreak || holdBreak) {
+      var hit2 = raycastBlock();
+      if (hit2) {
+        var kk2 = key(hit2.x, hit2.y, hit2.z);
+        if (kk2 !== mineKey) { mineKey = kk2; mineProg = 0; }
+        mineProg += dt / (BT[getB(hit2.x, hit2.y, hit2.z)] || 0.5);
+        brkWrap.style.display = 'block'; brkBar.style.width = Math.min(100, Math.round(mineProg * 100)) + '%';
+        if (mineProg >= 1) { doBreak(); mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
+      } else { mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
+    } else { mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
+  }
   // target highlight
   var hit = raycastBlock();
   if (hit) { highlight.visible = true; highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5); }
   else highlight.visible = false;
-  for (var ci = 0; ci < clouds.length; ci++) { clouds[ci].position.x += dt * 0.4; if (clouds[ci].position.x > 150) clouds[ci].position.x = -55; }
+  }
+  for (var ci = 0; ci < clouds.length; ci++) { clouds[ci].position.x += dt * 0.4; if (clouds[ci].position.x > 340) clouds[ci].position.x = -45; }
   var spx = Math.round(player.x), spz = Math.round(player.z);
   sun.position.set(spx + 42, 80, spz + 28);
   sun.target.position.set(spx, 0, spz);
@@ -569,10 +769,11 @@ function animate(now) {
   renderer.render(scene, camera);
 }
 load();
+applyMode();
 rebuild();
 updateStats();
 if (player.fly) { document.getElementById('btnFly').classList.add('on'); document.getElementById('btnFly2').classList.add('on'); }
-if (isTouch) document.getElementById('hint').textContent = 'Left stick to move · drag to look · ⛏ mine · 🧱 place';
+if (isTouch) document.getElementById('hint').textContent = 'Bottom-left corner to move · drag to look · ⛏ mine · 🧱 place';
 resize();
 loadLb();
 requestAnimationFrame(animate);
