@@ -360,7 +360,7 @@ try { arqApplyAppearance(); } catch (e) {}
   const MORE_GAMES = [
     ['🐍 Snake', 'snake'], ['🧱 Breakout', 'breakout'], ['🐤 Flappy Bird', 'flappy'],
     ['🃏 Memory Match', 'memory'], ['🔢 2048', '2048'], ['🪙 Coin Clicker', 'clicker'],
-    ['👆 Clicker Simulator', 'clickersim'],
+    ['👆 Clicker Simulator', 'clickersim'], ['🧊 Bloxcraft', 'bloxcraft'],
     ['🏓 Pong', 'pong'], ['💣 Minesweeper', 'minesweeper'], ['👾 Space Invaders', 'invaders'],
     ['🌕 Lunar Lander', 'lander'], ['🏎️ Turbo Racer 3D', 'racer'],
     ['✏️ Word Guess', 'word'],
