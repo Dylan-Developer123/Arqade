@@ -1,71 +1,41 @@
-# ⛏️ Miner Cat 2 — self-hosted edition
+# Arqade — by Meteor
 
-A complete, playable Miner Cat 2 digging game you can host yourself **for free**.
-Includes accounts (username + password + display name), server-side saves with
-1-minute autosave, a coins leaderboard, and an admin/developer account.
+Free browser games. One account for every game — no downloads, just play.
 
-## What you get
+**Play:** [arqade-0n43.onrender.com](https://arqade-0n43.onrender.com) · [miner-cat-2.onrender.com](https://miner-cat-2.onrender.com)
 
-- 25 stages, 50 blocks deep each — stage 25 goes on forever
-- 21-block-wide mine with bedrock borders, spawn in the middle
-- 100 health, mineable lava (25 damage/sec), armor upgrades
-- Upgrades: pickaxe, armor, backpack size
-- Ores get rarer the deeper you go — diamond is the rarest (no crystal)
-- Achievements, backpack, "Go to Spawn" button with auto-sell
-- The **first account ever created** automatically becomes the admin/owner
-  with a **DEVELOPER** tag and admin powers (coins, heal, upgrades, stage jump)
+## Games
 
-## Deploy free on Render (step by step)
+- **City Pursuit 3D** — GTA-style open city: steal cars, drift through traffic, and lose the cops to drop your wanted stars
+- **Mining Simulator** — dig through 100 stages, collect coins and gems, buy enchants, and mine in a shared multiplayer world
+- **Turbo Racer 3D** — one endless highway in full 3D; thread through traffic and build near-miss combos
+- **Bloxcraft** — a 3D voxel Earth you can mine and build on: landmarks, animals, day & night, Creative and Survival
+- **Clicker Simulator** — click the big coin, buy upgrades, and rebirth for a multiplier that doubles every time
+- **Meteor AI** — Arqade's own AI: chat help, a bot player in the multiplayer games, and a Code mode that builds playable games
+- Plus the classics: Snake, Breakout, Flappy, Memory Match, 2048, Coin Clicker, Pong, Minesweeper, Space Invaders, Lunar Lander, Word Guess
 
-You need: a free [Render](https://render.com) account and a free
-[GitHub](https://github.com) account. ~10 minutes.
+## Apps
 
-1. **Put this project on GitHub**
-   - Create a new repository at github.com/new (name it `miner-cat-2`).
-   - Upload these files (or push with git):
-     - `server.js`, `package.json`, `render.yaml`, `README.md`
-     - the whole `public/` folder (`index.html`, `styles.css`, `game.js`)
+- **Orb Shop** — earn Orbs from daily and weekly tasks, spend them on name colors and titles
+- **Arqade Chat** — text + voice chat rooms, including player-created servers
+- **Web Browser** — browse the web from inside Arqade
+- **Settings** — one place controls every game's settings, plus site backgrounds, colors, and Dark/Light mode
+- **Feedback** — send bugs and ideas straight to Dylan
 
-2. **Deploy with the blueprint**
-   - In Render: **New +** → **Blueprint** → connect your GitHub → pick the
-     `miner-cat-2` repo.
-   - Render reads `render.yaml` and creates a **free** web service.
-   - Click **Apply**. Wait 2–3 minutes for the first build.
+## Features
 
-3. **Open your game**
-   - Render gives you a URL like `https://miner-cat-2.onrender.com`.
-   - Open it, create the first account — that account becomes the **admin**.
+- One account across the whole site, with per-game leaderboards and portal likes
+- **Orbs** — a global currency earned from tasks and spent in the Orb Shop on name colors and titles that show in chat
+- **Controller support** — pair an Xbox, PlayStation, or standard controller and play every game with it
+- Multiplayer worlds in Mining Simulator and City Pursuit 3D, with a bot player named Meteor
+- Works on iPad, phone, and computer
 
-4. **Play!** Create more accounts for friends; everyone appears on the
-   coins leaderboard.
+## Latest updates
 
-## Free-tier notes (important)
+- **2026-11-24** — Controller support across the whole site; Orb Shop became its own app in Featured; Orbs balance pill in the portal account bar and on every game page
+- **2026-11-23** — Orbs currency launched with harder tasks and the cosmetics shop; Bloxcraft 4.0 (landmarks, animals, world map, day & night, pickaxe, fast travel); Mining Simulator rethemed to Arqade navy and gold
+- **2026-11-22** — Bloxcraft launched: a 600×300-block Earth with chunk streaming, home screen, Creative/Survival, and multiple saved worlds
 
-- **Sleeping:** the free tier sleeps after ~15 minutes with no visitors.
-  The first visit after sleep takes **30–60 seconds** to wake up — just wait,
-  it will load.
-- **Data resets on redeploy:** game accounts and saves live in a SQLite file
-  on the server's disk, and Render's free tier **wipes the disk on every
-  redeploy**. For a small friends-and-family game this is usually fine, but
-  if you want permanent data, attach Render's managed Postgres (paid) and set
-  `DATABASE_URL` — the schema is simple to port (`users`, `saves`, `sessions`).
-- You can change the SQLite location with the `DB_PATH` environment variable.
+## Tech
 
-## Run it on your own computer
-
-```bash
-npm install
-npm start
-# open http://localhost:3000
-```
-
-## Project layout
-
-```
-server.js        Express API + SQLite (accounts, sessions, saves, leaderboard, admin)
-public/
-  index.html     Auth screens + game UI shell
-  styles.css     Bright cream/beige rounded-panel theme
-  game.js        Full game: world gen, physics, mining, rendering, UI
-render.yaml      One-click Render blueprint (free tier)
-```
+Node + Express server, Postgres database, vanilla JS front end, Three.js for the 3D games. See `HANDOFF.md` for the full project handoff.
