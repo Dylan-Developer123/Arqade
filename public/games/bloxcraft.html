@@ -1320,6 +1320,29 @@ if (player.fly) { document.getElementById('btnFly').classList.add('on'); documen
 if (isTouch) document.getElementById('hint').textContent = 'Bottom-left corner to move · drag to look · ⛏ mine · 🧱 place';
 resize();
 loadLb();
+// ---- Controller support: left stick moves, right stick looks, triggers mine/place.
+// (Buttons ride the shared translator: A = jump, X = fly toggle.)
+var padPrevT = 0;
+function pollPad(now) {
+  requestAnimationFrame(pollPad);
+  var gps = navigator.getGamepads ? navigator.getGamepads() : [];
+  var gp = null;
+  for (var i = 0; i < gps.length; i++) if (gps[i] && gps[i].connected) { gp = gps[i]; break; }
+  if (!gp) { padPrevT = 0; return; }
+  var dt = padPrevT ? Math.min(0.05, (now - padPrevT) / 1000) : 0.016;
+  padPrevT = now;
+  if (!started) { holdBreak = false; holdPlace = false; return; }
+  var ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+  if (Math.abs(ax) > 0.18 || Math.abs(ay) > 0.18) { joyVec.x = ax; joyVec.y = ay; }
+  else if (joyId === null) { joyVec.x = 0; joyVec.y = 0; }
+  var rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+  if (Math.abs(rx) > 0.15) player.yaw -= rx * 2.4 * dt;
+  if (Math.abs(ry) > 0.15) { player.pitch -= ry * 2.4 * dt; player.pitch = Math.max(-1.5, Math.min(1.5, player.pitch)); }
+  var bp = function (n) { return !!(gp.buttons[n] && gp.buttons[n].pressed); };
+  holdBreak = bp(7) || bp(5);
+  holdPlace = bp(6) || bp(4);
+}
+requestAnimationFrame(pollPad);
 requestAnimationFrame(animate);
 </script>
 </body>
