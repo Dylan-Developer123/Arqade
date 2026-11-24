@@ -292,6 +292,21 @@ async function main() {
   try { await db.exec('ALTER TABLE users ADD COLUMN is_developer INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
   try { await db.exec('ALTER TABLE users ADD COLUMN hide_tags INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
   try { await db.exec('ALTER TABLE scores ALTER COLUMN score TYPE DOUBLE PRECISION'); } catch (e) { /* sqlite handles big values as REAL automatically */ }
+  try { await db.exec('ALTER TABLE users ADD COLUMN orbs INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
+  try { await db.exec(`CREATE TABLE IF NOT EXISTS orb_tasks (
+    user_id INTEGER NOT NULL,
+    task TEXT NOT NULL,
+    period TEXT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    claimed INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, task, period)
+  )`); } catch (e) { /* already exists */ }
+  try { await db.exec(`CREATE TABLE IF NOT EXISTS orb_games (
+    user_id INTEGER NOT NULL,
+    period TEXT NOT NULL,
+    game TEXT NOT NULL,
+    PRIMARY KEY (user_id, period, game)
+  )`); } catch (e) { /* already exists */ }
   // The owner is the first registered account and holds all four tags for real.
   // Backfill once so badge display can use the real flags (no admin implies owner).
   try { await db.exec('UPDATE users SET is_owner = 1, is_admin = 1, is_moderator = 1, is_developer = 1 WHERE id = (SELECT MIN(id) FROM users)'); } catch (e) { /* no users yet */ }
@@ -420,6 +435,7 @@ async function main() {
       isDeveloper: !!u.is_developer,
       hideTags: !!u.hide_tags,
       coins: u.coins,
+      orbs: u.orbs || 0,
     };
   }
   async function isOriginalOwner(userId) {
@@ -464,6 +480,7 @@ async function main() {
     const authRow = await stmtGetUserAuthByUsername.get(username);
     const user = await stmtGetUserById.get(authRow.id);
     await createSession(res, user.id);
+    await orbBump(user.id, 'login');
     const profile = publicProfile(user);
     profile.canGiveTags = await isOriginalOwner(user.id);
     res.status(201).json({ user: profile });
@@ -480,6 +497,7 @@ async function main() {
     if (!ok) return res.status(401).json({ error: 'Invalid username or password.' });
     if (row.banned) return res.status(403).json({ error: 'This account has been banned.' });
     await createSession(res, row.id);
+    await orbBump(row.id, 'login');
     const userRow = await stmtGetUserById.get(row.id);
     const signinProfile = publicProfile(userRow);
     signinProfile.canGiveTags = await isOriginalOwner(row.id);
@@ -566,6 +584,7 @@ async function main() {
          updates as they play — best-ever semantics froze it behind an old boosted best. */
       await db.prepare('UPDATE scores SET score = ? WHERE user_id = ? AND game = ?').run(score, req.user.id, game);
     }
+    await orbPlay(req.user.id, game);
     const mine = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
     res.json({ ok: true, best: mine ? mine.score : score });
   });
@@ -621,9 +640,106 @@ async function main() {
     } else {
       await db.prepare('INSERT INTO game_likes (user_id, game) VALUES (?, ?)').run(req.user.id, game);
       liked = true;
+      await orbBump(req.user.id, 'like');
     }
     const row = await db.prepare('SELECT COUNT(*) AS n FROM game_likes WHERE game = ?').get(game);
     res.json({ ok: true, game, liked, count: Number(row ? row.n : 0) });
+  });
+
+  // -------------------------------------------------------------------------
+  // Orbs — the global Arqade currency. Earned from daily/weekly tasks,
+  // balance lives on the users row; the server decides every reward.
+  // -------------------------------------------------------------------------
+  const ORB_TASKS = [
+    { key: 'login',    name: 'Daily login',           icon: '🌅', reward: 10, target: 1,  freq: 'daily' },
+    { key: 'play1',    name: 'Play a game',           icon: '🎮', reward: 15, target: 1,  freq: 'daily' },
+    { key: 'play3',    name: 'Play 3 different games', icon: '🎲', reward: 25, target: 3,  freq: 'daily' },
+    { key: 'chat',     name: 'Send a chat message',   icon: '💬', reward: 10, target: 1,  freq: 'daily' },
+    { key: 'like',     name: 'Like a game',           icon: '👍', reward: 10, target: 1,  freq: 'daily' },
+    { key: 'play10',   name: 'Play 10 times',         icon: '🔥', reward: 80, target: 10, freq: 'weekly' },
+    { key: 'feedback', name: 'Send feedback',         icon: '💌', reward: 50, target: 1,  freq: 'weekly' },
+    { key: 'games5',   name: 'Try 5 different games', icon: '🌍', reward: 60, target: 5,  freq: 'weekly' },
+  ];
+  function orbPeriods() {
+    const parts = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(new Date()).forEach((p) => { parts[p.type] = p.value; });
+    const day = parts.year + '-' + parts.month + '-' + parts.day;
+    const dt = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
+    const mon = new Date(dt); mon.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
+    const thu = new Date(mon); thu.setUTCDate(mon.getUTCDate() + 3);
+    const jan4 = new Date(Date.UTC(thu.getUTCFullYear(), 0, 4));
+    const firstMon = new Date(jan4); firstMon.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() + 6) % 7));
+    const week = thu.getUTCFullYear() + '-W' + String(1 + Math.round((thu - firstMon) / (7 * 24 * 3600 * 1000) - 3 / 7)).padStart(2, '0');
+    return { day, week };
+  }
+  async function orbSetFlag(userId, task, period) {
+    const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, task, period);
+    if (!ex) await db.prepare('INSERT INTO orb_tasks (user_id, task, period, progress, claimed) VALUES (?, ?, ?, 1, 0)').run(userId, task, period);
+  }
+  async function orbBump(userId, kind) {
+    try {
+      if (!userId) return;
+      const { day, week } = orbPeriods();
+      if (kind === 'login') await orbSetFlag(userId, 'login', day);
+      else if (kind === 'chat') await orbSetFlag(userId, 'chat', day);
+      else if (kind === 'like') await orbSetFlag(userId, 'like', day);
+      else if (kind === 'feedback') await orbSetFlag(userId, 'feedback', week);
+    } catch (e) { /* Orbs must never break the main flow */ }
+  }
+  async function orbPlay(userId, game) {
+    try {
+      const { day, week } = orbPeriods();
+      for (const p of [day, week]) {
+        const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, 'plays', p);
+        if (!ex) await db.prepare('INSERT INTO orb_tasks (user_id, task, period, progress, claimed) VALUES (?, ?, ?, 1, 0)').run(userId, 'plays', p);
+        else await db.prepare('UPDATE orb_tasks SET progress = progress + 1 WHERE user_id = ? AND task = ? AND period = ?').run(userId, 'plays', p);
+        try { await db.prepare('INSERT INTO orb_games (user_id, period, game) VALUES (?, ?, ?)').run(userId, p, game); } catch (e) { /* already counted */ }
+      }
+    } catch (e) { /* Orbs must never break the main flow */ }
+  }
+  async function orbTaskStates(userId) {
+    const { day, week } = orbPeriods();
+    const rows = await db.prepare('SELECT task, period, progress, claimed FROM orb_tasks WHERE user_id = ? AND (period = ? OR period = ?)').all(userId, day, week);
+    const map = {};
+    for (const r of rows) map[r.task + '|' + r.period] = r;
+    const dRow = await db.prepare('SELECT COUNT(*) AS n FROM orb_games WHERE user_id = ? AND period = ?').get(userId, day);
+    const wRow = await db.prepare('SELECT COUNT(*) AS n FROM orb_games WHERE user_id = ? AND period = ?').get(userId, week);
+    const distinct = { daily: Number(dRow ? dRow.n : 0), weekly: Number(wRow ? wRow.n : 0) };
+    return ORB_TASKS.map((t) => {
+      const period = t.freq === 'daily' ? day : week;
+      let progress;
+      if (t.key === 'play1' || t.key === 'play10') { const r = map['plays|' + period]; progress = r ? Number(r.progress) : 0; }
+      else if (t.key === 'play3' || t.key === 'games5') progress = distinct[t.freq];
+      else { const r = map[t.key + '|' + period]; progress = r ? Number(r.progress) : 0; }
+      const crow = map[t.key + '|' + period];
+      const claimed = !!(crow && crow.claimed);
+      progress = Math.min(progress, t.target);
+      return { key: t.key, name: t.name, icon: t.icon, reward: t.reward, target: t.target, freq: t.freq, progress, claimed, ready: !claimed && progress >= t.target };
+    });
+  }
+  app.get('/api/orbs', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
+    res.json({ orbs: Number(u ? u.orbs : 0), tasks: await orbTaskStates(req.user.id) });
+  });
+  app.post('/api/orbs/claim', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const key = String((req.body || {}).task || '');
+    const def = ORB_TASKS.find((t) => t.key === key);
+    if (!def) return res.status(400).json({ error: 'Unknown task.' });
+    const states = await orbTaskStates(req.user.id);
+    const st = states.find((t) => t.key === key);
+    if (!st.ready) return res.status(400).json({ error: st.claimed ? 'Already claimed.' : 'Task not finished yet.' });
+    const { day, week } = orbPeriods();
+    const period = def.freq === 'daily' ? day : week;
+    const ex = await db.prepare('SELECT claimed FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(req.user.id, key, period);
+    if (ex && ex.claimed) return res.status(400).json({ error: 'Already claimed.' });
+    if (!ex) await db.prepare('INSERT INTO orb_tasks (user_id, task, period, progress, claimed) VALUES (?, ?, ?, ?, 1)').run(req.user.id, key, period, st.progress);
+    else await db.prepare('UPDATE orb_tasks SET claimed = 1 WHERE user_id = ? AND task = ? AND period = ?').run(req.user.id, key, period);
+    await db.prepare('UPDATE users SET orbs = orbs + ? WHERE id = ?').run(def.reward, req.user.id);
+    const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
+    res.json({ ok: true, orbs: Number(u ? u.orbs : 0), tasks: await orbTaskStates(req.user.id) });
   });
 
   // -------------------------------------------------------------------------
@@ -868,6 +984,7 @@ async function main() {
     log.push(now);
     feedbackLog.set(req.user.id, log);
     await db.prepare('INSERT INTO feedback (user_id, type, game, message) VALUES (?, ?, ?, ?)').run(req.user.id, type, game, message);
+    await orbBump(req.user.id, 'feedback');
     const row = await db.prepare('SELECT id FROM feedback WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
     res.json({ ok: true, id: Number(row.id) });
   });
@@ -1319,6 +1436,7 @@ async function main() {
           if (!text) return;
           me.lastChat = now;
           toLobby({ t: 'chat', id: userId, displayName: me.displayName, text }, null);
+          orbBump(userId, 'chat');
         } else if (msg.t === 'voice') {
           me.voiceOn = !!msg.on;
           toLobby({ t: 'voice', id: userId, displayName: me.displayName, on: me.voiceOn }, userId);
@@ -1392,6 +1510,7 @@ async function main() {
           if (!text) return;
           me.lastChat = now;
           toRoom({ t: 'chat', id: userId, displayName: me.displayName, text }, null);
+          orbBump(userId, 'chat');
         } else if (msg.t === 'voice') {
           me.voiceOn = !!msg.on;
           toRoom({ t: 'voice', id: userId, displayName: me.displayName, on: me.voiceOn }, userId);
