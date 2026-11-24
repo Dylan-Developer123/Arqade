@@ -479,3 +479,89 @@ try { arqApplyAppearance(); } catch (e) {}
     document.addEventListener('webkitfullscreenchange', sync);
   })();
 })();
+// ---- Controller support (Gamepad API) --------------------------------------
+// Translates a paired controller into the keyboard/mouse input the games
+// already use. Left stick + D-pad move (WASD + arrows), A = Space, B = Esc,
+// X = F, Y = E, Start = Enter. Right stick drives a cursor for menus and
+// mouse games; A clicks when the cursor is out. Idle until a pad connects.
+(function () {
+  if (!('getGamepads' in navigator)) return;
+  var DEFS = {
+    ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', kc: 38 }, ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', kc: 40 },
+    ArrowLeft: { key: 'ArrowLeft', code: 'ArrowLeft', kc: 37 }, ArrowRight: { key: 'ArrowRight', code: 'ArrowRight', kc: 39 },
+    KeyW: { key: 'w', code: 'KeyW', kc: 87 }, KeyA: { key: 'a', code: 'KeyA', kc: 65 },
+    KeyS: { key: 's', code: 'KeyS', kc: 83 }, KeyD: { key: 'd', code: 'KeyD', kc: 68 },
+    Space: { key: ' ', code: 'Space', kc: 32 }, Escape: { key: 'Escape', code: 'Escape', kc: 27 },
+    KeyF: { key: 'f', code: 'KeyF', kc: 70 }, KeyE: { key: 'e', code: 'KeyE', kc: 69 },
+    Enter: { key: 'Enter', code: 'Enter', kc: 13 }
+  };
+  var held = {};
+  var cursor = null, cx = 0, cy = 0, cursorOn = false, aWas = false, running = false;
+  function fire(type, name) {
+    var d = DEFS[name];
+    var ev = new KeyboardEvent(type, { key: d.key, code: d.code, bubbles: true, cancelable: true });
+    try { Object.defineProperty(ev, 'keyCode', { value: d.kc }); Object.defineProperty(ev, 'which', { value: d.kc }); } catch (e) {}
+    (document.body || document).dispatchEvent(ev);
+  }
+  function setKey(name, on) {
+    if (held[name] === on) return;
+    held[name] = on;
+    fire(on ? 'keydown' : 'keyup', name);
+  }
+  function toast(msg) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:9999;background:#262640;color:#eee;border:1.5px solid #55557a;border-radius:10px;padding:10px 16px;font:600 14px "Segoe UI",system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 2400);
+  }
+  function showCursor() {
+    if (!cursor) {
+      cursor = document.createElement('div');
+      cursor.style.cssText = 'position:fixed;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2.5px solid #f5c542;background:rgba(245,197,66,.25);z-index:9998;pointer-events:none;';
+      document.body.appendChild(cursor);
+      cx = innerWidth / 2; cy = innerHeight / 2;
+    }
+    cursor.style.display = 'block';
+    cursor.style.left = cx + 'px'; cursor.style.top = cy + 'px';
+    cursorOn = true;
+  }
+  function hideCursor() { if (cursor) cursor.style.display = 'none'; cursorOn = false; }
+  document.addEventListener('mousemove', hideCursor);
+  function clickAt(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return;
+    var o = { bubbles: true, cancelable: true, clientX: x, clientY: y, view: window };
+    el.dispatchEvent(new MouseEvent('mousedown', o));
+    el.dispatchEvent(new MouseEvent('mouseup', o));
+    el.dispatchEvent(new MouseEvent('click', o));
+  }
+  function frame() {
+    var gps = navigator.getGamepads ? navigator.getGamepads() : [];
+    var gp = null;
+    for (var i = 0; i < gps.length; i++) if (gps[i] && gps[i].connected) { gp = gps[i]; break; }
+    if (!gp) { running = false; for (var k in held) setKey(k, false); hideCursor(); return; }
+    requestAnimationFrame(frame);
+    var b = function (n) { return !!(gp.buttons[n] && gp.buttons[n].pressed); };
+    var ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, T = 0.35;
+    var up = b(12) || ay < -T, dn = b(13) || ay > T, lf = b(14) || ax < -T, rt = b(15) || ax > T;
+    setKey('ArrowUp', up); setKey('KeyW', up);
+    setKey('ArrowDown', dn); setKey('KeyS', dn);
+    setKey('ArrowLeft', lf); setKey('KeyA', lf);
+    setKey('ArrowRight', rt); setKey('KeyD', rt);
+    setKey('Space', b(0)); setKey('Escape', b(1)); setKey('KeyF', b(2)); setKey('KeyE', b(3)); setKey('Enter', b(9));
+    // Right stick = cursor (suppressed while pointer-locked, e.g. Bloxcraft play)
+    var rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+    if (!document.pointerLockElement && (Math.abs(rx) > 0.25 || Math.abs(ry) > 0.25)) {
+      cx = Math.max(4, Math.min(innerWidth - 4, cx + rx * 14));
+      cy = Math.max(4, Math.min(innerHeight - 4, cy + ry * 14));
+      showCursor();
+    }
+    if (cursorOn && b(0) && !aWas) clickAt(cx, cy);
+    aWas = b(0);
+  }
+  addEventListener('gamepadconnected', function () {
+    toast('🎮 Controller connected');
+    if (!running) { running = true; requestAnimationFrame(frame); }
+  });
+})();
