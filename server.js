@@ -317,6 +317,9 @@ async function main() {
     color TEXT,
     title TEXT
   )`); } catch (e) { /* already exists */ }
+  try { await db.exec(`CREATE TABLE IF NOT EXISTS stripe_events (
+    id TEXT PRIMARY KEY
+  )`); } catch (e) { /* already exists */ }
   // The owner is the first registered account and holds all four tags for real.
   // Backfill once so badge display can use the real flags (no admin implies owner).
   try { await db.exec('UPDATE users SET is_owner = 1, is_admin = 1, is_moderator = 1, is_developer = 1 WHERE id = (SELECT MIN(id) FROM users)'); } catch (e) { /* no users yet */ }
@@ -356,7 +359,7 @@ async function main() {
   // -------------------------------------------------------------------------
   const app = express();
   app.set('trust proxy', 1); // needed behind a hosting proxy for secure cookies
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '1mb', verify: (req, res, buf) => { if (req.url.startsWith('/api/stripe/webhook')) req.rawBody = buf; } }));
   app.use(cookieParser());
 
   const isProd = process.env.NODE_ENV === 'production';
@@ -634,7 +637,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // Portal game likes — one like per player per game; counts are public.
   // -------------------------------------------------------------------------
-  const LIKE_GAMES = [...PORTAL_GAMES, 'mining', 'chat', 'browser', 'settings', 'meteor', 'feedback'];
+  const LIKE_GAMES = [...PORTAL_GAMES, 'mining', 'chat', 'browser', 'settings', 'meteor', 'feedback', 'shop'];
   app.get('/api/likes', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const rows = await db.prepare('SELECT game, COUNT(*) AS n FROM game_likes GROUP BY game').all();
@@ -836,6 +839,86 @@ async function main() {
     await db.prepare('DELETE FROM orb_equip WHERE user_id = ?').run(req.user.id);
     await db.prepare('INSERT INTO orb_equip (user_id, color, title) VALUES (?, ?, ?)').run(req.user.id, cur.color, cur.title);
     res.json({ ok: true, ...(await orbShopState(req.user.id)) });
+  });
+
+  // -------------------------------------------------------------------------
+  // Stripe PREP — real-money Orbs packs. Everything below is INERT until a
+  // parent connects Stripe and the server has STRIPE_SECRET_KEY +
+  // STRIPE_WEBHOOK_SECRET in its environment. Until then the packs endpoint
+  // reports ready:false, checkout answers 503, and the webhook answers 503.
+  // No Stripe SDK: plain REST for Checkout + HMAC signature verification.
+  // -------------------------------------------------------------------------
+  const ORB_PACKS = [
+    { id: 'pack-100',  name: '100 Orbs',    orbs: 100,  cents: 99 },
+    { id: 'pack-550',  name: '550 Orbs',    orbs: 550,  cents: 499 },
+    { id: 'pack-1200', name: '1,200 Orbs',  orbs: 1200, cents: 999 },
+    { id: 'pack-3000', name: '3,000 Orbs',  orbs: 3000, cents: 1999 },
+  ];
+  function stripeReady() { return !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET); }
+  app.get('/api/orbs/packs', requireAuth, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ ready: stripeReady(), packs: ORB_PACKS.map((p) => ({ id: p.id, name: p.name, orbs: p.orbs, price: '$' + (p.cents / 100).toFixed(2) })) });
+  });
+  app.post('/api/orbs/checkout', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!stripeReady()) return res.status(503).json({ error: 'Money purchases are not switched on yet.' });
+    const pack = ORB_PACKS.find((p) => p.id === String((req.body || {}).pack || ''));
+    if (!pack) return res.status(400).json({ error: 'Unknown pack.' });
+    try {
+      const origin = 'https://' + req.get('host');
+      const form = new URLSearchParams();
+      form.set('mode', 'payment');
+      form.set('success_url', origin + '/games/shop?bought=' + pack.id);
+      form.set('cancel_url', origin + '/games/shop?cancelled=1');
+      form.set('line_items[0][quantity]', '1');
+      form.set('line_items[0][price_data][currency]', 'usd');
+      form.set('line_items[0][price_data][unit_amount]', String(pack.cents));
+      form.set('line_items[0][price_data][product_data][name]', pack.name + ' — Arqade Orbs');
+      form.set('metadata[userId]', String(req.user.id));
+      form.set('metadata[packId]', pack.id);
+      form.set('payment_intent_data[metadata][userId]', String(req.user.id));
+      form.set('payment_intent_data[metadata][packId]', pack.id);
+      const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + process.env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.url) return res.status(502).json({ error: 'Stripe could not start checkout.' });
+      res.json({ url: d.url });
+    } catch (e) { res.status(502).json({ error: 'Stripe could not start checkout.' }); }
+  });
+  app.post('/api/stripe/webhook', async (req, res) => {
+    if (!stripeReady()) return res.status(503).json({ error: 'Not configured.' });
+    const raw = req.rawBody;
+    if (!raw) return res.status(400).json({ error: 'No raw body.' });
+    let verified = false;
+    try {
+      const parts = {};
+      for (const kv of String(req.get('stripe-signature') || '').split(',')) {
+        const i = kv.indexOf('=');
+        if (i > 0) parts[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
+      }
+      const expected = crypto.createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET).update(parts.t + '.' + raw.toString('utf8')).digest('hex');
+      verified = !!parts.v1 && expected === parts.v1 && Math.abs(Date.now() / 1000 - Number(parts.t)) < 300;
+    } catch (e) { verified = false; }
+    if (!verified) return res.status(400).json({ error: 'Bad signature.' });
+    let event;
+    try { event = JSON.parse(raw.toString('utf8')); } catch (e) { return res.status(400).json({ error: 'Bad JSON.' }); }
+    if (event.type === 'checkout.session.completed') {
+      const sess = event.data && event.data.object ? event.data.object : {};
+      const md = sess.metadata || {};
+      const pack = ORB_PACKS.find((p) => p.id === md.packId);
+      const userId = parseInt(md.userId, 10);
+      if (pack && Number.isInteger(userId) && sess.payment_status === 'paid') {
+        const seen = await db.prepare('SELECT id FROM stripe_events WHERE id = ?').get(event.id);
+        if (!seen) {
+          await db.prepare('INSERT INTO stripe_events (id) VALUES (?)').run(event.id);
+          await db.prepare('UPDATE users SET orbs = orbs + ? WHERE id = ?').run(pack.orbs, userId);
+        }
+      }
+    }
+    res.json({ received: true });
   });
 
   // -------------------------------------------------------------------------
