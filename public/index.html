@@ -111,6 +111,11 @@
         el.querySelector('span').textContent = tagText(user);
         if (user.title) el.querySelector('span').textContent += ' · ' + user.title;
         paintNameEl(el.querySelector('b'), user.nameColor);
+        const bal = document.createElement('a');
+        bal.href = '/games/shop';
+        bal.textContent = '🪙 ' + (user.orbs || 0) + ' Orbs';
+        bal.style.cssText = 'background:#2e2a1a;color:#f5c542;border:1px solid #92600e;border-radius:999px;padding:5px 13px;font-weight:800;text-decoration:none;font-size:14px;';
+        document.getElementById('account-bar').appendChild(bal);
         const out = document.createElement('button');
         out.textContent = 'Sign out';
         out.style.cssText = 'margin-left:auto;background:#33334f;color:#eee;border:1px solid #55557a;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:14px;';
