@@ -1388,6 +1388,25 @@ async function main() {
         broadcast({ t: 'leaderboard-refresh' });
         return res.json({ ok: true, username: target, tag, granted: grant });
       }
+      case 'orbs': {
+        // Admin: set or add to any player's server-side Orbs balance.
+        const mode = req.body.mode === 'set' ? 'set' : 'add';
+        const amt = clamp(amount, 0, 1000000000, 0);
+        if (mode === 'add' && amt < 1) return res.status(400).json({ error: 'Enter an amount.' });
+        let targetId = req.user.id;
+        let targetName = req.user.username;
+        const orbTarget = String(req.body.target || '').trim();
+        if (orbTarget) {
+          const tu = await db.prepare('SELECT id, username FROM users WHERE username = ?').get(orbTarget);
+          if (!tu) return res.status(404).json({ error: 'Account not found.' });
+          targetId = tu.id;
+          targetName = tu.username;
+        }
+        const cur = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(targetId);
+        const newBal = mode === 'set' ? amt : clamp((cur ? cur.orbs : 0) + amt, 0, 1000000000, 0);
+        await db.prepare('UPDATE users SET orbs = ? WHERE id = ?').run(newBal, targetId);
+        return res.json({ ok: true, username: targetName, orbs: newBal, mode });
+      }
       case 'resetScore': {
         // Per-game admin: clear the caller's own best score in one game.
         const game = String(req.body.game || '');
