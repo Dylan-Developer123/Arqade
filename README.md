@@ -32,7 +32,7 @@ Free browser games. One account for every game — no downloads, just play.
 
 ## Latest updates
 
-- **2026-11-24** — Controller support across the whole site; Orb Shop became its own app in Featured; Orbs balance pill in the portal account bar and on every game page
+- **2026-11-24** — Controller support across the whole site; Orb Shop became its own app in Featured; Orbs balance pill in the portal account bar and on every game page; new Orb coin logo
 - **2026-11-23** — Orbs currency launched with harder tasks and the cosmetics shop; Bloxcraft 4.0 (landmarks, animals, world map, day & night, pickaxe, fast travel); Mining Simulator rethemed to Arqade navy and gold
 - **2026-11-22** — Bloxcraft launched: a 600×300-block Earth with chunk streaming, home screen, Creative/Survival, and multiple saved worlds
 
