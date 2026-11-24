@@ -93,6 +93,12 @@
     if (u.isDeveloper) t += ' 💻 DEVELOPER';
     return u.hideTags ? '' : t;
   }
+  function paintNameEl(elm, nc) {
+    if (!elm || !nc) return;
+    var cols = { gold: '#f5c542', cyan: '#38e1ff', pink: '#ff7ad9' };
+    if (nc === 'rainbow') { elm.style.background = 'linear-gradient(90deg,#ff5f6d,#ffc371,#7dd87d,#38e1ff,#b18cff)'; elm.style.webkitBackgroundClip = 'text'; elm.style.backgroundClip = 'text'; elm.style.color = 'transparent'; }
+    else if (cols[nc]) elm.style.color = cols[nc];
+  }
   (async () => {
     const el = document.getElementById('account-text');
     try {
@@ -102,6 +108,8 @@
         el.innerHTML = `👤 Signed in as <b></b><span style="color:#f5c542;font-weight:bold;"></span> — one account for every game here.`;
         el.querySelector('b').textContent = user.displayName;
         el.querySelector('span').textContent = tagText(user);
+        if (user.title) el.querySelector('span').textContent += ' · ' + user.title;
+        paintNameEl(el.querySelector('b'), user.nameColor);
         const out = document.createElement('button');
         out.textContent = 'Sign out';
         out.style.cssText = 'margin-left:auto;background:#33334f;color:#eee;border:1px solid #55557a;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:14px;';
@@ -197,6 +205,7 @@
   <div class="section-title">🪙 Orbs</div>
   <div id="orbs-panel" style="background:linear-gradient(160deg,#23233c,#1a1a2e);border:1px solid #34345c;border-radius:16px;padding:16px 20px;margin-bottom:34px;">
     <div id="orbs-body" style="color:#eee;">Loading Orbs…</div>
+    <div id="orbs-shop"></div>
   </div>
   <script>
   (async () => {
@@ -220,7 +229,7 @@
         '<div style="flex:1;min-width:280px;"><div style="color:#f5c542;font-weight:800;letter-spacing:1px;font-size:12.5px;">DAILY TASKS</div>' + daily + '</div>' +
         '<div style="flex:1;min-width:280px;"><div style="color:#f5c542;font-weight:800;letter-spacing:1px;font-size:12.5px;">WEEKLY TASKS</div>' + weekly + '</div>' +
         '</div>' +
-        '<div style="color:#a9a9c9;font-size:13px;margin-top:10px;">Orbs are the global Arqade currency — earn them from tasks, and spending on avatar cosmetics and game unlocks is coming soon.</div>';
+        '<div style="color:#a9a9c9;font-size:13px;margin-top:10px;">Orbs are the global Arqade currency — earn them from tasks and spend them in the shop below.</div>';
       body.querySelectorAll('[data-claim]').forEach(b => {
         b.onclick = async () => {
           b.disabled = true; b.textContent = '…';
@@ -231,6 +240,39 @@
         };
       });
     }
+    const shopEl = document.getElementById('orbs-shop');
+    function shopCard(i, orbs) {
+      var btn;
+      var bs = 'border:none;border-radius:9px;padding:7px 14px;font-weight:900;cursor:pointer;font-family:inherit;';
+      if (i.equipped) btn = '<button data-unequip="' + i.type + '" style="background:#2e7d32;color:#fff;' + bs + '">✓ Wearing — take off</button>';
+      else if (i.owned) btn = '<button data-equip="' + i.id + '" style="background:#f5c542;color:#191920;' + bs + '">Wear it</button>';
+      else if (orbs >= i.price) btn = '<button data-buy="' + i.id + '" style="background:#f5c542;color:#191920;' + bs + '">Buy · 🪙 ' + i.price + '</button>';
+      else btn = '<span style="color:#a9a9c9;font-weight:700;">🪙 ' + i.price + ' · need ' + (i.price - orbs) + ' more</span>';
+      return '<div style="flex:1;min-width:210px;background:#1c1c30;border:1px solid #34345c;border-radius:13px;padding:13px 15px;">' +
+        '<div style="font-size:22px;">' + i.icon + '</div>' +
+        '<div style="font-weight:800;margin:3px 0;">' + esc(i.name) + '</div>' +
+        '<div style="color:#a9a9c9;font-size:13px;min-height:32px;">' + esc(i.desc) + '</div>' +
+        '<div style="margin-top:8px;">' + btn + '</div></div>';
+    }
+    function renderShop(d) {
+      shopEl.innerHTML = '<div style="color:#f5c542;font-weight:800;letter-spacing:1px;font-size:12.5px;margin:18px 0 10px;">🛒 ORB SHOP — NAME COLORS & TITLES</div>' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;">' + d.items.map(function (i) { return shopCard(i, d.orbs); }).join('') + '</div>';
+      shopEl.querySelectorAll('[data-buy]').forEach(function (b) { b.onclick = function () { shopPost('/api/orbs/buy', b.getAttribute('data-buy')); }; });
+      shopEl.querySelectorAll('[data-equip]').forEach(function (b) { b.onclick = function () { shopPost('/api/orbs/equip', b.getAttribute('data-equip')); }; });
+      shopEl.querySelectorAll('[data-unequip]').forEach(function (b) { b.onclick = function () { shopPost('/api/orbs/equip', 'none-' + b.getAttribute('data-unequip')); }; });
+    }
+    async function shopPost(url, item) {
+      try {
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: item }) });
+        if (r.ok) { renderShop(await r.json()); load(); }
+      } catch (e) {}
+    }
+    async function loadShop() {
+      try {
+        const r = await fetch('/api/orbs/shop', { cache: 'no-store' });
+        if (r.ok) renderShop(await r.json());
+      } catch (e) {}
+    }
     async function load() {
       try {
         const r = await fetch('/api/orbs', { cache: 'no-store' });
@@ -239,6 +281,7 @@
           return;
         }
         render(await r.json());
+        loadShop();
       } catch (e) { body.textContent = ''; }
     }
     load();
