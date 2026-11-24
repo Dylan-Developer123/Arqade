@@ -72,6 +72,14 @@
   var packNote = document.getElementById('packNote');
   var retNote = document.getElementById('retNote');
 
+  async function fetchRetry(url) {
+    var lastErr = null;
+    for (var i = 0; i < 3; i++) {
+      try { return await fetch(url, { cache: 'no-store' }); }
+      catch (e) { lastErr = e; await new Promise(function (res) { setTimeout(res, 1200); }); }
+    }
+    throw lastErr;
+  }
   var qs = new URLSearchParams(location.search);
   if (qs.get('bought')) retNote.textContent = '🎉 Thanks! Stripe is confirming your payment — your Orbs land in a few seconds. Pull to refresh if they do not show.';
   else if (qs.get('cancelled')) retNote.textContent = 'Purchase cancelled — no charge was made.';
@@ -100,7 +108,7 @@
   }
   async function loadShop() {
     try {
-      var r = await fetch('/api/orbs/shop', { cache: 'no-store' });
+      var r = await fetchRetry('/api/orbs/shop');
       if (r.ok) renderShop(await r.json());
       else itemsEl.innerHTML = '<span class="need">Sign in to use the shop.</span>';
     } catch (e) { itemsEl.innerHTML = '<span class="need">Could not load the shop.</span>'; }
@@ -114,7 +122,7 @@
   }
   async function loadPacks() {
     try {
-      var r = await fetch('/api/orbs/packs', { cache: 'no-store' });
+      var r = await fetchRetry('/api/orbs/packs');
       if (!r.ok) { packsEl.innerHTML = ''; packNote.textContent = ''; return; }
       var d = await r.json();
       packsEl.innerHTML = d.packs.map(function (p) { return packCard(p, d.ready); }).join('');
@@ -160,10 +168,10 @@
   }
   async function loadTasks() {
     try {
-      var r = await fetch('/api/orbs', { cache: 'no-store' });
+      var r = await fetchRetry('/api/orbs');
       if (r.ok) renderTasks(await r.json());
       else { dailyEl.innerHTML = '<span class="need">Sign in to see your tasks.</span>'; weeklyEl.innerHTML = ''; }
-    } catch (e) { dailyEl.innerHTML = '<span class="need">Could not load tasks.</span>'; }
+    } catch (e) { dailyEl.innerHTML = '<span class="need" id="taskRetry" style="cursor:pointer;text-decoration:underline;">Could not load tasks — tap to retry.</span>'; var tr = document.getElementById('taskRetry'); if (tr) tr.onclick = loadTasks; }
   }
   loadTasks();
   loadShop();
