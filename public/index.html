@@ -205,56 +205,6 @@
   })();
   </script>
   <div class="section-title">🪙 Orbs</div>
-  <div id="orbs-panel" style="background:linear-gradient(160deg,#23233c,#1a1a2e);border:1px solid #34345c;border-radius:16px;padding:16px 20px;margin-bottom:34px;">
-    <div id="orbs-body" style="color:#eee;">Loading Orbs…</div>
-    <div style="margin-top:14px;"><a href="/games/shop" style="display:inline-block;background:#f5c542;color:#191920;border-radius:10px;padding:10px 18px;font-weight:900;text-decoration:none;">🛒 Open the Orb Shop app →</a></div>
-  </div>
-  <script>
-  (async () => {
-    const body = document.getElementById('orbs-body');
-    function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-    function row(t) {
-      let btn;
-      if (t.claimed) btn = '<span style="color:#7dd87d;font-weight:800;">✓ Claimed</span>';
-      else if (t.ready) btn = '<button data-claim="' + t.key + '" style="background:#f5c542;color:#191920;border:none;border-radius:9px;padding:7px 16px;font-weight:900;cursor:pointer;font-family:inherit;">Claim +' + t.reward + '</button>';
-      else btn = '<span style="color:#a9a9c9;font-weight:700;">' + t.progress + ' / ' + t.target + ' · +' + t.reward + ' 🪙</span>';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid #2c2c48;">' +
-        '<span style="font-size:19px;">' + t.icon + '</span>' +
-        '<span style="flex:1;font-weight:600;">' + esc(t.name) + '</span>' + btn + '</div>';
-    }
-    function render(d) {
-      const daily = d.tasks.filter(t => t.freq === 'daily').map(row).join('');
-      const weekly = d.tasks.filter(t => t.freq === 'weekly').map(row).join('');
-      body.innerHTML =
-        '<div style="font-size:17px;margin-bottom:6px;">Your balance: <b style="color:#f5c542;font-size:21px;">🪙 ' + d.orbs + '</b></div>' +
-        '<div style="display:flex;gap:26px;flex-wrap:wrap;">' +
-        '<div style="flex:1;min-width:280px;"><div style="color:#f5c542;font-weight:800;letter-spacing:1px;font-size:12.5px;">DAILY TASKS</div>' + daily + '</div>' +
-        '<div style="flex:1;min-width:280px;"><div style="color:#f5c542;font-weight:800;letter-spacing:1px;font-size:12.5px;">WEEKLY TASKS</div>' + weekly + '</div>' +
-        '</div>' +
-        '<div style="color:#a9a9c9;font-size:13px;margin-top:10px;">Orbs are the global Arqade currency — earn them from tasks and spend them in the Shop app.</div>';
-      body.querySelectorAll('[data-claim]').forEach(b => {
-        b.onclick = async () => {
-          b.disabled = true; b.textContent = '…';
-          try {
-            const r = await fetch('/api/orbs/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: b.getAttribute('data-claim') }) });
-            if (r.ok) render(await r.json()); else load();
-          } catch (e) { load(); }
-        };
-      });
-    }
-    async function load() {
-      try {
-        const r = await fetch('/api/orbs', { cache: 'no-store' });
-        if (!r.ok) {
-          body.innerHTML = '🪙 <b>Orbs are the global Arqade currency.</b> <a href="/miner-cat-2" style="color:#f5c542;font-weight:bold;">Sign in</a> to earn them from daily and weekly tasks.';
-          return;
-        }
-        render(await r.json());
-      } catch (e) { body.textContent = ''; }
-    }
-    load();
-  })();
-  </script>
   <div class="section-title">🔥 Featured</div>
   <div class="grid" style="margin-bottom:34px;">
     <a class="card" href="/games/pursuit3d">
@@ -338,7 +288,7 @@
       <div class="body">
         <span class="tag gold">SHOP</span>
         <h2>Orb Shop</h2>
-        <p>Spend your Orbs on name colors and titles that show in chat and on the portal. Buying Orbs with money is on the way.</p>
+        <p>Earn Orbs from daily and weekly tasks, then spend them on name colors and titles. Buying Orbs with money is on the way.</p>
         <span class="play">▶ Open shop</span>
       </div>
     </a>
