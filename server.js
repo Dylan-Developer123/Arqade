@@ -560,6 +560,7 @@ async function main() {
     }
     await stmtUpsertSave.run(req.user.id, json);
     await stmtUpdateUserCoins.run(coinsFromSave(save), req.user.id);
+    await orbPlay(req.user.id, 'mining'); // Mining Simulator is a Featured game — its autosaves are its plays
     res.json({ ok: true });
   });
 
@@ -711,12 +712,16 @@ async function main() {
     } catch (e) { /* Orbs must never break the main flow */ }
   }
   const orbPlayLast = new Map(); // userId -> last time a play counted (anti-farm spacing)
+  const ORB_FEATURED_GAMES = ['pursuit3d', 'racer', 'mining']; // Featured games pay 10 Orbs per counted play; every other game pays 2
   async function orbPlay(userId, game) {
     try {
       const { day, week } = orbPeriods();
       const now = Date.now();
       const counted = now - (orbPlayLast.get(userId) || 0) >= 120000;
-      if (counted) orbPlayLast.set(userId, now);
+      if (counted) {
+        orbPlayLast.set(userId, now);
+        await db.prepare('UPDATE users SET orbs = orbs + ? WHERE id = ?').run(ORB_FEATURED_GAMES.includes(game) ? 10 : 2, userId);
+      }
       for (const p of [day, week]) {
         if (counted) {
           const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, 'plays', p);
