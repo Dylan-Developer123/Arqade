@@ -128,7 +128,7 @@
       packsEl.innerHTML = d.packs.map(function (p) { return packCard(p, d.ready); }).join('');
       packNote.innerHTML = d.ready
         ? 'Payments run through Stripe checkout. Orbs are credited automatically after payment.'
-        : 'Money purchases are <b>prepped but not switched on</b> yet: a parent first connects a Stripe account (18+, ID, bank account), then the switch flips here. Earning Orbs from tasks is free forever. <a class="earn" href="/">← Earn Orbs from tasks</a>';
+        : 'Money purchases are <b>prepped but not switched on</b> yet — coming soon. Earning Orbs from tasks is free forever. <a class="earn" href="/">← Earn Orbs from tasks</a>';
       packsEl.querySelectorAll('[data-pack]').forEach(function (b) {
         b.onclick = async function () {
           b.disabled = true; b.textContent = 'Opening Stripe…';
