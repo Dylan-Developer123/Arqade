@@ -307,6 +307,16 @@ async function main() {
     game TEXT NOT NULL,
     PRIMARY KEY (user_id, period, game)
   )`); } catch (e) { /* already exists */ }
+  try { await db.exec(`CREATE TABLE IF NOT EXISTS orb_owned (
+    user_id INTEGER NOT NULL,
+    item TEXT NOT NULL,
+    PRIMARY KEY (user_id, item)
+  )`); } catch (e) { /* already exists */ }
+  try { await db.exec(`CREATE TABLE IF NOT EXISTS orb_equip (
+    user_id INTEGER PRIMARY KEY,
+    color TEXT,
+    title TEXT
+  )`); } catch (e) { /* already exists */ }
   // The owner is the first registered account and holds all four tags for real.
   // Backfill once so badge display can use the real flags (no admin implies owner).
   try { await db.exec('UPDATE users SET is_owner = 1, is_admin = 1, is_moderator = 1, is_developer = 1 WHERE id = (SELECT MIN(id) FROM users)'); } catch (e) { /* no users yet */ }
@@ -483,6 +493,9 @@ async function main() {
     await orbBump(user.id, 'login');
     const profile = publicProfile(user);
     profile.canGiveTags = await isOriginalOwner(user.id);
+    const suCos = await orbCosmetics(user.id);
+    profile.nameColor = suCos.nc;
+    profile.title = suCos.ttl;
     res.status(201).json({ user: profile });
   });
 
@@ -501,6 +514,9 @@ async function main() {
     const userRow = await stmtGetUserById.get(row.id);
     const signinProfile = publicProfile(userRow);
     signinProfile.canGiveTags = await isOriginalOwner(row.id);
+    const siCos = await orbCosmetics(row.id);
+    signinProfile.nameColor = siCos.nc;
+    signinProfile.title = siCos.ttl;
     res.json({ user: signinProfile });
   });
 
@@ -515,6 +531,9 @@ async function main() {
     if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
     const meProfile = publicProfile(req.user);
     meProfile.canGiveTags = await isOriginalOwner(req.user.id);
+    const meCos = await orbCosmetics(req.user.id);
+    meProfile.nameColor = meCos.nc;
+    meProfile.title = meCos.ttl;
     res.json({ user: meProfile });
   });
 
@@ -652,13 +671,13 @@ async function main() {
   // -------------------------------------------------------------------------
   const ORB_TASKS = [
     { key: 'login',    name: 'Daily login',           icon: '🌅', reward: 10, target: 1,  freq: 'daily' },
-    { key: 'play1',    name: 'Play a game',           icon: '🎮', reward: 15, target: 1,  freq: 'daily' },
-    { key: 'play3',    name: 'Play 3 different games', icon: '🎲', reward: 25, target: 3,  freq: 'daily' },
-    { key: 'chat',     name: 'Send a chat message',   icon: '💬', reward: 10, target: 1,  freq: 'daily' },
-    { key: 'like',     name: 'Like a game',           icon: '👍', reward: 10, target: 1,  freq: 'daily' },
-    { key: 'play10',   name: 'Play 10 times',         icon: '🔥', reward: 80, target: 10, freq: 'weekly' },
-    { key: 'feedback', name: 'Send feedback',         icon: '💌', reward: 50, target: 1,  freq: 'weekly' },
-    { key: 'games5',   name: 'Try 5 different games', icon: '🌍', reward: 60, target: 5,  freq: 'weekly' },
+    { key: 'play1',    name: 'Play 3 games',           icon: '🎮', reward: 20, target: 3,  freq: 'daily' },
+    { key: 'play3',    name: 'Play 5 different games', icon: '🎲', reward: 40, target: 5,  freq: 'daily' },
+    { key: 'chat',     name: 'Send 3 chat messages',   icon: '💬', reward: 15, target: 3,  freq: 'daily' },
+    { key: 'like',     name: 'Like 3 games',           icon: '👍', reward: 15, target: 3,  freq: 'daily' },
+    { key: 'play10',   name: 'Play 25 times',          icon: '🔥', reward: 150, target: 25, freq: 'weekly' },
+    { key: 'feedback', name: 'Send 2 feedback',        icon: '💌', reward: 60, target: 2,  freq: 'weekly' },
+    { key: 'games5',   name: 'Try 8 different games',  icon: '🌍', reward: 100, target: 8,  freq: 'weekly' },
   ];
   function orbPeriods() {
     const parts = {};
@@ -673,27 +692,34 @@ async function main() {
     const week = thu.getUTCFullYear() + '-W' + String(1 + Math.round((thu - firstMon) / (7 * 24 * 3600 * 1000) - 3 / 7)).padStart(2, '0');
     return { day, week };
   }
-  async function orbSetFlag(userId, task, period) {
+  async function orbCount(userId, task, period) {
     const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, task, period);
     if (!ex) await db.prepare('INSERT INTO orb_tasks (user_id, task, period, progress, claimed) VALUES (?, ?, ?, 1, 0)').run(userId, task, period);
+    else await db.prepare('UPDATE orb_tasks SET progress = progress + 1 WHERE user_id = ? AND task = ? AND period = ?').run(userId, task, period);
   }
   async function orbBump(userId, kind) {
     try {
       if (!userId) return;
       const { day, week } = orbPeriods();
-      if (kind === 'login') await orbSetFlag(userId, 'login', day);
-      else if (kind === 'chat') await orbSetFlag(userId, 'chat', day);
-      else if (kind === 'like') await orbSetFlag(userId, 'like', day);
-      else if (kind === 'feedback') await orbSetFlag(userId, 'feedback', week);
+      if (kind === 'login') await orbCount(userId, 'login', day);
+      else if (kind === 'chat') await orbCount(userId, 'chat', day);
+      else if (kind === 'like') await orbCount(userId, 'like', day);
+      else if (kind === 'feedback') await orbCount(userId, 'feedback', week);
     } catch (e) { /* Orbs must never break the main flow */ }
   }
+  const orbPlayLast = new Map(); // userId -> last time a play counted (anti-farm spacing)
   async function orbPlay(userId, game) {
     try {
       const { day, week } = orbPeriods();
+      const now = Date.now();
+      const counted = now - (orbPlayLast.get(userId) || 0) >= 120000;
+      if (counted) orbPlayLast.set(userId, now);
       for (const p of [day, week]) {
-        const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, 'plays', p);
-        if (!ex) await db.prepare('INSERT INTO orb_tasks (user_id, task, period, progress, claimed) VALUES (?, ?, ?, 1, 0)').run(userId, 'plays', p);
-        else await db.prepare('UPDATE orb_tasks SET progress = progress + 1 WHERE user_id = ? AND task = ? AND period = ?').run(userId, 'plays', p);
+        if (counted) {
+          const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, 'plays', p);
+          if (!ex) await db.prepare('INSERT INTO orb_tasks (user_id, task, period, progress, claimed) VALUES (?, ?, ?, 1, 0)').run(userId, 'plays', p);
+          else await db.prepare('UPDATE orb_tasks SET progress = progress + 1 WHERE user_id = ? AND task = ? AND period = ?').run(userId, 'plays', p);
+        }
         try { await db.prepare('INSERT INTO orb_games (user_id, period, game) VALUES (?, ?, ?)').run(userId, p, game); } catch (e) { /* already counted */ }
       }
     } catch (e) { /* Orbs must never break the main flow */ }
@@ -740,6 +766,76 @@ async function main() {
     await db.prepare('UPDATE users SET orbs = orbs + ? WHERE id = ?').run(def.reward, req.user.id);
     const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
     res.json({ ok: true, orbs: Number(u ? u.orbs : 0), tasks: await orbTaskStates(req.user.id) });
+  });
+
+  // The Orb shop — cosmetics only for now: name colors + titles, worn in
+  // chat and on the portal. Prices and effects are decided here, server-side.
+  const ORB_SHOP = [
+    { id: 'color-gold',    type: 'color', name: 'Gold Name',     icon: '🥇', price: 150, desc: 'Your name shines gold in chat and on the portal.', value: 'gold' },
+    { id: 'color-cyan',    type: 'color', name: 'Ice Cyan Name', icon: '❄️', price: 120, desc: 'Your name in icy cyan in chat and on the portal.', value: 'cyan' },
+    { id: 'color-pink',    type: 'color', name: 'Pink Name',     icon: '🌸', price: 120, desc: 'Your name in pink in chat and on the portal.', value: 'pink' },
+    { id: 'color-rainbow', type: 'color', name: 'Rainbow Name',  icon: '🌈', price: 400, desc: 'Your name in full rainbow in chat and on the portal.', value: 'rainbow' },
+    { id: 'title-fire',    type: 'title', name: 'On Fire',     icon: '🔥', price: 180, desc: 'Title shown after your name: 🔥 On Fire.', value: '🔥 On Fire' },
+    { id: 'title-rocket',  type: 'title', name: 'Rocket',      icon: '🚀', price: 200, desc: 'Title shown after your name: 🚀 Rocket.', value: '🚀 Rocket' },
+    { id: 'title-star',    type: 'title', name: 'Star Player', icon: '🌟', price: 250, desc: 'Title shown after your name: 🌟 Star Player.', value: '🌟 Star Player' },
+    { id: 'title-dragon',  type: 'title', name: 'Dragon',      icon: '🐉', price: 350, desc: 'Title shown after your name: 🐉 Dragon.', value: '🐉 Dragon' },
+    { id: 'title-royal',   type: 'title', name: 'Royalty',     icon: '👑', price: 500, desc: 'Title shown after your name: 👑 Royalty.', value: '👑 Royalty' },
+  ];
+  async function orbEquipRow(userId) {
+    return db.prepare('SELECT color, title FROM orb_equip WHERE user_id = ?').get(userId);
+  }
+  async function orbCosmetics(userId) {
+    try {
+      const eq = await orbEquipRow(userId);
+      if (!eq) return { nc: null, ttl: null };
+      const c = ORB_SHOP.find((i) => i.id === eq.color);
+      const t = ORB_SHOP.find((i) => i.id === eq.title);
+      return { nc: c ? c.value : null, ttl: t ? t.value : null };
+    } catch (e) { return { nc: null, ttl: null }; }
+  }
+  async function orbShopState(userId) {
+    const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(userId);
+    const ownedRows = await db.prepare('SELECT item FROM orb_owned WHERE user_id = ?').all(userId);
+    const owned = new Set(ownedRows.map((r) => r.item));
+    const eq = await orbEquipRow(userId);
+    return {
+      orbs: Number(u ? u.orbs : 0),
+      items: ORB_SHOP.map((i) => ({ id: i.id, type: i.type, name: i.name, icon: i.icon, price: i.price, desc: i.desc, owned: owned.has(i.id), equipped: !!eq && (eq.color === i.id || eq.title === i.id) })),
+    };
+  }
+  app.get('/api/orbs/shop', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(await orbShopState(req.user.id));
+  });
+  app.post('/api/orbs/buy', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const item = ORB_SHOP.find((i) => i.id === String((req.body || {}).item || ''));
+    if (!item) return res.status(400).json({ error: 'Unknown item.' });
+    const owned = await db.prepare('SELECT item FROM orb_owned WHERE user_id = ? AND item = ?').get(req.user.id, item.id);
+    if (owned) return res.status(400).json({ error: 'You already own that.' });
+    const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
+    if (!u || Number(u.orbs) < item.price) return res.status(400).json({ error: 'Not enough Orbs.' });
+    await db.prepare('UPDATE users SET orbs = orbs - ? WHERE id = ?').run(item.price, req.user.id);
+    await db.prepare('INSERT INTO orb_owned (user_id, item) VALUES (?, ?)').run(req.user.id, item.id);
+    res.json({ ok: true, ...(await orbShopState(req.user.id)) });
+  });
+  app.post('/api/orbs/equip', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const id = String((req.body || {}).item || '');
+    const ex = await orbEquipRow(req.user.id);
+    const cur = { color: ex ? ex.color : null, title: ex ? ex.title : null };
+    if (id === 'none-color') cur.color = null;
+    else if (id === 'none-title') cur.title = null;
+    else {
+      const item = ORB_SHOP.find((i) => i.id === id);
+      if (!item) return res.status(400).json({ error: 'Unknown item.' });
+      const owned = await db.prepare('SELECT item FROM orb_owned WHERE user_id = ? AND item = ?').get(req.user.id, item.id);
+      if (!owned) return res.status(400).json({ error: 'You do not own that yet.' });
+      cur[item.type] = item.id;
+    }
+    await db.prepare('DELETE FROM orb_equip WHERE user_id = ?').run(req.user.id);
+    await db.prepare('INSERT INTO orb_equip (user_id, color, title) VALUES (?, ?, ?)').run(req.user.id, cur.color, cur.title);
+    res.json({ ok: true, ...(await orbShopState(req.user.id)) });
   });
 
   // -------------------------------------------------------------------------
@@ -1404,7 +1500,8 @@ async function main() {
         owner: !!user.is_owner, admin: !!user.is_admin,
         moderator: !!user.is_moderator, developer: !!user.is_developer,
       };
-      const lp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, voiceOn: false, lastChat: 0 };
+      const lcos = await orbCosmetics(userId);
+      const lp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, voiceOn: false, lastChat: 0, nc: lcos.nc, ttl: lcos.ttl };
       if (lobby.has(userId)) { try { lobby.get(userId).ws.close(); } catch (e) {} }
       lobby.set(userId, lp);
       const lothers = [...lobby.values()].filter((q) => q.id !== userId).map((q) => ({
@@ -1435,7 +1532,7 @@ async function main() {
           const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, 200) : '';
           if (!text) return;
           me.lastChat = now;
-          toLobby({ t: 'chat', id: userId, displayName: me.displayName, text }, null);
+          toLobby({ t: 'chat', id: userId, displayName: me.displayName, nc: me.nc || null, ttl: me.ttl || null, text }, null);
           orbBump(userId, 'chat');
         } else if (msg.t === 'voice') {
           me.voiceOn = !!msg.on;
@@ -1462,7 +1559,8 @@ async function main() {
         owner: !!user.is_owner, admin: !!user.is_admin,
         moderator: !!user.is_moderator, developer: !!user.is_developer,
       };
-      const pp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, state: null, voiceOn: false, lastChat: 0 };
+      const pcos = await orbCosmetics(userId);
+      const pp = { ws, id: userId, username: user.username, displayName: user.display_name, tags, state: null, voiceOn: false, lastChat: 0, nc: pcos.nc, ttl: pcos.ttl };
       if (pursuit.has(userId)) { try { pursuit.get(userId).ws.close(); } catch (e) {} }
       pursuit.set(userId, pp);
       console.log(`[ws-pursuit] ${pp.username} joined (${pursuit.size} in city)`);
@@ -1509,7 +1607,7 @@ async function main() {
           const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, 200) : '';
           if (!text) return;
           me.lastChat = now;
-          toRoom({ t: 'chat', id: userId, displayName: me.displayName, text }, null);
+          toRoom({ t: 'chat', id: userId, displayName: me.displayName, nc: me.nc || null, ttl: me.ttl || null, text }, null);
           orbBump(userId, 'chat');
         } else if (msg.t === 'voice') {
           me.voiceOn = !!msg.on;
