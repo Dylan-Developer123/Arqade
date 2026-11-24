@@ -59,6 +59,17 @@
   #btnNewWorld { background: #2c2c4a; color: #fff; border: 2px solid #55557a; border-radius: 11px; padding: 9px 12px; font-weight: 800; cursor: pointer; font-family: inherit; white-space: nowrap; }
   .homeStats { margin-top: 14px; font-size: 13.5px; text-shadow: 0 1px 3px #000; }
   .homeHow { margin-top: 6px; font-size: 12px; opacity: .85; text-shadow: 0 1px 3px #000; line-height: 1.5; }
+  #palette { position: absolute; left: 50%; transform: translateX(-50%); bottom: 68px; display: none; gap: 5px; z-index: 6; background: rgba(10,10,22,.55); padding: 5px; border-radius: 10px; }
+  #palette.show { display: flex; }
+  .uipanel { position: absolute; inset: 0; z-index: 26; display: none; align-items: center; justify-content: center; background: rgba(4,6,16,.55); padding: 12px; }
+  .uipanel.open { display: flex; }
+  .panelCard { background: #14142a; border: 2px solid #55557a; border-radius: 16px; padding: 14px; text-align: center; color: #fff; max-width: 640px; width: 100%; max-height: 94%; overflow: auto; box-sizing: border-box; }
+  .panelTitle { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
+  #mapCanvas { width: 100%; border-radius: 10px; border: 1px solid #55557a; display: block; }
+  #mapWhere { margin-top: 8px; font-weight: 700; font-size: 14px; }
+  .panelClose { margin-top: 10px; background: #2c2c4a; color: #fff; border: 2px solid #55557a; border-radius: 10px; padding: 8px 22px; font-weight: 800; cursor: pointer; font-family: inherit; }
+  #travelGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+  .travBtn { background: #1d1d38; color: #fff; border: 2px solid #55557a; border-radius: 11px; padding: 10px 8px; font-size: 14.5px; font-weight: 700; cursor: pointer; font-family: inherit; }
   @media (pointer: coarse) { #joy { display: block; } #btns { display: flex; } #deskBtns { display: none; } #lb { display: none; } }
 </style>
 </head>
@@ -72,11 +83,16 @@
   <div id="cross">+</div>
   <div id="hint">Click the world to look around</div>
   <div id="lb"><b>🏆 Top builders</b><br>Loading…</div>
+  <div id="palette"></div>
   <div id="hotbar"></div>
   <div id="joy"><div id="joyKnob"></div></div>
   <div id="btns">
-    <button class="tbtn" id="btnEat" style="display:none">🍎 0</button>
+    <button class="tbtn" id="btnEat" style="display:none">🍴 0</button>
     <button class="tbtn" id="btnHome2">🏠</button>
+    <button class="tbtn" id="btnMap2">🗺️</button>
+    <button class="tbtn" id="btnTravel2">🧭</button>
+    <button class="tbtn" id="btnPal2">🎨</button>
+    <button class="tbtn" id="btnPick2" style="display:none">🪓</button>
     <button id="btnFly">🕊 Fly</button>
     <button id="btnUp">⬆ Jump</button>
     <button id="btnDown">⬇ Down</button>
@@ -85,8 +101,27 @@
   </div>
   <div id="deskBtns">
     <button id="btnHome">🏠 Home</button>
+    <button id="btnMap">🗺️ Map</button>
+    <button id="btnTravel">🧭 Travel</button>
+    <button id="btnPal">🎨 Blocks</button>
+    <button id="btnPick" style="display:none">⛏️ Pickaxe</button>
     <button id="btnFly2">🕊 Fly (F)</button>
     <button id="btnReset">↺ New world</button>
+  </div>
+  <div id="mapPanel" class="uipanel">
+    <div class="panelCard">
+      <div class="panelTitle">🗺️ World Map</div>
+      <canvas id="mapCanvas" width="600" height="300"></canvas>
+      <div id="mapWhere">📍 …</div>
+      <button class="panelClose" id="btnMapClose">Close</button>
+    </div>
+  </div>
+  <div id="travelPanel" class="uipanel">
+    <div class="panelCard">
+      <div class="panelTitle">🧭 Fast Travel</div>
+      <div id="travelGrid"></div>
+      <button class="panelClose" id="btnTravelClose">Close</button>
+    </div>
   </div>
   <div id="vitals"></div>
   <div id="brk"><div id="brkBar"></div></div>
@@ -124,7 +159,12 @@ var TYPES = [null,
   { name: 'Leaves', tex: 'leaves' },
   { name: 'Sand',   tex: 'sand'   },
   { name: 'Glass',  tex: 'glass'  },
-  { name: 'Brick',  tex: 'brick'  }
+  { name: 'Brick',  tex: 'brick'  },
+  { name: 'Water',  tex: 'water'  },
+  { name: 'Lantern', tex: 'lantern' },
+  { name: 'Red',    tex: 'red'    },
+  { name: 'Blue',   tex: 'blue'   },
+  { name: 'White',  tex: 'white'  }
 ];
 var T_WATER = 10;
 var blocks = new Map(); // "x,y,z" -> type
@@ -172,6 +212,83 @@ function heightAt(x, z) {
   var n = 1.3 * Math.sin(x * 0.11) * Math.cos(z * 0.09) + 0.9 * Math.sin(x * 0.023 + 1.3) * Math.sin(z * 0.019 + 0.5);
   return Math.max(1, Math.min(14, Math.round(elev + n)));
 }
+/* ---------- landmarks: famous places at their real map spots ---------- */
+var LM = new Map(), LM_BY_CHUNK = {};
+function lmSet(x, y, z, t) { if (x >= 0 && x < W_X && z >= 0 && z < W_Z && y >= 0 && y <= 40) LM.set(key(x, y, z), t); }
+function lmPad(cx, cz, half) {
+  var baseY = 0, x, z;
+  for (x = cx - half; x <= cx + half; x++) for (z = cz - half; z <= cz + half; z++) baseY = Math.max(baseY, heightAt(x, z));
+  baseY += 1;
+  for (x = cx - half; x <= cx + half; x++) for (z = cz - half; z <= cz + half; z++) {
+    var h = heightAt(x, z);
+    for (var y = h + 1; y < baseY; y++) lmSet(x, y, z, 3);
+    lmSet(x, baseY, z, 3);
+  }
+  return baseY;
+}
+function buildPyramid(cx, cz, half, layers) {
+  var baseY = lmPad(cx, cz, half) + 1;
+  for (var L = 0; L < layers; L++) {
+    var hh = half - L; if (hh < 0) break;
+    for (var x = cx - hh; x <= cx + hh; x++) for (var z = cz - hh; z <= cz + hh; z++) lmSet(x, baseY + L, z, 7);
+  }
+  lmSet(cx, baseY + layers, cz, 11);
+}
+function buildEiffel(cx, cz) {
+  var baseY = lmPad(cx, cz, 5) + 1;
+  function ring(y, hh, t) { for (var x = cx - hh; x <= cx + hh; x++) for (var z = cz - hh; z <= cz + hh; z++) if (Math.abs(x - cx) === hh || Math.abs(z - cz) === hh) lmSet(x, baseY + y, z, t); }
+  function slab(y, hh, t) { for (var x = cx - hh; x <= cx + hh; x++) for (var z = cz - hh; z <= cz + hh; z++) lmSet(x, baseY + y, z, t); }
+  [[-4, -4], [4, -4], [-4, 4], [4, 4]].forEach(function (p) { for (var y = 0; y <= 2; y++) lmSet(cx + p[0], baseY + y, cz + p[1], 3); });
+  [[-3, -3], [3, -3], [-3, 3], [3, 3]].forEach(function (p) { lmSet(cx + p[0], baseY + 3, cz + p[1], 3); });
+  slab(4, 3, 3); ring(5, 2, 3); ring(6, 2, 3); slab(7, 2, 9); ring(8, 1, 3); ring(9, 1, 3); slab(10, 1, 3);
+  lmSet(cx, baseY + 11, cz, 3); lmSet(cx, baseY + 12, cz, 11);
+}
+function buildLiberty(cx, cz) {
+  var baseY = lmPad(cx, cz, 3) + 1;
+  function slab(y, hh, t) { for (var x = cx - hh; x <= cx + hh; x++) for (var z = cz - hh; z <= cz + hh; z++) lmSet(x, baseY + y, z, t); }
+  slab(0, 2, 14); slab(1, 2, 14); slab(2, 2, 14); slab(3, 2, 3);
+  slab(4, 1, 8); slab(5, 1, 8); slab(6, 1, 8);
+  lmSet(cx - 1, baseY + 7, cz - 1, 8); lmSet(cx, baseY + 7, cz - 1, 8); lmSet(cx - 1, baseY + 7, cz, 8); lmSet(cx, baseY + 7, cz, 8);
+  lmSet(cx - 1, baseY + 8, cz - 1, 8); lmSet(cx, baseY + 8, cz - 1, 8); lmSet(cx - 1, baseY + 8, cz, 8); lmSet(cx, baseY + 8, cz, 8);
+  lmSet(cx, baseY + 9, cz, 8);
+  lmSet(cx - 1, baseY + 10, cz, 14); lmSet(cx + 1, baseY + 10, cz, 14); lmSet(cx, baseY + 10, cz - 1, 14); lmSet(cx, baseY + 10, cz + 1, 14); lmSet(cx, baseY + 10, cz, 8);
+  for (var y = 7; y <= 10; y++) lmSet(cx + 2, baseY + y, cz, 8);
+  lmSet(cx + 2, baseY + 11, cz, 11);
+}
+function wallZ(x) { return 72 + Math.round(3 * Math.sin(x * 0.07)) + Math.round(2 * Math.sin(x * 0.023 + 1)); }
+function buildWall() {
+  for (var x = 428; x <= 482; x++) {
+    var zc = wallZ(x), base = heightAt(x, zc);
+    for (var dz = 0; dz <= 1; dz++) {
+      for (var y = base + 1; y <= base + 3; y++) lmSet(x, y, zc + dz, 3);
+      lmSet(x, base + 4, zc + dz, 9);
+    }
+    if ((x - 428) % 12 === 0) {
+      for (var tx = x - 1; tx <= x + 2; tx++) for (var tz = zc - 1; tz <= zc + 2; tz++) {
+        var b2 = heightAt(tx, tz);
+        for (var y2 = b2 + 1; y2 <= base + 5; y2++) lmSet(tx, y2, tz, 3);
+        lmSet(tx, base + 6, tz, 9);
+      }
+    }
+  }
+}
+function inLandmarkZone(x, z) {
+  if (x >= 318 && x <= 358 && z >= 80 && z <= 118) return true;
+  if (x >= 294 && x <= 316 && z >= 41 && z <= 63) return true;
+  if (x >= 154 && x <= 176 && z >= 54 && z <= 76) return true;
+  if (x >= 424 && x <= 486 && Math.abs(z - wallZ(x)) <= 4) return true;
+  return false;
+}
+buildPyramid(345, 95, 8, 9);
+buildPyramid(328, 110, 5, 6);
+buildEiffel(305, 52);
+buildLiberty(165, 65);
+buildWall();
+LM.forEach(function (t, k) {
+  var x = Math.floor(k / 65536), z = Math.floor(k / 64) % 1024;
+  var id = chunkId(Math.floor(x / CHUNK), Math.floor(z / CHUNK));
+  (LM_BY_CHUNK[id] = LM_BY_CHUNK[id] || []).push([k, t]);
+});
 /* ---------- chunked world: terrain generates + renders around the player ---------- */
 var chunks = {};
 function chunkId(cx, cz) { return cx + ',' + cz; }
@@ -197,7 +314,7 @@ function genChunk(cx, cz) {
       else t = 3;
       blocks.set(key(x, y, z), t);
     }
-    if (!shore && ct !== 'i' && ct !== 'm') {
+    if (!shore && ct !== 'i' && ct !== 'm' && !inLandmarkZone(x, z)) {
       var th2 = hash2(x * 5 + 31, z * 5 + 17);
       var nearSpawn = Math.abs(x - SPAWN_X) + Math.abs(z - SPAWN_Z) <= 6;
       if (!nearSpawn && th2 > 0.972) {
@@ -232,6 +349,8 @@ function genChunk(cx, cz) {
       else if (dh < 0.06) ch.decor.push([x, h + 1, z, 0]);
     }
   }
+  var lml = LM_BY_CHUNK[id];
+  if (lml) for (var li = 0; li < lml.length; li++) blocks.set(lml[li][0], lml[li][1]);
   removedKeys.forEach(function (k) {
     var kx = Math.floor(k / 65536), kz = Math.floor(k / 64) % 1024;
     if (kx >= x0 && kx < x1 && kz >= z0 && kz < z1) blocks.delete(k);
@@ -342,6 +461,10 @@ function makeTextures() {
     sand:   cnv(function (g) { speckle(g, '#e2d6a4', ['#d8ca96', '#eae0b2', '#cfc088'], 320, 2); }),
     glass:  cnv(function (g) { g.clearRect(0, 0, 64, 64); g.fillStyle = 'rgba(190,225,245,.28)'; g.fillRect(0, 0, 64, 64); g.strokeStyle = 'rgba(230,245,255,.95)'; g.lineWidth = 5; g.strokeRect(2, 2, 60, 60); g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 3; g.beginPath(); g.moveTo(14, 46); g.lineTo(34, 18); g.stroke(); }),
     brick:  cnv(function (g) { g.fillStyle = '#c9c2b4'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#a03c30'; g.fillRect(1, 1, 29, 13); g.fillRect(33, 1, 30, 13); g.fillRect(17, 17, 30, 13); g.fillRect(49, 17, 14, 13); g.fillRect(1, 17, 13, 13); g.fillRect(1, 33, 29, 13); g.fillRect(33, 33, 30, 13); g.fillRect(17, 49, 30, 13); g.fillRect(49, 49, 14, 13); g.fillRect(1, 49, 13, 13); }),
+    lantern: cnv(function (g) { g.fillStyle = '#ffca55'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#ffe89a'; g.fillRect(11, 11, 42, 42); g.strokeStyle = '#7a4d12'; g.lineWidth = 6; g.strokeRect(3, 3, 58, 58); g.beginPath(); g.moveTo(0, 32); g.lineTo(64, 32); g.stroke(); }),
+    red:    cnv(function (g) { speckle(g, '#c23b2e', ['#b03427', '#cd4636', '#a82f24'], 260, 2); }),
+    blue:   cnv(function (g) { speckle(g, '#2e6fc2', ['#2963ad', '#3579cf', '#265a9e'], 260, 2); }),
+    white:  cnv(function (g) { speckle(g, '#e9e6dd', ['#dedacd', '#f2efe6', '#d5d1c4'], 220, 2); }),
     water:  cnv(function (g) { g.fillStyle = '#2e6cd2'; g.fillRect(0, 0, 64, 64); g.strokeStyle = 'rgba(255,255,255,.13)'; g.lineWidth = 2; for (var r = 0; r < 4; r++) { g.beginPath(); for (var px = 0; px <= 64; px += 4) g.lineTo(px, r * 16 + 6 + Math.sin(px * 0.3 + r * 2) * 2.5); g.stroke(); } speckle(g, '#2e6cd2', ['#2a63c2', '#3577dd'], 60, 3); })
   };
 }
@@ -359,6 +482,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
 stage.appendChild(renderer.domElement);
 // gradient sky dome
+var domeMat = null;
 (function () {
   var geo = new THREE.SphereGeometry(520, 18, 12);
   var pos = geo.attributes.position, colors = [];
@@ -369,11 +493,22 @@ stage.appendChild(renderer.domElement);
     colors.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  var dome = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }));
+  domeMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false });
+  var dome = new THREE.Mesh(geo, domeMat);
   dome.position.set(300, 0, 150);
   scene.add(dome);
 })();
-scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x5d8a4a, 0.85));
+var starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.7, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
+(function () {
+  var n = 420, pos = new Float32Array(n * 3);
+  for (var i = 0; i < n; i++) {
+    var a = Math.random() * Math.PI * 2, e = Math.random() * Math.PI * 0.48 + 0.05, r = 470;
+    pos[i * 3] = 300 + Math.cos(a) * Math.cos(e) * r; pos[i * 3 + 1] = Math.sin(e) * r; pos[i * 3 + 2] = 150 + Math.sin(a) * Math.cos(e) * r;
+  }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(g, starMat));
+})();
+var hemi = new THREE.HemisphereLight(0xcfe8ff, 0x5d8a4a, 0.85); scene.add(hemi);
 var sun = new THREE.DirectionalLight(0xfff2d8, 0.85);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -382,6 +517,9 @@ sun.shadow.camera.top = 58; sun.shadow.camera.bottom = -58;
 sun.shadow.camera.near = 5; sun.shadow.camera.far = 190;
 sun.shadow.bias = -0.0006;
 sun.position.set(90, 80, 70); scene.add(sun); scene.add(sun.target);
+var dayT = 0.3;
+var SUN_DAY = new THREE.Color(0xfff2d8), SUN_NIGHT = new THREE.Color(0x8fb4ff);
+var SKY_DAY = new THREE.Color(0xffffff), SKY_NIGHT = new THREE.Color(0x35486b), SKY_DUSK = new THREE.Color(0xff9a3c), WHITE_C = new THREE.Color(0xffffff);
 var TEX = makeTextures();
 TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
 TEX.water.repeat.set(96, 72);
@@ -394,6 +532,8 @@ scene.add(waterMesh);
 var MATS = {};
 for (var ti = 1; ti <= 9; ti++) MATS[ti] = new THREE.MeshLambertMaterial({ map: TEX[TYPES[ti].tex], transparent: ti === 8, opacity: ti === 8 ? 0.85 : 1 });
 MATS[T_WATER] = new THREE.MeshLambertMaterial({ map: TEX.water, transparent: true, opacity: 0.72 });
+[11, 12, 13, 14].forEach(function (ti) { MATS[ti] = new THREE.MeshLambertMaterial({ map: TEX[TYPES[ti].tex] }); });
+MATS[11].emissive = new THREE.Color(0xff9d2e); MATS[11].emissiveIntensity = 0.85;
 var boxGeo = new THREE.BoxGeometry(1, 1, 1);
 var worldGroup = new THREE.Group(); scene.add(worldGroup);
 // clouds
@@ -428,7 +568,7 @@ function save() {
     localStorage.setItem(saveKey(), JSON.stringify({
       p: placed, b: broken, rem: Array.from(removedKeys),
       add: Array.from(addedMap.entries()),
-      pos: [player.x, player.y, player.z], fly: player.fly ? 1 : 0, mode: MODE, inv: INV, ap: apples, hp: hp, hu: hunger
+      pos: [player.x, player.y, player.z], fly: player.fly ? 1 : 0, mode: MODE, inv: INV, ap: food, hp: hp, hu: hunger, pick: hasPick ? 1 : 0
     }));
     touchWorldMeta();
   } catch (e) {}
@@ -445,7 +585,7 @@ function load() {
       if (s.pos) { player.x = s.pos[0]; player.y = s.pos[1]; player.z = s.pos[2]; }
       player.fly = !!s.fly;
       if (s.mode === 'survival' || s.mode === 'creative') MODE = s.mode;
-      INV = s.inv || {}; apples = s.ap || 0; hp = s.hp == null ? 20 : s.hp; hunger = s.hu == null ? 20 : s.hu;
+      INV = s.inv || {}; food = s.ap || 0; hp = s.hp == null ? 20 : s.hp; hunger = s.hu == null ? 20 : s.hu; hasPick = !!s.pick;
     }
   } catch (e) {}
   if (!localStorage.getItem(saveKey())) player.y = heightAt(SPAWN_X, SPAWN_Z) + 2;
@@ -490,14 +630,17 @@ function raycastBlock() {
   return null;
 }
 function doBreak() {
-  var hit = raycastBlock(); if (!hit) return;
+  var ah = animalRay();
+  var hit = raycastBlock();
+  if (ah && (!hit || ah.dist < hitDist(hit))) { hitAnimal(ah.a); return; }
+  if (!hit) return;
   var t0 = getB(hit.x, hit.y, hit.z);
   var k = key(hit.x, hit.y, hit.z);
   blocks.delete(k);
   addedMap.delete(k); removedKeys.add(k);
   broken++;
   if (MODE === 'survival') {
-    if (t0 === 6) { if (Math.random() < 0.25) { apples++; toast('🍎 +1 apple from the leaves!'); } }
+    if (t0 === 6) { if (Math.random() < 0.25) { food++; toast('🍎 +1 apple from the leaves!'); } }
     else if (t0 >= 1) INV[t0] = (INV[t0] || 0) + 1;
     renderCounts();
   }
@@ -510,17 +653,21 @@ function doPlace() {
   if (getB(x, y, z) !== 0 && getB(x, y, z) !== T_WATER) return;
   // don't place inside the player
   if (x + 1 > player.x - 0.3 && x < player.x + 0.3 && z + 1 > player.z - 0.3 && z < player.z + 0.3 && y + 1 > player.y && y < player.y + 1.8) return;
-  if (MODE === 'survival' && !(INV[sel] > 0)) { toast('No ' + TYPES[sel].name + ' blocks left — mine some first!'); return; }
+  if (MODE === 'survival' && !(INV[sel] > 0)) {
+    var cf = CRAFT[sel];
+    if (cf && canAfford(cf)) { payCraft(cf); toast('🔨 Made a ' + TYPES[sel].name + '!');
+    } else { toast('No ' + TYPES[sel].name + ' blocks' + (cf ? ' — costs ' + craftText(sel) : ' — mine some first!')); return; }
+  }
   var k = key(x, y, z);
   blocks.set(k, sel);
   removedKeys.delete(k); addedMap.set(k, sel);
-  if (MODE === 'survival') { INV[sel]--; renderCounts(); }
+  if (MODE === 'survival') { if (INV[sel] > 0) INV[sel]--; renderCounts(); }
   placed++; rebuildAt(x, z); saveSoon(); updateStats();
 }
 /* ---------- hotbar ---------- */
 var hotbarEl = document.getElementById('hotbar');
 var slotEls = {};
-var SWATCH = { grass: '#58a83c', dirt: '#8a5a33', stone: '#8d8d94', log: '#6e4f2a', planks: '#b08948', leaves: '#3e7d2c', sand: '#ddd29a', glass: '#bfe0f5', brick: '#a03c30' };
+var SWATCH = { grass: '#58a83c', dirt: '#8a5a33', stone: '#8d8d94', log: '#6e4f2a', planks: '#b08948', leaves: '#3e7d2c', sand: '#ddd29a', glass: '#bfe0f5', brick: '#a03c30', lantern: '#ffca55', red: '#c23b2e', blue: '#2e6fc2', white: '#e9e6dd' };
 for (var hi = 1; hi <= 9; hi++) (function (t) {
   var d = document.createElement('div');
   d.className = 'slot' + (t === sel ? ' sel' : ''); d.dataset.t = t;
@@ -529,17 +676,26 @@ for (var hi = 1; hi <= 9; hi++) (function (t) {
   d.addEventListener('pointerdown', function (e) { e.stopPropagation(); selectSlot(t); });
   hotbarEl.appendChild(d);
 })(hi);
+var paletteEl = document.getElementById('palette');
+[11, 12, 13, 14].forEach(function (t) {
+  var d = document.createElement('div');
+  d.className = 'slot' + (t === sel ? ' sel' : ''); d.dataset.t = t;
+  d.innerHTML = '<div class="sw" style="background:' + SWATCH[TYPES[t].tex] + '"></div><div class="nm">' + TYPES[t].name + '</div><div class="ct">∞</div>';
+  slotEls[t] = d;
+  d.addEventListener('pointerdown', function (e) { e.stopPropagation(); selectSlot(t); });
+  paletteEl.appendChild(d);
+});
 hotbarEl.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
 function selectSlot(t) {
   sel = t;
-  hotbarEl.querySelectorAll('.slot').forEach(function (s) { s.classList.toggle('sel', +s.dataset.t === t); });
+  document.querySelectorAll('#hotbar .slot, #palette .slot').forEach(function (s) { s.classList.toggle('sel', +s.dataset.t === t); });
 }
 function renderCounts() {
-  for (var t = 1; t <= 9; t++) if (slotEls[t]) {
+  for (var t in slotEls) {
     slotEls[t].querySelector('.ct').textContent = MODE === 'creative' ? '∞' : (INV[t] || 0);
     slotEls[t].classList.toggle('empty', MODE === 'survival' && !(INV[t] > 0));
   }
-  var eb = document.getElementById('btnEat'); if (eb) eb.textContent = '🍎 ' + apples;
+  var eb = document.getElementById('btnEat'); if (eb) eb.textContent = '🍴 ' + food;
 }
 function updateStats() {
   document.getElementById('stPlaced').textContent = placed;
@@ -591,7 +747,7 @@ var joyVec = { x: 0, y: 0 }, joyId = null, lookId = null, lookLast = null;
 var joyEl = document.getElementById('joy'), knob = document.getElementById('joyKnob');
 var joyOX = 0, joyOY = 0;
 stage.addEventListener('touchstart', function (e) {
-  if (!started) return;
+  if (!started || (e.target && e.target.closest && e.target.closest('.uipanel'))) return;
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
     if (joyId === null && t.clientX < innerWidth * 0.46 && t.clientY > innerHeight * 0.42) { joyId = t.identifier; joyOX = t.clientX; joyOY = t.clientY; }
@@ -600,7 +756,7 @@ stage.addEventListener('touchstart', function (e) {
   e.preventDefault();
 }, { passive: false });
 stage.addEventListener('touchmove', function (e) {
-  if (!started) return;
+  if (!started || (e.target && e.target.closest && e.target.closest('.uipanel'))) return;
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
     if (t.identifier === joyId) {
@@ -651,7 +807,7 @@ document.getElementById('btnReset').addEventListener('click', function (e) {
   var b = e.currentTarget;
   if (!resetArm) { resetArm = true; b.textContent = '⚠️ Sure? Tap again'; setTimeout(function () { resetArm = false; b.textContent = '↺ New world'; }, 2600); return; }
   localStorage.removeItem(saveKey());
-  removedKeys.clear(); addedMap.clear(); placed = 0; broken = 0; INV = {}; apples = 0; hp = 20; hunger = 20; breath = 10; renderCounts(); renderVitals();
+  removedKeys.clear(); addedMap.clear(); placed = 0; broken = 0; INV = {}; food = 0; hp = 20; hunger = 20; breath = 10; hasPick = false; renderCounts(); renderVitals();
   Object.keys(chunks).forEach(function (id) { var p = id.split(','); disposeChunk(+p[0], +p[1]); });
   player.x = SPAWN_X + 0.5; player.z = SPAWN_Z + 0.5; player.y = heightAt(SPAWN_X, SPAWN_Z) + 2;
   ensureChunks(); updateStats();
@@ -707,7 +863,7 @@ function renderWorlds() {
 function clearWorldState() {
   Object.keys(chunks).forEach(function (id) { var p = id.split(','); disposeChunk(+p[0], +p[1]); });
   removedKeys.clear(); addedMap.clear();
-  placed = 0; broken = 0; INV = {}; apples = 0; hp = 20; hunger = 20; breath = 10;
+  placed = 0; broken = 0; INV = {}; food = 0; hp = 20; hunger = 20; breath = 10; hasPick = false;
   player.x = SPAWN_X + 0.5; player.z = SPAWN_Z + 0.5; player.y = heightAt(SPAWN_X, SPAWN_Z) + 2; player.vy = 0; player.fly = false;
   document.getElementById('btnFly').classList.remove('on'); document.getElementById('btnFly2').classList.remove('on');
 }
@@ -754,7 +910,7 @@ addEventListener('pagehide', function () { save(); });
 addEventListener('beforeunload', function () { save(); });
 /* ---------- modes: home screen + survival ---------- */
 var MODE = 'creative', started = false;
-var INV = {}, apples = 0, hp = 20, hunger = 20, breath = 10;
+var INV = {}, food = 0, hp = 20, hunger = 20, breath = 10;
 var hungerT = 0, regenT = 0, starveT = 0, drownT = 0, fallPeak = 0, mineKey = null, mineProg = 0, inWaterNow = false;
 var BT = { 1: 0.35, 2: 0.3, 3: 1.6, 4: 0.9, 5: 0.9, 6: 0.06, 7: 0.3, 8: 0.25, 9: 1.6 };
 var brkWrap = document.getElementById('brk'), brkBar = document.getElementById('brkBar');
@@ -783,13 +939,13 @@ function die() {
 }
 function eatApple() {
   if (MODE !== 'survival' || !started) return;
-  if (apples <= 0) { toast('No apples — break 🍃 leaves to find some!'); return; }
+  if (food <= 0) { toast('No food — break 🍃 leaves to find some!'); return; }
   if (hunger >= 20) { toast('You are full!'); return; }
-  apples--; hunger = Math.min(20, hunger + 6);
+  food--; hunger = Math.min(20, hunger + 6);
   renderCounts(); renderVitals(); saveSoon(); toast('🍎 Yum!');
 }
 function tickSurvival(dt, moving) {
-  if (!started) return;
+  if (!started || (e.target && e.target.closest && e.target.closest('.uipanel'))) return;
   hungerT += dt * (moving ? 1 / 38 : 1 / 85);
   if (hungerT >= 1) { hungerT = 0; if (hunger > 0) { hunger--; renderVitals(); saveSoon(); } }
   if (hunger >= 18 && hp < 20) { regenT += dt; if (regenT >= 4) { regenT = 0; hp++; renderVitals(); } } else regenT = 0;
@@ -837,6 +993,198 @@ tapBtn('btnEat', eatApple);
 tapBtn('btnFly', toggleFly);
 tapBtn('btnFly2', toggleFly);
 addEventListener('keydown', function (e) { if (e.code === 'KeyE') eatApple(); });
+/* ---------- animals, map, travel, crafting, pickaxe ---------- */
+var hasPick = false;
+var CRAFT = { 11: { 8: 2 }, 12: { 9: 1 }, 13: { 8: 1 }, 14: { 7: 2 } };
+function canAfford(cf) { for (var k in cf) if ((INV[k] || 0) < cf[k]) return false; return true; }
+function payCraft(cf) { for (var k in cf) INV[k] -= cf[k]; }
+function craftText(t) { var cf = CRAFT[t]; return Object.keys(cf).map(function (k) { return cf[k] + ' ' + TYPES[k].name; }).join(' + '); }
+function craftPick() {
+  if (MODE !== 'survival') { toast('⛏️ Creative already mines instantly!'); return; }
+  if (hasPick) { toast('⛏️ You already have a pickaxe'); return; }
+  if ((INV[3] || 0) >= 3 && (INV[5] || 0) >= 2) {
+    INV[3] -= 3; INV[5] -= 2; hasPick = true;
+    toast('⛏️ Pickaxe crafted! Stone, brick, logs + planks mine much faster');
+    renderCounts(); saveSoon();
+  } else toast('⛏️ Pickaxe costs 3 Stone + 2 Planks — you have ' + (INV[3] || 0) + ' stone, ' + (INV[5] || 0) + ' planks');
+}
+function surfY(x, z) { for (var y = 40; y >= 1; y--) { var t = getB(x, y, z); if (t && t !== T_WATER) return y + 1; } return heightAt(x, z) + 1; }
+var animals = [];
+function aBox(g, w, h, d, color, x, y, z) {
+  var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: color }));
+  m.position.set(x, y, z); m.castShadow = true; g.add(m); return m;
+}
+function makeAnimalMesh(kind) {
+  var g = new THREE.Group();
+  if (kind === 'pig') {
+    aBox(g, 0.95, 0.6, 0.6, 0xf2a0b5, 0, 0.62, 0);
+    aBox(g, 0.5, 0.48, 0.48, 0xf2a0b5, 0, 0.68, 0.52);
+    aBox(g, 0.22, 0.16, 0.08, 0xe57b97, 0, 0.64, 0.79);
+    [[-0.32, 0.28], [0.32, 0.28], [-0.32, -0.28], [0.32, -0.28]].forEach(function (p) { aBox(g, 0.16, 0.34, 0.16, 0xe58aa5, p[0], 0.17, p[1]); });
+    return { g: g, h: 1.0 };
+  }
+  if (kind === 'cow') {
+    aBox(g, 1.05, 0.65, 0.62, 0x8a6642, 0, 0.7, 0);
+    aBox(g, 0.4, 0.4, 0.05, 0xf0ead8, 0.2, 0.78, 0.32);
+    aBox(g, 0.52, 0.5, 0.5, 0xd9c9a8, 0, 0.74, 0.55);
+    aBox(g, 0.2, 0.14, 0.06, 0xc9a0a0, 0, 0.62, 0.82);
+    [[-0.36, 0.3], [0.36, 0.3], [-0.36, -0.3], [0.36, -0.3]].forEach(function (p) { aBox(g, 0.17, 0.38, 0.17, 0x6e4f30, p[0], 0.19, p[1]); });
+    return { g: g, h: 1.15 };
+  }
+  aBox(g, 0.44, 0.4, 0.4, 0xf5f2ea, 0, 0.42, 0);
+  aBox(g, 0.24, 0.26, 0.24, 0xf5f2ea, 0, 0.68, 0.22);
+  aBox(g, 0.1, 0.07, 0.14, 0xf59e0c, 0, 0.66, 0.4);
+  aBox(g, 0.2, 0.18, 0.08, 0xe8e2d2, 0, 0.6, -0.24);
+  return { g: g, h: 0.72 };
+}
+function placeAnimal(a, near) {
+  for (var tries = 0; tries < 12; tries++) {
+    var ang = Math.random() * Math.PI * 2, dist = 20 + Math.random() * 38;
+    var x = Math.floor(player.x + Math.cos(ang) * dist), z = Math.floor(player.z + Math.sin(ang) * dist);
+    if (x < 2 || z < 2 || x >= W_X - 2 || z >= W_Z - 2) continue;
+    var gy = surfY(x, z);
+    if (getB(x, gy - 1, z) !== 1) continue;
+    a.x = x + 0.5; a.z = z + 0.5; a.y = gy; a.tx = a.x; a.tz = a.z; a.pause = Math.random() * 3;
+    a.mesh.position.set(a.x, a.y, a.z);
+    return;
+  }
+  a.y = -50; a.mesh.position.set(player.x, -50, player.z);
+}
+function spawnAnimals() {
+  var kinds = ['pig', 'cow', 'chicken'];
+  for (var i = 0; i < 16; i++) {
+    var kind = kinds[i % 3], built = makeAnimalMesh(kind);
+    var a = { kind: kind, mesh: built.g, h: built.h, hp: kind === 'chicken' ? 2 : 4, food: kind === 'chicken' ? 1 : 2, x: 0, y: -50, z: 0, tx: 0, tz: 0, pause: Math.random() * 2 };
+    animals.push(a); scene.add(a.mesh); placeAnimal(a, true);
+  }
+}
+function updateAnimals(dt) {
+  for (var i = 0; i < animals.length; i++) {
+    var a = animals[i];
+    var dxp = a.x - player.x, dzp = a.z - player.z;
+    if (dxp * dxp + dzp * dzp > 130 * 130) { placeAnimal(a, true); continue; }
+    if (a.pause > 0) { a.pause -= dt; continue; }
+    var dx = a.tx - a.x, dz = a.tz - a.z, d = Math.hypot(dx, dz);
+    if (d < 0.4) { a.pause = 1 + Math.random() * 3.5; a.tx = a.x + (Math.random() - 0.5) * 16; a.tz = a.z + (Math.random() - 0.5) * 16; continue; }
+    var sp = a.kind === 'chicken' ? 1.7 : 1.15;
+    a.x += dx / d * sp * dt; a.z += dz / d * sp * dt;
+    a.y = surfY(Math.floor(a.x), Math.floor(a.z));
+    a.mesh.position.set(a.x, a.y + Math.abs(Math.sin(performance.now() * 0.012 + i)) * 0.03, a.z);
+    a.mesh.rotation.y = Math.atan2(dx, dz);
+  }
+}
+function animalRay() {
+  var dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ'));
+  var ox = player.x, oy = player.y + 1.62, oz = player.z, best = null;
+  for (var i = 0; i < animals.length; i++) {
+    var a = animals[i]; if (a.y < 0) continue;
+    var hx = 0.55, hy = a.h / 2 + 0.1, hz = 0.55;
+    var o = [ox, oy, oz], d = [dir.x, dir.y, dir.z];
+    var mn = [a.x - hx, a.y + a.h / 2 - hy, a.z - hz], mx = [a.x + hx, a.y + a.h / 2 + hy, a.z + hz];
+    var tmin = 0, tmax = 5, ok = true;
+    for (var ax = 0; ax < 3; ax++) {
+      if (Math.abs(d[ax]) < 1e-8) { if (o[ax] < mn[ax] || o[ax] > mx[ax]) { ok = false; break; } }
+      else {
+        var t1 = (mn[ax] - o[ax]) / d[ax], t2 = (mx[ax] - o[ax]) / d[ax];
+        if (t1 > t2) { var tt = t1; t1 = t2; t2 = tt; }
+        if (t1 > tmin) tmin = t1;
+        if (t2 < tmax) tmax = t2;
+        if (tmin > tmax) { ok = false; break; }
+      }
+    }
+    if (ok && (!best || tmin < best.dist)) best = { a: a, dist: tmin };
+  }
+  return best;
+}
+function hitDist(hit) { var dx = hit.x + 0.5 - player.x, dy = hit.y + 0.5 - (player.y + 1.62), dz = hit.z + 0.5 - player.z; return Math.hypot(dx, dy, dz); }
+function hitAnimal(a) {
+  a.hp--;
+  a.mesh.traverse(function (m) { if (m.material && m.material.emissive) m.material.emissive.setHex(0xaa2222); });
+  setTimeout(function () { a.mesh.traverse(function (m) { if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000); }); }, 130);
+  var dx = a.x - player.x, dz = a.z - player.z, d = Math.hypot(dx, dz) || 1;
+  a.x += dx / d * 1.2; a.z += dz / d * 1.2; a.tx = a.x + dx / d * 6; a.tz = a.z + dz / d * 6; a.pause = 0;
+  if (a.hp <= 0) {
+    food += a.food; toast('🍖 +' + a.food + ' food');
+    a.hp = a.kind === 'chicken' ? 2 : 4;
+    placeAnimal(a, false); renderCounts(); saveSoon();
+  }
+}
+/* world map */
+var LANDMARK_SPOTS = [['Pyramids', 345, 95], ['Eiffel Tower', 305, 52], ['Statue of Liberty', 165, 65], ['Great Wall', 455, 72]];
+var mapBase = null, mapTimer = null;
+function buildMapBase() {
+  mapBase = document.createElement('canvas'); mapBase.width = 600; mapBase.height = 300;
+  var g = mapBase.getContext('2d');
+  for (var cz = 0; cz < 30; cz++) for (var cx = 0; cx < 60; cx++) {
+    var t = cellType(cx, cz), e = cellElev(cx, cz);
+    g.fillStyle = t === '.' ? (e < 2.5 ? '#1d4e79' : '#2b6cb0') : t === 'i' ? '#eef4f8' : t === 'm' ? '#8d8d94' : t === 'h' ? '#7d9b4a' : '#58a83c';
+    g.fillRect(cx * 10, cz * 10, 10, 10);
+  }
+  g.fillStyle = '#f5c542';
+  LANDMARK_SPOTS.forEach(function (L) { g.beginPath(); g.arc(L[1], L[2], 4.5, 0, 7); g.fill(); });
+}
+function continentName(x, z) {
+  var cx = Math.floor(x / 10), cz = Math.floor(z / 10);
+  function inB(x0, x1, z0, z1) { return cx >= x0 && cx <= x1 && cz >= z0 && cz <= z1; }
+  if (inB(19, 26, 0, 4)) return 'Greenland 🧊';
+  if (inB(0, 18, 1, 10)) return 'North America';
+  if (inB(12, 20, 11, 22)) return 'South America';
+  if (inB(27, 36, 2, 7)) return 'Europe';
+  if (inB(26, 39, 8, 19)) return 'Africa';
+  if (inB(36, 58, 1, 11)) return 'Asia';
+  if (inB(44, 58, 14, 21)) return 'Australia';
+  if (cellType(cx, cz) === '.') return 'the Ocean 🌊';
+  return 'a new frontier';
+}
+function drawMap() {
+  if (!mapBase) buildMapBase();
+  var c = document.getElementById('mapCanvas'), g = c.getContext('2d');
+  g.drawImage(mapBase, 0, 0);
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#f5c542'; g.lineWidth = 2.5;
+  g.beginPath(); g.arc(player.x, player.z, 6, 0, 7); g.fill(); g.stroke();
+  document.getElementById('mapWhere').textContent = '📍 You are in ' + continentName(player.x, player.z) + ' · ⭐ = landmarks';
+}
+function openMap() { document.getElementById('mapPanel').classList.add('open'); drawMap(); if (mapTimer) clearInterval(mapTimer); mapTimer = setInterval(drawMap, 600); }
+function closePanels() {
+  document.getElementById('mapPanel').classList.remove('open');
+  document.getElementById('travelPanel').classList.remove('open');
+  if (mapTimer) { clearInterval(mapTimer); mapTimer = null; }
+}
+function openTravel() { document.getElementById('travelPanel').classList.add('open'); }
+function teleport(x, z) {
+  player.x = x + 0.5; player.z = z + 0.5; player.vy = 0;
+  ensureChunks();
+  player.y = surfY(x, z) + 1; fallPeak = player.y;
+  closePanels();
+  toast('🧭 Whoosh — welcome to ' + continentName(x, z) + '!');
+}
+var TRAVEL_SPOTS = [['🏠 California', 105, 85], ['🗽 New York', 165, 65], ['🌴 Amazon', 165, 135], ['🏔️ Andes', 148, 155], ['🗼 Paris', 305, 52], ['🐫 Egypt', 345, 95], ['🦁 Safari', 335, 148], ['🧱 Great Wall', 455, 72], ['🦘 Australia', 505, 175], ['🧊 Greenland', 225, 25]];
+var travelGrid = document.getElementById('travelGrid');
+TRAVEL_SPOTS.forEach(function (sp) {
+  var b = document.createElement('button');
+  b.className = 'travBtn'; b.textContent = sp[0];
+  wireTap(b, function () { teleport(sp[1], sp[2]); });
+  travelGrid.appendChild(b);
+});
+wireTap(document.getElementById('btnMapClose'), closePanels);
+wireTap(document.getElementById('btnTravelClose'), closePanels);
+tapBtn('btnMap', openMap); tapBtn('btnMap2', openMap);
+tapBtn('btnTravel', openTravel); tapBtn('btnTravel2', openTravel);
+tapBtn('btnPal', function () { paletteEl.classList.toggle('show'); });
+tapBtn('btnPal2', function () { paletteEl.classList.toggle('show'); });
+tapBtn('btnPick', craftPick); tapBtn('btnPick2', craftPick);
+addEventListener('keydown', function (e) {
+  if (e.code === 'KeyM' && started) {
+    if (document.getElementById('mapPanel').classList.contains('open')) closePanels(); else openMap();
+  }
+});
+var _applyModePrev = applyMode;
+applyMode = function () {
+  _applyModePrev();
+  var sv = MODE === 'survival';
+  document.getElementById('btnPick').style.display = sv ? '' : 'none';
+  document.getElementById('btnPick2').style.display = sv ? '' : 'none';
+};
 /* ---------- score + leaderboard ---------- */
 function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 async function loadLb() {
@@ -918,17 +1266,23 @@ function animate(now) {
     else if (actTimer <= 0 && (mousePlace || holdPlace)) { doPlace(); actTimer = 0.22; }
   } else {
     if ((mousePlace || holdPlace) && actTimer <= 0) { doPlace(); actTimer = 0.22; }
-    if (mouseBreak || holdBreak) {
+    var ahS = (mouseBreak || holdBreak) ? animalRay() : null;
+    if (ahS) { if (actTimer <= 0) { hitAnimal(ahS.a); actTimer = 0.28; } mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
+    else if (mouseBreak || holdBreak) {
       var hit2 = raycastBlock();
       if (hit2) {
         var kk2 = key(hit2.x, hit2.y, hit2.z);
         if (kk2 !== mineKey) { mineKey = kk2; mineProg = 0; }
-        mineProg += dt / (BT[getB(hit2.x, hit2.y, hit2.z)] || 0.5);
+        var tt2 = getB(hit2.x, hit2.y, hit2.z);
+        var bt2 = BT[tt2] || 0.5;
+        if (hasPick && (tt2 === 3 || tt2 === 9 || tt2 === 4 || tt2 === 5)) bt2 /= 2.4;
+        mineProg += dt / bt2;
         brkWrap.style.display = 'block'; brkBar.style.width = Math.min(100, Math.round(mineProg * 100)) + '%';
         if (mineProg >= 1) { doBreak(); mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
       } else { mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
     } else { mineKey = null; mineProg = 0; brkWrap.style.display = 'none'; }
   }
+  updateAnimals(dt);
   // target highlight
   var hit = raycastBlock();
   if (hit) { highlight.visible = true; highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5); }
@@ -938,8 +1292,19 @@ function animate(now) {
   if (chunkT <= 0) { chunkT = 0.3; ensureChunks(); }
   for (var ci = 0; ci < clouds.length; ci++) { clouds[ci].position.x += dt * 0.4; if (clouds[ci].position.x > 680) clouds[ci].position.x = -50; }
   var spx = Math.round(player.x), spz = Math.round(player.z);
-  sun.position.set(spx + 42, 80, spz + 28);
+  dayT = (dayT + dt / 600) % 1;
+  var sang = dayT * Math.PI * 2 - Math.PI / 2, selv = Math.sin(sang);
+  var dayF = Math.max(0, Math.min(1, selv * 1.7 + 0.28));
+  if (selv > 0.02) sun.position.set(spx + Math.cos(sang) * 70, selv * 95 + 14, spz + 30);
+  else sun.position.set(spx - Math.cos(sang) * 70, -selv * 80 + 22, spz - 30);
   sun.target.position.set(spx, 0, spz);
+  sun.intensity = 0.14 + dayF * 0.78;
+  sun.color.copy(SUN_DAY).lerp(SUN_NIGHT, 1 - dayF);
+  hemi.intensity = 0.16 + dayF * 0.69;
+  domeMat.color.copy(SKY_NIGHT).lerp(SKY_DAY, dayF);
+  if (selv > -0.12 && selv < 0.32) domeMat.color.lerp(SKY_DUSK, (0.32 - selv) / 0.44 * 0.4);
+  scene.fog.color.copy(domeMat.color).lerp(WHITE_C, 0.45);
+  starMat.opacity = (1 - dayF) * 0.95;
   TEX.water.offset.x = now * 0.000006; TEX.water.offset.y = now * 0.000004;
   waterMesh.material.opacity = 0.72 + Math.sin(now * 0.0006) * 0.04;
   renderer.render(scene, camera);
@@ -949,6 +1314,7 @@ load();
 applyMode();
 ensureChunks();
 renderWorlds();
+spawnAnimals();
 updateStats();
 if (player.fly) { document.getElementById('btnFly').classList.add('on'); document.getElementById('btnFly2').classList.add('on'); }
 if (isTouch) document.getElementById('hint').textContent = 'Bottom-left corner to move · drag to look · ⛏ mine · 🧱 place';
