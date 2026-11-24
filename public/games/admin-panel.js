@@ -436,6 +436,16 @@ try { arqApplyAppearance(); } catch (e) {}
     btn.setAttribute('aria-label', 'Toggle fullscreen');
     btn.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:900;background:rgba(30,30,48,.88);color:#f5c542;border:1.5px solid #55557a;border-radius:999px;padding:8px 14px;font:700 13px "Segoe UI",system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4);';
     document.body.appendChild(btn);
+    // Orbs balance pill — signed-in players only, sits above the fullscreen pill.
+    fetch('/api/me', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.user) return;
+      var pill = document.createElement('div');
+      pill.id = 'arq-orbs-pill';
+      pill.textContent = '🪙 ' + (d.user.orbs || 0);
+      pill.title = 'Your Orbs — claim task rewards on the portal';
+      pill.style.cssText = 'position:fixed;left:12px;bottom:56px;z-index:900;background:rgba(30,30,48,.88);color:#f5c542;border:1.5px solid #55557a;border-radius:999px;padding:6px 13px;font:700 13px "Segoe UI",system-ui,sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4);';
+      document.body.appendChild(pill);
+    }).catch(function () {});
     var toastEl = null;
     function fsToast(msg) {
       if (!toastEl) {
