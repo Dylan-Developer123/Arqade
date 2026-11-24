@@ -29,6 +29,12 @@
   #packNote, #retNote { font-size: 13.5px; color: #a9a9c9; margin-top: 10px; line-height: 1.5; }
   #retNote { color: #ffe9a8; font-weight: 700; }
   .earn { display: inline-block; margin-top: 4px; color: #f5c542; font-weight: 700; }
+  .trow { display: flex; align-items: center; gap: 10px; background: #1c1c30; border: 1px solid #34345c; border-radius: 11px; padding: 9px 13px; margin-bottom: 8px; }
+  .trow .tn { flex: 1; font-weight: 700; font-size: 14.5px; }
+  .trow .tp { color: #a9a9c9; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  button.claim { border: none; border-radius: 9px; padding: 7px 15px; font-weight: 900; cursor: pointer; font-family: inherit; font-size: 13.5px; background: #f5c542; color: #191920; }
+  button.claim:disabled { opacity: .55; cursor: default; }
+  .claimed { color: #7dd87d; font-weight: 800; font-size: 13.5px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -39,6 +45,12 @@
     <p>Spend the Orbs you earn from daily and weekly tasks. One name color and one title at a time.</p>
     <div id="balLine">Your balance: <b>🪙 …</b></div>
     <div id="retNote"></div>
+  </div>
+  <div class="sec" style="border-bottom:1px solid #2c2c48;">
+    <div class="secTitle">📅 DAILY TASKS</div>
+    <div id="tasksDaily"><span class="need">Loading tasks…</span></div>
+    <div class="secTitle" style="margin-top:16px;">🗓️ WEEKLY TASKS</div>
+    <div id="tasksWeekly"></div>
   </div>
   <div class="sec">
     <div class="secTitle">NAME COLORS &amp; TITLES</div>
@@ -122,6 +134,38 @@
       });
     } catch (e) {}
   }
+  var dailyEl = document.getElementById('tasksDaily');
+  var weeklyEl = document.getElementById('tasksWeekly');
+  function trow(t) {
+    var right;
+    if (t.claimed) right = '<span class="claimed">✓ Claimed</span>';
+    else if (t.ready) right = '<button class="claim" data-claim="' + t.key + '">Claim +' + t.reward + '</button>';
+    else right = '<span class="tp">' + t.progress + ' / ' + t.target + '</span>';
+    return '<div class="trow"><span class="tn">' + esc(t.name) + '</span><span class="tp">+' + t.reward + ' 🪙</span>' + right + '</div>';
+  }
+  function renderTasks(d) {
+    balEl.textContent = '🪙 ' + d.orbs;
+    dailyEl.innerHTML = d.daily.map(trow).join('');
+    weeklyEl.innerHTML = d.weekly.map(trow).join('');
+    document.querySelectorAll('[data-claim]').forEach(function (b) {
+      b.onclick = async function () {
+        b.disabled = true;
+        try {
+          var r = await fetch('/api/orbs/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: b.getAttribute('data-claim') }) });
+          if (r.ok) { renderTasks(await r.json()); loadShop(); }
+          else b.disabled = false;
+        } catch (e) { b.disabled = false; }
+      };
+    });
+  }
+  async function loadTasks() {
+    try {
+      var r = await fetch('/api/orbs', { cache: 'no-store' });
+      if (r.ok) renderTasks(await r.json());
+      else { dailyEl.innerHTML = '<span class="need">Sign in to see your tasks.</span>'; weeklyEl.innerHTML = ''; }
+    } catch (e) { dailyEl.innerHTML = '<span class="need">Could not load tasks.</span>'; }
+  }
+  loadTasks();
   loadShop();
   loadPacks();
 })();
