@@ -342,6 +342,9 @@ rebirthBtn.addEventListener('click', function () {
   submitScore(true);
 });
 
+document.addEventListener('keydown', function (e) {
+  if (e.code === 'Space' && !e.repeat) { e.preventDefault(); coinBtn.click(); }
+});
 coinBtn.addEventListener('click', function (e) {
   var cg = clickGain();
   var gain = cg.gain;
