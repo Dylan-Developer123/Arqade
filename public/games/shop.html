@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Orb Shop — Arqade</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #12121e; color: #eef; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 14px; }
+  a.exit-game { display: inline-flex; align-items: center; align-self: flex-start; background: #101828; color: #dcefe2; border: 1px solid #3b4b3f; border-radius: 9px; padding: 8px 14px; font-size: 15px; font-weight: 700; line-height: 1; text-decoration: none; }
+  #shopBox { width: min(720px, 96vw); margin-top: 12px; background: #1e1e30; border: 2px solid #2c2c48; border-radius: 16px; overflow: hidden; }
+  #head { padding: 15px 18px 12px; border-bottom: 1px solid #2c2c48; }
+  #head h1 { font-size: 22px; }
+  #head p { font-size: 13.5px; opacity: .8; margin-top: 3px; }
+  #balLine { margin-top: 9px; font-size: 16px; }
+  #balLine b { color: #f5c542; font-size: 21px; }
+  .sec { padding: 15px 18px 18px; }
+  .secTitle { color: #f5c542; font-weight: 800; letter-spacing: 1px; font-size: 12.5px; margin-bottom: 10px; }
+  .grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .item { flex: 1; min-width: 200px; background: #1c1c30; border: 1px solid #34345c; border-radius: 13px; padding: 13px 15px; }
+  .item .ic { font-size: 24px; }
+  .item .nm { font-weight: 800; margin: 3px 0; }
+  .item .ds { color: #a9a9c9; font-size: 13px; min-height: 32px; }
+  .item .act { margin-top: 9px; }
+  button.buy, button.wear { border: none; border-radius: 9px; padding: 8px 15px; font-weight: 900; cursor: pointer; font-family: inherit; font-size: 14px; background: #f5c542; color: #191920; }
+  button.off { border: none; border-radius: 9px; padding: 8px 15px; font-weight: 900; cursor: pointer; font-family: inherit; font-size: 14px; background: #2e7d32; color: #fff; }
+  button:disabled { opacity: .55; cursor: default; }
+  .need { color: #a9a9c9; font-weight: 700; font-size: 13.5px; }
+  #packNote, #retNote { font-size: 13.5px; color: #a9a9c9; margin-top: 10px; line-height: 1.5; }
+  #retNote { color: #ffe9a8; font-weight: 700; }
+  .earn { display: inline-block; margin-top: 4px; color: #f5c542; font-weight: 700; }
+</style>
+</head>
+<body>
+<a class="exit-game" href="/">← Back to Arqade</a>
+<div id="shopBox">
+  <div id="head">
+    <h1>🛒 Orb Shop</h1>
+    <p>Spend the Orbs you earn from daily and weekly tasks. One name color and one title at a time.</p>
+    <div id="balLine">Your balance: <b>🪙 …</b></div>
+    <div id="retNote"></div>
+  </div>
+  <div class="sec">
+    <div class="secTitle">NAME COLORS &amp; TITLES</div>
+    <div class="grid" id="items"><span class="need">Loading the shop…</span></div>
+  </div>
+  <div class="sec" style="border-top:1px solid #2c2c48;">
+    <div class="secTitle">💳 BUY ORBS WITH MONEY</div>
+    <div class="grid" id="packs"></div>
+    <div id="packNote"></div>
+  </div>
+</div>
+<script src="/games/admin-panel.js"></script>
+<script>
+(function () {
+  function esc(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+  var balEl = document.querySelector('#balLine b');
+  var itemsEl = document.getElementById('items');
+  var packsEl = document.getElementById('packs');
+  var packNote = document.getElementById('packNote');
+  var retNote = document.getElementById('retNote');
+
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('bought')) retNote.textContent = '🎉 Thanks! Stripe is confirming your payment — your Orbs land in a few seconds. Pull to refresh if they do not show.';
+  else if (qs.get('cancelled')) retNote.textContent = 'Purchase cancelled — no charge was made.';
+
+  function card(i, orbs) {
+    var btn;
+    if (i.equipped) btn = '<button class="off" data-unequip="' + i.type + '">✓ Wearing — take off</button>';
+    else if (i.owned) btn = '<button class="wear" data-equip="' + i.id + '">Wear it</button>';
+    else if (orbs >= i.price) btn = '<button class="buy" data-buy="' + i.id + '">Buy · 🪙 ' + i.price + '</button>';
+    else btn = '<span class="need">🪙 ' + i.price + ' · need ' + (i.price - orbs) + ' more</span>';
+    return '<div class="item"><div class="ic">' + i.icon + '</div><div class="nm">' + esc(i.name) + '</div>' +
+      '<div class="ds">' + esc(i.desc) + '</div><div class="act">' + btn + '</div></div>';
+  }
+  function renderShop(d) {
+    balEl.textContent = '🪙 ' + d.orbs;
+    itemsEl.innerHTML = d.items.map(function (i) { return card(i, d.orbs); }).join('');
+    itemsEl.querySelectorAll('[data-buy]').forEach(function (b) { b.onclick = function () { post('/api/orbs/buy', b.getAttribute('data-buy')); }; });
+    itemsEl.querySelectorAll('[data-equip]').forEach(function (b) { b.onclick = function () { post('/api/orbs/equip', b.getAttribute('data-equip')); }; });
+    itemsEl.querySelectorAll('[data-unequip]').forEach(function (b) { b.onclick = function () { post('/api/orbs/equip', 'none-' + b.getAttribute('data-unequip')); }; });
+  }
+  async function post(url, item) {
+    try {
+      var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: item }) });
+      if (r.ok) renderShop(await r.json());
+    } catch (e) {}
+  }
+  async function loadShop() {
+    try {
+      var r = await fetch('/api/orbs/shop', { cache: 'no-store' });
+      if (r.ok) renderShop(await r.json());
+      else itemsEl.innerHTML = '<span class="need">Sign in to use the shop.</span>';
+    } catch (e) { itemsEl.innerHTML = '<span class="need">Could not load the shop.</span>'; }
+  }
+  function packCard(p, ready) {
+    var btn = ready
+      ? '<button class="buy" data-pack="' + p.id + '">Buy · ' + p.price + '</button>'
+      : '<button class="buy" disabled>Coming soon</button>';
+    return '<div class="item"><div class="ic">🪙</div><div class="nm">' + esc(p.name) + '</div>' +
+      '<div class="ds">' + p.price + ' — credited to your account the moment Stripe confirms.</div><div class="act">' + btn + '</div></div>';
+  }
+  async function loadPacks() {
+    try {
+      var r = await fetch('/api/orbs/packs', { cache: 'no-store' });
+      if (!r.ok) { packsEl.innerHTML = ''; packNote.textContent = ''; return; }
+      var d = await r.json();
+      packsEl.innerHTML = d.packs.map(function (p) { return packCard(p, d.ready); }).join('');
+      packNote.innerHTML = d.ready
+        ? 'Payments run through Stripe checkout. Orbs are credited automatically after payment.'
+        : 'Money purchases are <b>prepped but not switched on</b> yet: a parent first connects a Stripe account (18+, ID, bank account), then the switch flips here. Earning Orbs from tasks is free forever. <a class="earn" href="/">← Earn Orbs from tasks</a>';
+      packsEl.querySelectorAll('[data-pack]').forEach(function (b) {
+        b.onclick = async function () {
+          b.disabled = true; b.textContent = 'Opening Stripe…';
+          try {
+            var rr = await fetch('/api/orbs/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pack: b.getAttribute('data-pack') }) });
+            var dd = await rr.json().catch(function () { return {}; });
+            if (rr.ok && dd.url) location.href = dd.url;
+            else { b.disabled = false; b.textContent = 'Try again'; }
+          } catch (e) { b.disabled = false; b.textContent = 'Try again'; }
+        };
+      });
+    } catch (e) {}
+  }
+  loadShop();
+  loadPacks();
+})();
+</script>
+</body>
+</html>
