@@ -252,6 +252,18 @@ try { arqApplyAppearance(); } catch (e) {}
     <div class="row"><input id="arq-cs-tokens" type="number" min="0" placeholder="Tokens amount"><button id="arq-cs-tokens-btn">Set tokens</button></div>
     <div class="row"><input id="arq-cs-rebirths" type="number" min="0" placeholder="Rebirth level"><button id="arq-cs-rebirths-btn">Set rebirth</button></div>
     <div class="who">Sets your Clicker Simulator save directly — works while you're on the Clicker Simulator page.</div>
+    <h4><img src="/orb.svg" alt="" style="width:14px;height:14px;vertical-align:-2px;"> Orbs</h4>
+    <div class="who">Your balance: <b id="arq-orbs-bal">…</b></div>
+    <div class="row">
+      <input id="arq-orbs-amt" type="number" min="0" placeholder="Amount">
+      <button id="arq-orbs-set">Set mine</button>
+      <button id="arq-orbs-add">Give me</button>
+    </div>
+    <div class="row">
+      <input id="arq-orbs-user" placeholder="Player username">
+      <button id="arq-orbs-give">🎁 Give</button>
+      <button id="arq-orbs-setuser">Set theirs</button>
+    </div>
     <h4>🎮 More games — my best scores</h4>
     <div id="arq-more-games"></div>
     <h4>Broadcast</h4>
@@ -391,6 +403,25 @@ try { arqApplyAppearance(); } catch (e) {}
     try { status(window.ARQ_CS_ADMIN[fn](Math.floor(v))); inp.value = ''; }
     catch (ex) { status('⚠️ ' + ex.message); }
   }
+  // Orbs: set or add to any player's server-side balance.
+  const orbsBalEl = panel.querySelector('#arq-orbs-bal');
+  if (typeof user.orbs === 'number') orbsBalEl.textContent = user.orbs.toLocaleString();
+  async function orbs(mode, target) {
+    const amt = Number(panel.querySelector('#arq-orbs-amt').value);
+    if (!isFinite(amt) || amt < 0) return status('⚠️ Type an amount (0 or more) first.');
+    try {
+      const r = await admin('orbs', { mode, amount: Math.floor(amt), ...(target ? { target } : {}) });
+      if (!target) orbsBalEl.textContent = r.orbs.toLocaleString();
+      status(mode === 'set'
+        ? `✅ Set ${r.username}'s Orbs to ${r.orbs.toLocaleString()}.`
+        : `✅ Gave ${Math.floor(amt).toLocaleString()} Orbs to ${r.username} — they now have ${r.orbs.toLocaleString()}.`);
+    } catch (ex) { status('⚠️ ' + ex.message); }
+  }
+  panel.querySelector('#arq-orbs-set').onclick = () => orbs('set');
+  panel.querySelector('#arq-orbs-add').onclick = () => orbs('add');
+  panel.querySelector('#arq-orbs-give').onclick = () => { const t = val('#arq-orbs-user'); if (t) orbs('add', t); else status('Enter a username.'); };
+  panel.querySelector('#arq-orbs-setuser').onclick = () => { const t = val('#arq-orbs-user'); if (t) orbs('set', t); else status('Enter a username.'); };
+
   panel.querySelector('#arq-cs-coins-btn').onclick = () => csSet('#arq-cs-coins', 'setCoins');
   panel.querySelector('#arq-cs-tokens-btn').onclick = () => csSet('#arq-cs-tokens', 'setTokens');
   panel.querySelector('#arq-cs-rebirths-btn').onclick = () => csSet('#arq-cs-rebirths', 'setRebirths');
