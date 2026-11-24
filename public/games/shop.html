@@ -43,7 +43,7 @@
   <div id="head">
     <h1>🛒 Orb Shop</h1>
     <p>Spend the Orbs you earn from daily and weekly tasks. One name color and one title at a time.</p>
-    <div id="balLine">Your balance: <b>🪙 …</b></div>
+    <div id="balLine">Your balance: <b>…</b></div>
     <div id="retNote"></div>
   </div>
   <div class="sec" style="border-bottom:1px solid #2c2c48;">
@@ -66,6 +66,7 @@
 <script>
 (function () {
   function esc(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+  var ORB = '<img src="/orb.svg" alt="" style="width:14px;height:14px;vertical-align:-2px;">';
   var balEl = document.querySelector('#balLine b');
   var itemsEl = document.getElementById('items');
   var packsEl = document.getElementById('packs');
@@ -88,13 +89,13 @@
     var btn;
     if (i.equipped) btn = '<button class="off" data-unequip="' + i.type + '">✓ Wearing — take off</button>';
     else if (i.owned) btn = '<button class="wear" data-equip="' + i.id + '">Wear it</button>';
-    else if (orbs >= i.price) btn = '<button class="buy" data-buy="' + i.id + '">Buy · 🪙 ' + i.price + '</button>';
-    else btn = '<span class="need">🪙 ' + i.price + ' · need ' + (i.price - orbs) + ' more</span>';
+    else if (orbs >= i.price) btn = '<button class="buy" data-buy="' + i.id + '">Buy · ' + ORB + ' ' + i.price + '</button>';
+    else btn = '<span class="need">' + ORB + ' ' + i.price + ' · need ' + (i.price - orbs) + ' more</span>';
     return '<div class="item"><div class="ic">' + i.icon + '</div><div class="nm">' + esc(i.name) + '</div>' +
       '<div class="ds">' + esc(i.desc) + '</div><div class="act">' + btn + '</div></div>';
   }
   function renderShop(d) {
-    balEl.textContent = '🪙 ' + d.orbs;
+    balEl.innerHTML = '<img src="/orb.svg" alt="" style="width:19px;height:19px;vertical-align:-3px;"> ' + d.orbs;
     itemsEl.innerHTML = d.items.map(function (i) { return card(i, d.orbs); }).join('');
     itemsEl.querySelectorAll('[data-buy]').forEach(function (b) { b.onclick = function () { post('/api/orbs/buy', b.getAttribute('data-buy')); }; });
     itemsEl.querySelectorAll('[data-equip]').forEach(function (b) { b.onclick = function () { post('/api/orbs/equip', b.getAttribute('data-equip')); }; });
@@ -117,7 +118,7 @@
     var btn = ready
       ? '<button class="buy" data-pack="' + p.id + '">Buy · ' + p.price + '</button>'
       : '<button class="buy" disabled>Coming soon</button>';
-    return '<div class="item"><div class="ic">🪙</div><div class="nm">' + esc(p.name) + '</div>' +
+    return '<div class="item"><div class="ic"><img src="/orb.svg" alt="" style="width:30px;height:30px;"></div><div class="nm">' + esc(p.name) + '</div>' +
       '<div class="ds">' + p.price + ' — credited to your account the moment Stripe confirms.</div><div class="act">' + btn + '</div></div>';
   }
   async function loadPacks() {
@@ -149,10 +150,10 @@
     if (t.claimed) right = '<span class="claimed">✓ Claimed</span>';
     else if (t.ready) right = '<button class="claim" data-claim="' + t.key + '">Claim +' + t.reward + '</button>';
     else right = '<span class="tp">' + t.progress + ' / ' + t.target + '</span>';
-    return '<div class="trow"><span class="tn">' + esc(t.name) + '</span><span class="tp">+' + t.reward + ' 🪙</span>' + right + '</div>';
+    return '<div class="trow"><span class="tn">' + esc(t.name) + '</span><span class="tp">+' + t.reward + ' ' + ORB + '</span>' + right + '</div>';
   }
   function renderTasks(d) {
-    balEl.textContent = '🪙 ' + d.orbs;
+    balEl.innerHTML = '<img src="/orb.svg" alt="" style="width:19px;height:19px;vertical-align:-3px;"> ' + d.orbs;
     dailyEl.innerHTML = d.daily.map(trow).join('');
     weeklyEl.innerHTML = d.weekly.map(trow).join('');
     document.querySelectorAll('[data-claim]').forEach(function (b) {
