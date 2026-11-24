@@ -182,7 +182,7 @@ function mpConnect() {
         else flash('🚔 ' + m.displayName + ' got BUSTED!');
       } else flash('💥 ' + m.displayName + ' got WASTED!');
     } else if (m.t === 'chat') {
-      chatAddLine(m.displayName, m.text, m.id === myId);
+      chatAddLine(m.displayName, m.text, m.id === myId, m);
     } else if (m.t === 'voice') {
       voiceRoster(m.id, m.on, m.displayName);
     } else if (m.t === 'rtc') {
@@ -516,10 +516,17 @@ let voiceOn = false, voiceMuted = false, localStream = null;
 const voiceSet = new Set();   // ids of players currently in voice (roster from the server)
 const voicePeers = new Map(); // id -> { pc, audio, pendingIce }
 function rtcSend(to, data) { if (mpWs && mpWs.readyState === 1) { try { mpWs.send(JSON.stringify({ t: 'rtc', to, data })); } catch (e) {} } }
-function chatAddLine(name, text, mine) {
+const NC_COLS = { gold: '#f5c542', cyan: '#38e1ff', pink: '#ff7ad9' };
+function paintNameP(el, nc) {
+  if (!nc) return;
+  if (nc === 'rainbow') { el.style.background = 'linear-gradient(90deg,#ff5f6d,#ffc371,#7dd87d,#38e1ff,#b18cff)'; el.style.webkitBackgroundClip = 'text'; el.style.backgroundClip = 'text'; el.style.color = 'transparent'; }
+  else if (NC_COLS[nc]) el.style.color = NC_COLS[nc];
+}
+function chatAddLine(name, text, mine, m) {
   const log = $('chatLog'); if (!log) return;
   const line = document.createElement('div');
-  const nm = document.createElement('b'); nm.textContent = name + ': '; nm.style.color = mine ? '#7dd3fc' : '#f5c542';
+  const nm = document.createElement('b'); nm.textContent = name + (m && m.ttl ? ' ' + m.ttl : '') + ': '; nm.style.color = mine ? '#7dd3fc' : '#f5c542';
+  paintNameP(nm, m && m.nc);
   line.appendChild(nm);
   line.appendChild(document.createTextNode(text));
   log.appendChild(line);
