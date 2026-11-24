@@ -11,6 +11,7 @@ Last updated: 2026-11-24
 - `server.js` — all backend: accounts, scores, likes, feedback, chat servers, Orbs currency, Stripe prep
 - `public/index.html` — portal: account bar (name/tags/title + Orbs balance pill), Featured + More games cards, Continue bar, likes
 - `public/games/shop.html` — Orb Shop app: balance, daily/weekly tasks + Claim, name-color/title cosmetics, Buy Orbs packs
+- `public/orb.svg` — the Orb coin logo (concentric gold coin), used wherever Orbs are shown: balance pills, the Shop app, the Orb Shop card cover
 - `public/games/admin-panel.js` — shared panel for all game pages except Mining Simulator: admin tools, sign-in gate, appearance system, Orbs pill, fullscreen pill, controller translator
 - `public/miner-cat-2.html` + `public/game.js` + `public/styles.css` — Mining Simulator (own auth overlay; inline Orbs pill + controller translator)
 - `public/games/bloxcraft.html` — Bloxcraft (own `pollPad` controller loop: sticks + triggers)
