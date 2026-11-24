@@ -88,9 +88,16 @@
     toastT = setTimeout(function () { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; }, 2400);
   }
   function scrollLog() { var log = $('chatLog'); log.scrollTop = log.scrollHeight; }
-  function addLine(name, text, mine) {
+  var NC_COLS = { gold: '#f5c542', cyan: '#38e1ff', pink: '#ff7ad9' };
+  function paintName(el, nc) {
+    if (!nc) return;
+    if (nc === 'rainbow') { el.style.background = 'linear-gradient(90deg,#ff5f6d,#ffc371,#7dd87d,#38e1ff,#b18cff)'; el.style.webkitBackgroundClip = 'text'; el.style.backgroundClip = 'text'; el.style.color = 'transparent'; }
+    else if (NC_COLS[nc]) el.style.color = NC_COLS[nc];
+  }
+  function addLine(name, text, mine, m) {
     var line = document.createElement('div');
-    var nm = document.createElement('b'); nm.textContent = name + ': '; nm.style.color = mine ? '#7dd3fc' : '#f5c542';
+    var nm = document.createElement('b'); nm.textContent = name + (m && m.ttl ? ' ' + m.ttl : '') + ': '; nm.style.color = mine ? '#7dd3fc' : '#f5c542';
+    paintName(nm, m && m.nc);
     line.appendChild(nm);
     line.appendChild(document.createTextNode(text));
     $('chatLog').appendChild(line);
@@ -341,7 +348,7 @@
         addSys('👋 ' + nm + ' left the chat');
         renderMembers(); updateVoiceUi();
       } else if (m.t === 'chat') {
-        addLine(m.displayName, m.text, m.id === myId);
+        addLine(m.displayName, m.text, m.id === myId, m);
       } else if (m.t === 'voice') {
         voiceRoster(m.id, m.on, m.displayName);
       } else if (m.t === 'rtc') {
