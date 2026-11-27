@@ -477,6 +477,47 @@ try { arqApplyAppearance(); } catch (e) {}
       pill.style.cssText = 'position:fixed;left:12px;bottom:56px;z-index:900;background:rgba(30,30,48,.88);color:#f5c542;border:1.5px solid #55557a;border-radius:999px;padding:6px 13px;font:700 13px "Segoe UI",system-ui,sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4);';
       document.body.appendChild(pill);
     }).catch(function () {});
+    // Gamepass pill — on a game page, that game's 2X pass, bought with Orbs (owned server-side).
+    (function () {
+      var m = location.pathname.match(/^\/games\/([a-z0-9-]+)/);
+      if (!m) return;
+      var game = m[1];
+      var PASS_GAMES = ['snake', 'breakout', 'flappy', 'memory', '2048', 'clicker', 'pong', 'minesweeper', 'invaders', 'lander', 'racer', 'word', 'pursuit3d', 'clickersim', 'bloxcraft'];
+      if (PASS_GAMES.indexOf(game) === -1) return;
+      var label = game === 'clickersim' ? '2X Clicks' : '2X Score';
+      fetch('/api/orbs/pass?game=' + game, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+        if (!d) return;
+        var pill = document.createElement('button');
+        pill.id = 'arq-pass-pill';
+        pill.style.cssText = 'position:fixed;left:12px;bottom:100px;z-index:900;border-radius:999px;padding:6px 13px;font:700 13px "Segoe UI",system-ui,sans-serif;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;';
+        function paint() {
+          if (d.owned) {
+            pill.textContent = '\u2B50 ' + label + ' ON';
+            pill.style.background = 'rgba(20,60,30,.9)'; pill.style.color = '#7be495'; pill.style.border = '1.5px solid #2f7a44'; pill.style.cursor = 'default';
+            pill.title = 'You own this gamepass - ' + label + ' is active in this game.';
+          } else {
+            pill.innerHTML = '\u2B50 ' + label + ' - <img src="/orb.svg" alt="" style="width:14px;height:14px;vertical-align:-2px;"> ' + d.price + ' - Buy';
+            pill.style.background = 'rgba(30,30,48,.88)'; pill.style.color = '#f5c542'; pill.style.border = '1.5px solid #f5c542'; pill.style.cursor = 'pointer';
+            pill.title = 'Buy the ' + label + ' gamepass for this game with Orbs - yours forever.';
+          }
+        }
+        paint();
+        pill.addEventListener('click', function () {
+          if (d.owned) return;
+          pill.textContent = 'Buying...';
+          fetch('/api/orbs/buy-pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: game }) })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (res) {
+              if (!res.ok) { pill.textContent = '\u26A0\uFE0F ' + (res.j.error || 'Could not buy.'); setTimeout(paint, 2800); return; }
+              d.owned = true; d.orbs = res.j.orbs;
+              paint();
+              if (typeof window.ARQ_PASS_BOUGHT === 'function') window.ARQ_PASS_BOUGHT(game);
+            })
+            .catch(function () { pill.textContent = '\u26A0\uFE0F Connection hiccup - tap again.'; setTimeout(paint, 2800); });
+        });
+        document.body.appendChild(pill);
+      }).catch(function () {});
+    })();
     var toastEl = null;
     function fsToast(msg) {
       if (!toastEl) {
