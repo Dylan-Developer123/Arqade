@@ -560,7 +560,6 @@ async function main() {
     }
     await stmtUpsertSave.run(req.user.id, json);
     await stmtUpdateUserCoins.run(coinsFromSave(save), req.user.id);
-    await orbPlay(req.user.id, 'mining'); // Mining Simulator is a Featured game — its autosaves are its plays
     res.json({ ok: true });
   });
 
@@ -599,13 +598,15 @@ async function main() {
     if (!isPortalGame(game)) return res.status(400).json({ error: 'Unknown game.' });
     const cap = game === 'clickersim' ? 1e308 : 1000000; /* clicker earnings are exponential — the score column is a float, so any finite number fits */
     if (!Number.isFinite(score) || score < 0 || score > cap) return res.status(400).json({ error: 'Bad score.' });
+    let storedScore = score;
+    if (game !== 'clickersim' && (await orbPassOwned(req.user.id, game))) storedScore = Math.floor(score * 2);
     const existing = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
     if (!existing) {
-      await db.prepare('INSERT INTO scores (user_id, game, score) VALUES (?, ?, ?)').run(req.user.id, game, score);
-    } else if (score > existing.score || game === 'clickersim') {
+      await db.prepare('INSERT INTO scores (user_id, game, score) VALUES (?, ?, ?)').run(req.user.id, game, storedScore);
+    } else if (storedScore > existing.score || game === 'clickersim') {
       /* clickersim's board follows the player's CURRENT save (lifetime earned), so it always
          updates as they play — best-ever semantics froze it behind an old boosted best. */
-      await db.prepare('UPDATE scores SET score = ? WHERE user_id = ? AND game = ?').run(score, req.user.id, game);
+      await db.prepare('UPDATE scores SET score = ? WHERE user_id = ? AND game = ?').run(storedScore, req.user.id, game);
     }
     await orbPlay(req.user.id, game);
     const mine = await db.prepare('SELECT score FROM scores WHERE user_id = ? AND game = ?').get(req.user.id, game);
@@ -712,16 +713,12 @@ async function main() {
     } catch (e) { /* Orbs must never break the main flow */ }
   }
   const orbPlayLast = new Map(); // userId -> last time a play counted (anti-farm spacing)
-  const ORB_FEATURED_GAMES = ['pursuit3d', 'racer', 'mining']; // Featured games pay 10 Orbs per counted play; every other game pays 2
   async function orbPlay(userId, game) {
     try {
       const { day, week } = orbPeriods();
       const now = Date.now();
       const counted = now - (orbPlayLast.get(userId) || 0) >= 120000;
-      if (counted) {
-        orbPlayLast.set(userId, now);
-        await db.prepare('UPDATE users SET orbs = orbs + ? WHERE id = ?').run(ORB_FEATURED_GAMES.includes(game) ? 10 : 2, userId);
-      }
+      if (counted) orbPlayLast.set(userId, now);
       for (const p of [day, week]) {
         if (counted) {
           const ex = await db.prepare('SELECT progress FROM orb_tasks WHERE user_id = ? AND task = ? AND period = ?').get(userId, 'plays', p);
@@ -732,6 +729,35 @@ async function main() {
       }
     } catch (e) { /* Orbs must never break the main flow */ }
   }
+  // Gamepasses — bought with Orbs inside each game, owned forever (orb_owned rows 'pass-<game>').
+  // Featured games' passes cost 10 Orbs; every other game's costs 2.
+  const ORB_PASS_GAMES = [...PORTAL_GAMES, 'mining'];
+  const ORB_PASS_FEATURED = ['pursuit3d', 'racer', 'mining'];
+  const orbPassPrice = game => (ORB_PASS_FEATURED.includes(game) ? 10 : 2);
+  async function orbPassOwned(userId, game) {
+    const r = await db.prepare('SELECT item FROM orb_owned WHERE user_id = ? AND item = ?').get(userId, 'pass-' + game);
+    return !!r;
+  }
+  app.get('/api/orbs/pass', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const game = String(req.query.game || '');
+    if (!ORB_PASS_GAMES.includes(game)) return res.status(400).json({ error: 'No gamepass for that game.' });
+    const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
+    res.json({ game, price: orbPassPrice(game), owned: await orbPassOwned(req.user.id, game), orbs: u ? u.orbs : 0 });
+  });
+  app.post('/api/orbs/buy-pass', requireAuth, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const game = String((req.body || {}).game || '');
+    if (!ORB_PASS_GAMES.includes(game)) return res.status(400).json({ error: 'No gamepass for that game.' });
+    if (await orbPassOwned(req.user.id, game)) return res.status(400).json({ error: 'You already own this gamepass.' });
+    const price = orbPassPrice(game);
+    const u = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
+    if (!u || u.orbs < price) return res.status(400).json({ error: 'Not enough Orbs — earn more from tasks in the Orb Shop.' });
+    await db.prepare('UPDATE users SET orbs = orbs - ? WHERE id = ?').run(price, req.user.id);
+    await db.prepare('INSERT INTO orb_owned (user_id, item) VALUES (?, ?)').run(req.user.id, 'pass-' + game);
+    const after = await db.prepare('SELECT orbs FROM users WHERE id = ?').get(req.user.id);
+    res.json({ ok: true, game, price, orbs: after ? after.orbs : 0 });
+  });
   async function orbTaskStates(userId) {
     const { day, week } = orbPeriods();
     const rows = await db.prepare('SELECT task, period, progress, claimed FROM orb_tasks WHERE user_id = ? AND (period = ? OR period = ?)').all(userId, day, week);
