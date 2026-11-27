@@ -158,8 +158,8 @@ if (typeof S.tokens !== 'number') S.tokens = S.rebirths * 3; /* older saves: gra
 function mult() { return Math.pow(2, S.rebirths); }
 function clickBase() { var t = 1 + permLvl('hands'); CLICK_ITEMS.forEach(function (it) { t += it.add * (S.clickOwned[it.id] || 0); }); return t; }
 function autoBase() { var t = 0; AUTO_ITEMS.forEach(function (it) { t += it.add * (S.autoOwned[it.id] || 0); }); return t; }
-function perClick() { return clickBase() * mult() * permFactor(); }
-function perSec() { return autoBase() * mult() * permFactor(); }
+function perClick() { return clickBase() * mult() * permFactor() * passFactor(); }
+function perSec() { return autoBase() * mult() * permFactor() * passFactor(); }
 function costOf(it, owned) { return Math.max(1, Math.ceil(it.base * Math.pow(GROWTH, owned) * Math.pow(0.95, permLvl('sale')))); }
 function rebirthCost() { return 1000000 * Math.pow(8, S.rebirths); }
 var PERM_ITEMS = [
@@ -178,6 +178,8 @@ var PERM_ITEMS = [
 ];
 function permLvl(id) { return (S.permOwned && S.permOwned[id]) || 0; }
 function permFactor() { return 1 + 0.25 * permLvl('power'); }
+var PASS2X = false; /* 2X Clicks gamepass (bought with Orbs) - doubles click + auto earnings */
+function passFactor() { return PASS2X ? 2 : 1; }
 function offlineRate() { return 0.5 + 0.25 * permLvl('offline'); }
 function tokensPerRebirth() { return 3 + permLvl('magnet'); }
 function offlineCapSec() { return (8 + 4 * permLvl('sleeper')) * 3600; }
@@ -445,6 +447,8 @@ setInterval(loadLb, 30000);
   document.getElementById('acct').innerHTML = ME ? '👤 Playing as <b>' + esc(ME.displayName) + '</b> — your lifetime coins save to the leaderboard' : '👤 <a href="/miner-cat-2" style="color:#f5c542;">Sign in</a> to save scores to your account';
   loadLb();
 })();
+window.ARQ_PASS_BOUGHT = function () { PASS2X = true; render(); };
+fetch('/api/orbs/pass?game=clickersim', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d && d.owned) { PASS2X = true; render(); } }).catch(function () {});
 </script>
 <script src="/games/admin-panel.js"></script>
 </body>
