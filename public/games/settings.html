@@ -51,6 +51,8 @@
       <input id="set-displayname" type="text" maxlength="24">
       <label for="set-username">Username</label>
       <input id="set-username" type="text" maxlength="32">
+      <label for="set-email">Email (you can sign in with it)</label>
+      <input id="set-email" type="email" maxlength="254" placeholder="you@example.com" autocomplete="email">
       <label for="set-newpassword">New password (leave blank to keep)</label>
       <input id="set-newpassword" type="password" placeholder="••••••••" autocomplete="new-password">
       <label for="set-currentpassword">Current password (required to save)</label>
@@ -138,6 +140,7 @@
     $('who').textContent = 'Signed in as ' + (me.displayName || me.username) + ' (@' + me.username + ')';
     $('set-displayname').value = me.displayName || '';
     $('set-username').value = me.username || '';
+    $('set-email').value = me.email || '';
     paintTags();
   }).catch(function () { $('who').textContent = 'Could not load your account.'; });
 
@@ -164,6 +167,7 @@
       body: JSON.stringify({
         displayName: $('set-displayname').value.trim(),
         username: $('set-username').value.trim(),
+        email: $('set-email').value.trim(),
         newPassword: $('set-newpassword').value || undefined,
         currentPassword: $('set-currentpassword').value
       })
