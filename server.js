@@ -491,17 +491,31 @@ async function main() {
   // -------------------------------------------------------------------------
   app.post('/api/signup', rateLimit(20, 10 * 60 * 1000), async (req, res) => {
     let { username, password, displayName, email } = req.body || {};
-    if (typeof username === 'string') username = username.trim();
+    if (typeof username === 'string') username = username.trim(); else username = '';
     email = normEmail(email);
-    if (!validUsername(username)) return res.status(400).json({ error: 'Username must be 3-32 chars (letters, numbers, spaces, . _ -).' });
     if (!validPassword(password)) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     if (!validDisplayName(displayName)) return res.status(400).json({ error: 'Display name must be 1-24 characters.' });
     if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
-    if (await stmtGetUserAuthByUsername.get(username)) {
-      return res.status(409).json({ error: 'That username is taken.' });
-    }
     if (await stmtGetUserAuthByEmail.get(email)) {
       return res.status(409).json({ error: 'That email already has an account. Try signing in.' });
+    }
+    if (!username) {
+      // Squarespace-style form (Dylan's pick, 2026-11-28): no username field — the account
+      // signs in with its email, so a unique username is made from the email's first part.
+      let base = email.split('@')[0].replace(/[^A-Za-z0-9._-]/g, '').slice(0, 28);
+      if (base.length < 3) base = (base + 'player').slice(0, 28);
+      username = base;
+      let n = 1;
+      while (await stmtGetUserAuthByUsername.get(username)) {
+        n += 1;
+        if (n > 999) return res.status(409).json({ error: 'Could not create that account. Try a different email.' });
+        username = base.slice(0, 32 - String(n).length) + n;
+      }
+    } else {
+      if (!validUsername(username)) return res.status(400).json({ error: 'Username must be 3-32 chars (letters, numbers, spaces, . _ -).' });
+      if (await stmtGetUserAuthByUsername.get(username)) {
+        return res.status(409).json({ error: 'That username is taken.' });
+      }
     }
     const countRow = await stmtCountUsers.get();
     const isFirst = Number(countRow.n) === 0;
