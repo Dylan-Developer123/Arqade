@@ -32,6 +32,7 @@ Free browser games. One account for every game — no downloads, just play.
 
 ## Latest updates
 
+- **2026-11-28** — Sign-in is now a copy of Squarespace's: "Welcome to Arqade", minimal fields, black button, small links underneath — on the account screen and every game's gate; the portal's sign-in also moved to the top-right of the header, in the same spot as Squarespace's Login (it shows your name there when you're signed in)
 - **2026-11-28** — Sign-in cards are white now: a clean white sign-in card (Squarespace-style) on the account screen and on every game's sign-in gate, replacing the dark navy card
 - **2026-11-28** — New site logo: a gold gamepad tab icon on every page (before this, Arqade tabs showed the generic globe)
 - **2026-11-28** — Sign-in is Arqade-branded now: the account screen says Arqade (not Mining Simulator), and creating an account or signing in lands you on the portal instead of inside Mining Simulator
