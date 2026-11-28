@@ -340,6 +340,7 @@ try { arqApplyAppearance(); } catch (e) {}
       <button id="arq-tag-revoke">Remove tag</button>
     </div>` : ''}
     <h4>Danger zone</h4>
+    ${user.isOwner ? `<div class="row"><button id="arq-backup">⬇ Backup all data</button></div>` : ''}
     <div class="row"><button id="arq-wipe" class="danger">Delete ALL accounts</button></div>
     <div id="arq-status"></div>`;
   document.body.appendChild(panel);
@@ -503,6 +504,20 @@ try { arqApplyAppearance(); } catch (e) {}
     if (!confirm('Really wipe everything? You will be signed out.')) return;
     try { await admin('wipe', {}); location.reload(); }
     catch (ex) { status('⚠️ ' + ex.message); }
+  };
+  const backupBtn = panel.querySelector('#arq-backup');
+  if (backupBtn) backupBtn.onclick = async () => {
+    try {
+      status('⏳ Building backup…');
+      const d = await admin('backup', {});
+      const blob = new Blob([JSON.stringify(d.backup, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'arqade-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      status('✅ Backup downloaded. Keep that file private — it holds every account.');
+    } catch (ex) { status('⚠️ ' + ex.message); }
   };
 
   /* ------- fullscreen button (every page) ------- */
