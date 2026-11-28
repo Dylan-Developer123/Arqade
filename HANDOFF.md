@@ -1,6 +1,6 @@
 # Arqade — Project Handoff
 
-Last updated: 2026-11-24
+Last updated: 2026-11-28
 
 ## 1. Tech Stack & Packages
 - Node + Express server (`server.js`); Neon Postgres in production, SQLite locally; vanilla JS front end; Three.js r128 for the 3D games
@@ -12,6 +12,7 @@ Last updated: 2026-11-24
 - `public/index.html` — portal: account bar (name/tags/title + Orbs balance pill), Featured + More games cards, Continue bar, likes
 - `public/games/shop.html` — Orb Shop app: balance, daily/weekly tasks + Claim, name-color/title cosmetics, Buy Orbs packs
 - `public/orb.svg` — the Orb coin logo (concentric gold coin), used wherever Orbs are shown: balance pills, the Shop app, the Orb Shop card cover
+- `public/favicon.svg` — the site tab icon (gold gamepad on Arqade navy, Dylan's pick 2026-11-28), linked from every page; server.js also serves it at `/favicon.ico` so pages without the link (micro games, Meteor-generated pages) still get the icon
 - `public/games/admin-panel.js` — shared panel for all game pages except Mining Simulator: admin tools, sign-in gate, appearance system, Orbs pill, fullscreen pill, controller translator
 - `public/miner-cat-2.html` + `public/game.js` + `public/styles.css` — Mining Simulator (own auth overlay; inline Orbs pill + controller translator)
 - `public/games/bloxcraft.html` — Bloxcraft (own `pollPad` controller loop: sticks + triggers)

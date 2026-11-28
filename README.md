@@ -32,6 +32,7 @@ Free browser games. One account for every game — no downloads, just play.
 
 ## Latest updates
 
+- **2026-11-28** — New site logo: a gold gamepad tab icon on every page (before this, Arqade tabs showed the generic globe)
 - **2026-11-28** — Sign-in is Arqade-branded now: the account screen says Arqade (not Mining Simulator), and creating an account or signing in lands you on the portal instead of inside Mining Simulator
 - **2026-11-24** — Controller support across the whole site; Orb Shop became its own app in Featured; Orbs balance pill in the portal account bar and on every game page; new Orb coin logo; Orbs controls in the admin panel (set/give any player's balance); every game now has a 2X gamepass bought with Orbs (10 in Featured games, 2 in the rest)
 - **2026-11-23** — Orbs currency launched with harder tasks and the cosmetics shop; Bloxcraft 4.0 (landmarks, animals, world map, day & night, pickaxe, fast travel); Mining Simulator rethemed to Arqade navy and gold
