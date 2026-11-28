@@ -115,15 +115,15 @@ try { arqApplyAppearance(); } catch (e) {}
     const style = document.createElement('style');
     style.textContent = `
   #arq-play-gate { position: fixed; inset: 0; z-index: 1000000; background: rgba(8,8,14,.88); display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; }
-  #arq-play-gate .card { background: #1e1e30; color: #eee; border: 2px solid #f5c542; border-radius: 16px; padding: 24px 22px; width: min(380px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
+  #arq-play-gate .card { background: #ffffff; color: #191920; border: none; border-radius: 16px; padding: 24px 22px; width: min(380px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
   #arq-play-gate h2 { margin: 0 0 6px; font-size: 23px; }
   #arq-play-gate p { margin: 0 0 14px; font-size: 14.5px; opacity: .85; line-height: 1.45; }
-  #arq-play-gate input { width: 100%; box-sizing: border-box; background: #12121c; color: #eee; border: 1px solid #55557a; border-radius: 9px; padding: 11px 12px; font-size: 16px; margin-bottom: 9px; }
-  #arq-play-gate button.go { width: 100%; background: #f5c542; color: #191920; border: none; border-radius: 9px; padding: 12px; font-size: 16.5px; font-weight: 800; cursor: pointer; }
+  #arq-play-gate input { width: 100%; box-sizing: border-box; background: #ffffff; color: #191920; border: 1px solid #c9c9ce; border-radius: 9px; padding: 11px 12px; font-size: 16px; margin-bottom: 9px; }
+  #arq-play-gate button.go { width: 100%; background: #23232a; color: #ffffff; border: none; border-radius: 9px; padding: 12px; font-size: 16.5px; font-weight: 800; cursor: pointer; }
   #arq-play-gate button.go:disabled { opacity: .55; }
   #arq-play-gate .switch { margin-top: 12px; font-size: 14px; }
-  #arq-play-gate .switch a, #arq-play-gate .back { color: #f5c542; cursor: pointer; text-decoration: underline; }
-  #arq-play-gate .err { color: #ff9a9a; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }
+  #arq-play-gate .switch a, #arq-play-gate .back { color: #191920; cursor: pointer; text-decoration: underline; }
+  #arq-play-gate .err { color: #b3261e; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }
   #arq-play-gate .back { display: inline-block; margin-top: 10px; font-size: 13.5px; opacity: .85; }
   `;
     document.head.appendChild(style);
