@@ -32,6 +32,7 @@ Free browser games. One account for every game — no downloads, just play.
 
 ## Latest updates
 
+- **2026-11-28** — Sign-in is now an exact copy of Squarespace's Create Account form: First Name + Last Name side by side, Email, Create Password + Re-type Password, underline fields, no labels or helper text — and clicking Play Now as a guest pops that form up immediately on the portal, then takes you straight into the game you tapped. No username field anymore: your account signs in with its email and the server makes a username from it
 - **2026-11-28** — New Backup button in the admin panel (owner only, Danger zone): downloads every account, save, score and Orb balance as one file, so wiping is never forever
 - **2026-11-28** — Sign-in takes an email now: new accounts must enter a valid email (saved in the database), you can sign in with your email or your username, and an account without an email is asked to add one before playing. Signing in also works inside the Squarespace embed now.
 - **2026-11-28** — Sign-in is now a copy of Squarespace's: "Welcome to Arqade", minimal fields, black button, small links underneath — on the account screen and every game's gate; the portal's sign-in also moved to the top-right of the header, in the same spot as Squarespace's Login (it shows your name there when you're signed in)
