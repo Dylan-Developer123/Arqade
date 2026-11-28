@@ -32,6 +32,7 @@ Free browser games. One account for every game — no downloads, just play.
 
 ## Latest updates
 
+- **2026-11-28** — Sign-in takes an email now: new accounts must enter a valid email (saved in the database), you can sign in with your email or your username, and an account without an email is asked to add one before playing. Signing in also works inside the Squarespace embed now.
 - **2026-11-28** — Sign-in is now a copy of Squarespace's: "Welcome to Arqade", minimal fields, black button, small links underneath — on the account screen and every game's gate; the portal's sign-in also moved to the top-right of the header, in the same spot as Squarespace's Login (it shows your name there when you're signed in)
 - **2026-11-28** — Sign-in cards are white now: a clean white sign-in card (Squarespace-style) on the account screen and on every game's sign-in gate, replacing the dark navy card
 - **2026-11-28** — New site logo: a gold gamepad tab icon on every page (before this, Arqade tabs showed the generic globe)
