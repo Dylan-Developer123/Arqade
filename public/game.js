@@ -435,7 +435,7 @@ function buyEnchant(id) {
 const maxHp = () => MAX_HP + 25 * enchLvl('hardy');
 const effSpeed = () => P.speed * (1 + 0.08 * enchLvl('swift'));
 const effJumpV = () => P.jumpV * (1 + 0.10 * enchLvl('bouncy'));
-const sellMult = () => 1 + 0.10 * enchLvl('lucky');
+const sellMult = () => (1 + 0.10 * enchLvl('lucky')) * (window.ARQ_PASS2X ? 2 : 1); // 2X Coins gamepass doubles sell income
 const lavaMult = () => 1 - 0.10 * enchLvl('lava');
 function sellBackpack() {
   let total = 0;
@@ -1536,7 +1536,7 @@ function setAuthMode(mode) {
   $('tab-signup').classList.toggle('active', mode === 'signup');
   $('tab-signin').classList.toggle('active', mode === 'signin');
   $('field-displayname').style.display = mode === 'signup' ? '' : 'none';
-  $('auth-submit').textContent = mode === 'signup' ? 'Create & play' : 'Sign in & play';
+  $('auth-submit').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
   $('auth-error').classList.add('hidden');
 }
 $('tab-signup').onclick = () => setAuthMode('signup');
@@ -1553,7 +1553,7 @@ $('auth-form').addEventListener('submit', async (e) => {
       ? await api.signup(username, password, $('auth-displayname').value.trim())
       : await api.signin(username, password);
     S.user = user;
-    await startGame();
+    location.href = '/'; // Arqade account ready — land on the portal, not inside Mining Simulator
   } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
 });
 
