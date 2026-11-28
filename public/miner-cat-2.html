@@ -5,36 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mining Simulator — Arqade</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="styles.css?v=26">
+<link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
 
 <!-- ============ LANDING / AUTH ============ -->
 <div id="auth-overlay" class="overlay hidden">
   <div class="panel auth-panel">
-    <div class="auth-logo">🎮</div>
-    <p class="eyebrow">ARQADE BY METEOR</p>
-    <h1>One account.<br>Every game.</h1>
-    <p class="muted">Your free Arqade account works on every game — Mining Simulator, City Pursuit 3D, Bloxcraft, Turbo Racer 3D and more.</p>
-    <div class="tabs">
-      <button id="tab-signup" class="tab active">Create account</button>
-      <button id="tab-signin" class="tab">Sign in</button>
-    </div>
+    <h1>Welcome to Arqade</h1>
+    <p class="muted auth-sub">One account. Every game.</p>
     <div id="auth-error" class="error hidden"></div>
     <form id="auth-form">
       <div id="field-displayname">
         <label for="auth-displayname">Display name</label>
-        <input id="auth-displayname" type="text" maxlength="24" placeholder="enter text" autocomplete="nickname">
+        <input id="auth-displayname" type="text" maxlength="24" placeholder="Display name" autocomplete="nickname">
         <small class="muted">This is what other players see.</small>
       </div>
       <label for="auth-username">Username</label>
-      <input id="auth-username" type="text" maxlength="32" placeholder="enter text" autocomplete="username">
+      <input id="auth-username" type="text" maxlength="32" placeholder="Username" autocomplete="username">
       <label for="auth-password">Password</label>
-      <input id="auth-password" type="password" placeholder="••••••••" autocomplete="current-password">
+      <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password">
       <small class="muted">Use at least 6 characters.</small>
       <button type="submit" id="auth-submit" class="btn primary big">Create account</button>
     </form>
-    <p class="muted" style="margin-top:12px;font-size:0.85em;">One account works for every game on Arqade.</p>
+    <div class="tabs">
+      <button id="tab-signup" class="tab active">Create account</button>
+      <button id="tab-signin" class="tab">Sign in</button>
+    </div>
   </div>
 </div>
 
