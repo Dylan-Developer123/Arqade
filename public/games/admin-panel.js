@@ -110,72 +110,135 @@ try { arqApplyAppearance(); } catch (e) {}
   // ---- Account required to play (Dylan's rule, 2026-11-09) ----
   // Guests opening any game page get this sign-in / create-account gate.
   // The portal stays open for browsing; Mining Simulator has its own gate and doesn't load this file.
-  function showPlayGate() {
-    if (document.getElementById('arq-play-gate')) return;
-    const style = document.createElement('style');
-    style.textContent = `
-  #arq-play-gate { position: fixed; inset: 0; z-index: 1000000; background: rgba(8,8,14,.88); display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; }
-  #arq-play-gate .card { background: #ffffff; color: #191920; border: none; border-radius: 12px; padding: 34px 30px 28px; width: min(400px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
-  #arq-play-gate h2 { margin: 0 0 6px; font-size: 25px; font-weight: 600; color: #111113; }
-  #arq-play-gate p { margin: 0 0 18px; font-size: 14.5px; color: #6a6a72; line-height: 1.45; }
-  #arq-play-gate input { width: 100%; box-sizing: border-box; background: #ffffff; color: #191920; border: 1px solid #c9c9ce; border-radius: 6px; padding: 13px 14px; font-size: 16px; margin-bottom: 10px; }
-  #arq-play-gate button.go { width: 100%; background: #111113; color: #ffffff; border: none; border-radius: 6px; padding: 14px; font-size: 16.5px; font-weight: 700; cursor: pointer; margin-top: 6px; }
-  #arq-play-gate button.go:disabled { opacity: .55; }
-  #arq-play-gate .switch { margin-top: 16px; font-size: 14px; color: #55555e; }
-  #arq-play-gate .switch a, #arq-play-gate .back { color: #55555e; cursor: pointer; text-decoration: underline; }
-  #arq-play-gate .err { color: #b3261e; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }
-  #arq-play-gate .back { display: inline-block; margin-top: 10px; font-size: 13.5px; opacity: .85; }
+  // Squarespace-exact auth form (Dylan's pick, 2026-11-28): white card, centered
+  // "Create Account" / "Sign In" title, First/Last name side by side, Email,
+  // Create Password + Re-type Password, underline-only fields, no labels or helper
+  // text, dark button, mode link under the button. Used by the play gate (blocking)
+  // and by the portal Play Now popup (dismissible, opens immediately on the portal).
+  const AUTH_STYLE = `
+  .arq-auth { position: fixed; inset: 0; z-index: 1000000; background: rgba(8,8,14,.88); display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; }
+  .arq-auth .card { position: relative; background: #ffffff; color: #191920; border: none; border-radius: 4px; padding: 44px 46px 34px; width: min(560px, 94vw); box-sizing: border-box; box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
+  .arq-auth h2 { margin: 0 0 26px; font-size: 28px; font-weight: 400; color: #111113; }
+  .arq-auth input { width: 100%; box-sizing: border-box; background: transparent; color: #191920; border: none; border-bottom: 1px solid #d9d9d9; border-radius: 0; padding: 10px 2px; font-size: 15.5px; margin-bottom: 22px; }
+  .arq-auth input::placeholder { color: #9a9aa0; }
+  .arq-auth input:focus { outline: none; border-bottom: 2px solid #191920; }
+  .arq-auth .namerow { display: flex; gap: 26px; }
+  .arq-auth .namerow input { flex: 1; min-width: 0; }
+  .arq-auth button.go { width: 100%; background: #3d3d3d; color: #ffffff; border: none; border-radius: 3px; padding: 15px; font-size: 15px; cursor: pointer; margin-top: 10px; }
+  .arq-auth button.go:disabled { opacity: .55; }
+  .arq-auth .switch { margin-top: 20px; font-size: 13.5px; color: #3c3c43; }
+  .arq-auth .switch a, .arq-auth .back { color: #111113; cursor: pointer; text-decoration: none; }
+  .arq-auth .switch a:hover, .arq-auth .back:hover { text-decoration: underline; }
+  .arq-auth .err { color: #b3261e; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }
+  .arq-auth .back { display: inline-block; margin-top: 12px; font-size: 13.5px; opacity: .85; }
+  .arq-auth .x { position: absolute; top: 10px; right: 14px; background: none; border: none; font-size: 22px; color: #55555e; cursor: pointer; line-height: 1; padding: 4px; }
+  @media (max-width: 560px) { .arq-auth .card { padding: 34px 22px 26px; } }
   `;
-    document.head.appendChild(style);
-    const gate = document.createElement('div');
-    gate.id = 'arq-play-gate';
-    gate.innerHTML = `
+  let authStyleDone = false;
+  function ensureAuthStyle() {
+    if (authStyleDone) return;
+    authStyleDone = true;
+    const s = document.createElement('style');
+    s.textContent = AUTH_STYLE;
+    document.head.appendChild(s);
+  }
+  function makeAuthOverlay(id, opts) {
+    ensureAuthStyle();
+    const ov = document.createElement('div');
+    ov.id = id;
+    ov.className = 'arq-auth';
+    ov.innerHTML = `
       <div class="card">
-        <h2>Welcome to Arqade</h2>
-        <p>One account. Every game.</p>
-        <input id="pg-user" type="text" placeholder="Username or email" autocomplete="username" maxlength="32">
-        <input id="pg-pass" type="password" placeholder="Password" autocomplete="current-password">
-        <input id="pg-name" type="text" placeholder="Display name (new accounts)" maxlength="24" style="display:none">
-        <input id="pg-email" type="email" placeholder="Email (new accounts)" autocomplete="email" maxlength="254" style="display:none">
-        <div class="err" id="pg-err"></div>
-        <button class="go" id="pg-go">Sign in</button>
-        <div class="switch" id="pg-switch">New here? <a id="pg-toggle">Create an account</a></div>
-        <a class="back" href="/">← Back to Arqade home</a>
+        ${opts.dismissible ? '<button class="x" aria-label="Close">&times;</button>' : ''}
+        <h2>Sign In</h2>
+        <div class="namerow" style="display:none">
+          <input class="f-first" type="text" placeholder="First Name" autocomplete="given-name" maxlength="24">
+          <input class="f-last" type="text" placeholder="Last Name" autocomplete="family-name" maxlength="24">
+        </div>
+        <input class="f-email" type="email" placeholder="Email" autocomplete="email" maxlength="254">
+        <input class="f-pass" type="password" placeholder="Password" autocomplete="current-password">
+        <input class="f-pass2" type="password" placeholder="Re-type Password" autocomplete="new-password" style="display:none">
+        <div class="err"></div>
+        <button class="go">Sign in</button>
+        <div class="switch"><span class="sw-text">Don't have an account?</span> <a class="toggle">Create account</a></div>
+        ${opts.backLink ? '<a class="back" href="/">← Back to Arqade home</a>' : ''}
       </div>`;
-    document.body.appendChild(gate);
+    document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
     let mode = 'signin';
-    const q = (sel) => gate.querySelector(sel);
-    const err = (m) => { q('#pg-err').textContent = m || ''; };
-    q('#pg-toggle').addEventListener('click', () => {
-      mode = mode === 'signin' ? 'signup' : 'signin';
-      q('#pg-name').style.display = mode === 'signup' ? 'block' : 'none';
-      q('#pg-email').style.display = mode === 'signup' ? 'block' : 'none';
-      q('#pg-go').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
-      q('#pg-switch').firstChild.textContent = mode === 'signup' ? 'Already have an account? ' : 'New here? ';
-      q('#pg-toggle').textContent = mode === 'signup' ? 'Sign in' : 'Create an account';
+    const q = (s) => ov.querySelector(s);
+    const err = (m) => { q('.err').textContent = m || ''; };
+    function setMode(m) {
+      mode = m;
+      const su = m === 'signup';
+      q('h2').textContent = su ? 'Create Account' : 'Sign In';
+      q('.namerow').style.display = su ? 'flex' : 'none';
+      q('.f-pass2').style.display = su ? 'block' : 'none';
+      q('.f-pass').placeholder = su ? 'Create Password' : 'Password';
+      q('.f-pass').setAttribute('autocomplete', su ? 'new-password' : 'current-password');
+      q('.go').textContent = su ? 'Create account' : 'Sign in';
+      q('.sw-text').textContent = su ? 'Already have an account?' : "Don't have an account?";
+      q('.toggle').textContent = su ? 'Sign in' : 'Create account';
       err('');
-    });
+    }
+    q('.toggle').addEventListener('click', () => setMode(mode === 'signin' ? 'signup' : 'signin'));
+    function close() { ov.remove(); document.body.style.overflow = ''; }
+    if (opts.dismissible) {
+      q('.x').addEventListener('click', close);
+      ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    }
     const submit = async () => {
-      const username = q('#pg-user').value.trim();
-      const password = q('#pg-pass').value;
-      if (!username || !password) { err('Type your username and password.'); return; }
-      const btn = q('#pg-go'); btn.disabled = true; err('');
+      const email = q('.f-email').value.trim();
+      const password = q('.f-pass').value;
+      if (!email || !password) { err('Type your email and password.'); return; }
+      const btn = q('.go'); btn.disabled = true; err('');
       try {
-        const body = mode === 'signup'
-          ? { username, password, displayName: (q('#pg-name').value.trim() || username.slice(0, 24)), email: q('#pg-email').value.trim() }
-          : { username, password };
+        let body;
+        if (mode === 'signup') {
+          if (!q('.f-first').value.trim()) { err('Enter your first name.'); btn.disabled = false; return; }
+          if (password !== q('.f-pass2').value) { err('Passwords do not match.'); btn.disabled = false; return; }
+          const displayName = (q('.f-first').value.trim() + ' ' + q('.f-last').value.trim()).trim().slice(0, 24);
+          body = { username: '', password, displayName, email };
+        } else {
+          body = { username: email, password };
+        }
         const r = await fetch(mode === 'signup' ? '/api/signup' : '/api/signin', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) { err(data.error || 'Something went wrong — try again.'); btn.disabled = false; return; }
-        location.reload();
+        opts.onSuccess();
       } catch (e) { err('Network problem — check your connection and try again.'); btn.disabled = false; }
     };
-    q('#pg-go').addEventListener('click', submit);
-    gate.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    const u = q('#pg-user'); if (u) u.focus();
+    q('.go').addEventListener('click', submit);
+    ov.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape' && opts.dismissible) close();
+    });
+    setMode(opts.startMode || 'signin');
+    const f = q('.f-email'); if (f) f.focus();
+    return ov;
+  }
+  function showPlayGate() {
+    if (document.getElementById('arq-play-gate')) return;
+    makeAuthOverlay('arq-play-gate', { dismissible: false, backLink: true, startMode: 'signin', onSuccess: () => location.reload() });
+  }
+  // Dylan's rule (2026-11-28): clicking Play Now as a guest pops the create/sign-in
+  // form up immediately, right on the portal — after signing in you go straight
+  // to the game you tapped.
+  function showAuthPopup(targetHref) {
+    if (document.getElementById('arq-auth-popup') || document.getElementById('arq-play-gate')) return;
+    makeAuthOverlay('arq-auth-popup', { dismissible: true, backLink: false, startMode: 'signin', onSuccess: () => { if (targetHref) location.href = targetHref; else location.reload(); } });
+  }
+  function armPlayNowPopup() {
+    document.addEventListener('click', (e) => {
+      const a = e.target && e.target.closest ? e.target.closest('a.card, #continueSlot a') : null;
+      if (!a) return;
+      const href = a.getAttribute('href') || '';
+      if (!(href.startsWith('/games/') || href === '/miner-cat-2')) return;
+      e.preventDefault();
+      showAuthPopup(href);
+    });
   }
 
   // Required-email gate: shown to a signed-in player whose account has no email yet.
@@ -230,7 +293,10 @@ try { arqApplyAppearance(); } catch (e) {}
     else if (r.status === 401) guest = true;
   } catch (e) { /* network hiccup — fail open, so a blip never locks a signed-in player out */ }
   if (!user) {
-    if (guest && location.pathname.startsWith('/games/')) showPlayGate();
+    if (guest) {
+      armPlayNowPopup();
+      if (location.pathname.startsWith('/games/')) showPlayGate();
+    }
     return;
   }
   // Dylan's rule (2026-11-28): an account without an email must add one.
