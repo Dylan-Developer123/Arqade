@@ -133,9 +133,10 @@ try { arqApplyAppearance(); } catch (e) {}
       <div class="card">
         <h2>Welcome to Arqade</h2>
         <p>One account. Every game.</p>
-        <input id="pg-user" type="text" placeholder="Username" autocomplete="username" maxlength="32">
+        <input id="pg-user" type="text" placeholder="Username or email" autocomplete="username" maxlength="32">
         <input id="pg-pass" type="password" placeholder="Password" autocomplete="current-password">
         <input id="pg-name" type="text" placeholder="Display name (new accounts)" maxlength="24" style="display:none">
+        <input id="pg-email" type="email" placeholder="Email (new accounts)" autocomplete="email" maxlength="254" style="display:none">
         <div class="err" id="pg-err"></div>
         <button class="go" id="pg-go">Sign in</button>
         <div class="switch" id="pg-switch">New here? <a id="pg-toggle">Create an account</a></div>
@@ -149,6 +150,7 @@ try { arqApplyAppearance(); } catch (e) {}
     q('#pg-toggle').addEventListener('click', () => {
       mode = mode === 'signin' ? 'signup' : 'signin';
       q('#pg-name').style.display = mode === 'signup' ? 'block' : 'none';
+      q('#pg-email').style.display = mode === 'signup' ? 'block' : 'none';
       q('#pg-go').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
       q('#pg-switch').firstChild.textContent = mode === 'signup' ? 'Already have an account? ' : 'New here? ';
       q('#pg-toggle').textContent = mode === 'signup' ? 'Sign in' : 'Create an account';
@@ -161,7 +163,7 @@ try { arqApplyAppearance(); } catch (e) {}
       const btn = q('#pg-go'); btn.disabled = true; err('');
       try {
         const body = mode === 'signup'
-          ? { username, password, displayName: (q('#pg-name').value.trim() || username.slice(0, 24)) }
+          ? { username, password, displayName: (q('#pg-name').value.trim() || username.slice(0, 24)), email: q('#pg-email').value.trim() }
           : { username, password };
         const r = await fetch(mode === 'signup' ? '/api/signup' : '/api/signin', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -176,6 +178,50 @@ try { arqApplyAppearance(); } catch (e) {}
     const u = q('#pg-user'); if (u) u.focus();
   }
 
+  // Required-email gate: shown to a signed-in player whose account has no email yet.
+  function showEmailGate() {
+    if (document.getElementById('arq-email-gate')) return;
+    const st = document.createElement('style');
+    st.textContent = `
+  #arq-email-gate { position: fixed; inset: 0; z-index: 100001; background: rgba(10,10,18,.72); display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', system-ui, sans-serif; }
+  #arq-email-gate .card { background: #ffffff; color: #191920; border-radius: 12px; padding: 34px 30px 28px; width: min(400px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
+  #arq-email-gate h2 { margin: 0 0 6px; font-size: 25px; font-weight: 600; color: #111113; }
+  #arq-email-gate p { margin: 0 0 18px; font-size: 14.5px; color: #6a6a72; line-height: 1.45; }
+  #arq-email-gate input { width: 100%; box-sizing: border-box; background: #ffffff; color: #191920; border: 1px solid #c9c9ce; border-radius: 6px; padding: 13px 14px; font-size: 16px; margin-bottom: 10px; }
+  #arq-email-gate button { width: 100%; background: #111113; color: #ffffff; border: none; border-radius: 6px; padding: 14px; font-size: 16.5px; font-weight: 700; cursor: pointer; }
+  #arq-email-gate button:disabled { opacity: .55; }
+  #arq-email-gate .err { color: #b3261e; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }`;
+    document.head.appendChild(st);
+    const gate = document.createElement('div');
+    gate.id = 'arq-email-gate';
+    gate.innerHTML = `
+      <div class="card">
+        <h2>Add your email</h2>
+        <p>Your account doesn't have an email yet. Add one — from now on you can sign in with it.</p>
+        <input id="eg-email" type="email" placeholder="Email" autocomplete="email" maxlength="254">
+        <div class="err" id="eg-err"></div>
+        <button id="eg-go">Save email</button>
+      </div>`;
+    document.body.appendChild(gate);
+    document.body.style.overflow = 'hidden';
+    const save = async () => {
+      const em = gate.querySelector('#eg-email').value.trim();
+      const errEl = gate.querySelector('#eg-err');
+      const btn = gate.querySelector('#eg-go');
+      btn.disabled = true; errEl.textContent = '';
+      try {
+        const r = await fetch('/api/account', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: em }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { errEl.textContent = d.error || 'Could not save — try again.'; btn.disabled = false; return; }
+        gate.remove();
+        document.body.style.overflow = '';
+      } catch (e) { errEl.textContent = 'Network problem — check your connection and try again.'; btn.disabled = false; }
+    };
+    gate.querySelector('#eg-go').addEventListener('click', save);
+    gate.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+    const inp = gate.querySelector('#eg-email'); if (inp) inp.focus();
+  }
+
   let user = null;
   let guest = false;
   try {
@@ -187,6 +233,8 @@ try { arqApplyAppearance(); } catch (e) {}
     if (guest && location.pathname.startsWith('/games/')) showPlayGate();
     return;
   }
+  // Dylan's rule (2026-11-28): an account without an email must add one.
+  if (!user.email) showEmailGate();
   if (!(user.isAdmin || user.isModerator || user.isDeveloper || user.isOwner)) return;
 
   const css = `
