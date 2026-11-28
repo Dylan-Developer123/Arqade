@@ -132,22 +132,25 @@ form small { display: block; margin-top: 4px; }
 /* Auth overlay — a copy of Squarespace's sign-in look (Dylan's pick 2026-11-28):
    white card, centered "Welcome to Arqade", minimal fields, black button, small links under it */
 #auth-overlay { background: rgba(10, 10, 18, 0.72); }
+/* Exact copy of Squarespace's Create Account form (Dylan's pick, 2026-11-28):
+   plain white card, centered title, underline-only fields, First/Last side by side,
+   no labels and no helper text, dark button, mode link under the button */
 #auth-overlay .auth-panel {
-  background: #ffffff; border: none; color: #191920;
+  background: #ffffff; border: none; color: #191920; max-width: 560px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
-  border-radius: 12px; padding: 36px 34px 28px; text-align: center;
+  border-radius: 4px; padding: 44px 46px 34px; text-align: center;
 }
-#auth-overlay .auth-panel h1 { font-size: 27px; font-weight: 600; color: #111113; margin: 0 0 6px; }
-#auth-overlay .auth-sub { margin: 0 0 18px; font-size: 14.5px; }
+#auth-overlay .auth-panel h1 { font-size: 28px; font-weight: 400; color: #111113; margin: 0 0 26px; }
 #auth-overlay .muted { color: #6a6a72; }
 #auth-overlay form { text-align: left; }
-#auth-overlay form label { font-size: 13.5px; font-weight: 400; color: #3c3c43; margin: 14px 0 5px; }
-#auth-overlay form input { background: #ffffff; border: 1px solid #c9c9ce; border-radius: 6px; color: #191920; padding: 13px 14px; font-size: 16px; }
-#auth-overlay form input:focus { outline: 2px solid #191920; }
-#auth-overlay form small { font-size: 12.5px; }
-#auth-overlay .btn.primary { background: #111113; border-color: #111113; color: #ffffff; border-radius: 6px; width: 100%; padding: 14px; font-size: 16.5px; margin-top: 20px; }
-#auth-overlay .tabs { justify-content: center; margin: 16px 0 0; }
-#auth-overlay .tab { flex: none; background: none; border: none; color: #55555e; font-size: 14px; font-weight: 400; text-decoration: underline; padding: 4px 6px; cursor: pointer; }
+#auth-overlay form input { background: transparent; border: none; border-bottom: 1px solid #d9d9d9; border-radius: 0; color: #191920; padding: 10px 2px; font-size: 15.5px; margin: 0 0 22px; }
+#auth-overlay form input::placeholder { color: #9a9aa0; }
+#auth-overlay form input:focus { outline: none; border-bottom: 2px solid #191920; }
+#auth-overlay .name-row { display: flex; gap: 26px; }
+#auth-overlay .name-row input { flex: 1; min-width: 0; }
+#auth-overlay .btn.primary { background: #3d3d3d; border-color: #3d3d3d; color: #ffffff; border-radius: 3px; width: 100%; padding: 15px; font-size: 15px; font-weight: 400; margin-top: 10px; }
+#auth-overlay .tabs { justify-content: center; align-items: baseline; margin: 20px 0 0; font-size: 13.5px; color: #3c3c43; }
+#auth-overlay .tab { flex: none; background: none; border: none; color: #111113; font-size: 13.5px; font-weight: 400; text-decoration: none; padding: 4px 3px; cursor: pointer; }
 #auth-overlay .tab.active { display: none; }
 #auth-overlay .error { background: #fdecec; color: #b3261e; border-color: #f2b8b5; text-align: left; }
 
