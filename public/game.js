@@ -1535,10 +1535,12 @@ function setAuthMode(mode) {
   authMode = mode;
   $('tab-signup').classList.toggle('active', mode === 'signup');
   $('tab-signin').classList.toggle('active', mode === 'signin');
-  $('field-displayname').style.display = mode === 'signup' ? '' : 'none';
-  $('field-email').style.display = mode === 'signup' ? '' : 'none';
-  $('label-username').textContent = mode === 'signup' ? 'Username' : 'Username or email';
-  $('auth-username').placeholder = mode === 'signup' ? 'Username' : 'Username or email';
+  $('auth-title').textContent = mode === 'signup' ? 'Create Account' : 'Sign In';
+  $('field-name').style.display = mode === 'signup' ? '' : 'none';
+  $('field-password2').style.display = mode === 'signup' ? '' : 'none';
+  $('auth-password').placeholder = mode === 'signup' ? 'Create Password' : 'Password';
+  $('auth-password').setAttribute('autocomplete', mode === 'signup' ? 'new-password' : 'current-password');
+  $('auth-switch-text').textContent = mode === 'signup' ? 'Already have an account?' : 'Don\'t have an account?';
   $('auth-submit').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
   $('auth-error').classList.add('hidden');
 }
@@ -1549,12 +1551,18 @@ $('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const err = $('auth-error');
   err.classList.add('hidden');
-  const username = $('auth-username').value.trim();
+  const email = $('auth-email').value.trim();
   const password = $('auth-password').value;
   try {
-    const { user } = authMode === 'signup'
-      ? await api.signup(username, password, $('auth-displayname').value.trim(), $('auth-email').value.trim())
-      : await api.signin(username, password);
+    let result;
+    if (authMode === 'signup') {
+      if (password !== $('auth-password2').value) throw new Error('Passwords do not match.');
+      const displayName = ($('auth-firstname').value.trim() + ' ' + $('auth-lastname').value.trim()).trim().slice(0, 24);
+      result = await api.signup('', password, displayName, email);
+    } else {
+      result = await api.signin(email, password);
+    }
+    const { user } = result;
     S.user = user;
     location.href = '/'; // Arqade account ready — land on the portal, not inside Mining Simulator
   } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
