@@ -1359,6 +1359,19 @@ async function main() {
         save.playerX = 10;
         save.playerY = 0;
         break;
+      case 'backup': {
+        // Owner-only full data backup: every table except sessions (logins
+        // are temporary and never backed up). Includes password hashes so a
+        // restore brings accounts back exactly as they were — the owner must
+        // keep the downloaded file private.
+        if (!req.user.is_owner) return res.status(403).json({ error: 'Owner only.' });
+        const tables = ['users', 'saves', 'scores', 'game_likes', 'chat_servers', 'meteor_requests', 'feedback', 'orb_tasks', 'orb_games', 'orb_owned', 'orb_equip', 'stripe_events', 'broadcasts'];
+        const data = {};
+        for (const t of tables) {
+          try { data[t] = await db.prepare('SELECT * FROM ' + t).all(); } catch (e) { data[t] = []; }
+        }
+        return res.json({ ok: true, backup: { app: 'arqade', version: 1, createdAt: new Date().toISOString(), tables: data } });
+      }
       case 'wipe':
         // Delete ALL accounts, sessions, and saves. Next registration becomes admin.
         await db.prepare('DELETE FROM sessions').run();
