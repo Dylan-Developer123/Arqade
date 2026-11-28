@@ -21,7 +21,12 @@
         <input id="auth-displayname" type="text" maxlength="24" placeholder="Display name" autocomplete="nickname">
         <small class="muted">This is what other players see.</small>
       </div>
-      <label for="auth-username">Username</label>
+      <div id="field-email">
+        <label for="auth-email">Email</label>
+        <input id="auth-email" type="email" maxlength="254" placeholder="Email" autocomplete="email">
+        <small class="muted">Use a real email — you can sign in with it.</small>
+      </div>
+      <label for="auth-username" id="label-username">Username</label>
       <input id="auth-username" type="text" maxlength="32" placeholder="Username" autocomplete="username">
       <label for="auth-password">Password</label>
       <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password">
@@ -368,6 +373,37 @@
   });
 })();
 </script>
-<script src="game.js?v=53"></script>
+<script>
+  // Required-email gate (inline copy — this page does not load admin-panel.js).
+  // Dylan's rule (2026-11-28): a signed-in account without an email must add one.
+  (function () {
+    fetch('/api/me', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.user || d.user.email) return;
+      var st = document.createElement('style');
+      st.textContent = '#arq-email-gate{position:fixed;inset:0;z-index:100001;background:rgba(10,10,18,.72);display:flex;align-items:center;justify-content:center;font-family:\'Segoe UI\',system-ui,sans-serif}#arq-email-gate .card{background:#fff;color:#191920;border-radius:12px;padding:34px 30px 28px;width:min(400px,94vw);box-shadow:0 14px 44px rgba(0,0,0,.65);text-align:center}#arq-email-gate h2{margin:0 0 6px;font-size:25px;font-weight:600;color:#111113}#arq-email-gate p{margin:0 0 18px;font-size:14.5px;color:#6a6a72;line-height:1.45}#arq-email-gate input{width:100%;box-sizing:border-box;border:1px solid #c9c9ce;border-radius:6px;padding:13px 14px;font-size:16px;margin-bottom:10px;background:#fff;color:#191920}#arq-email-gate button{width:100%;background:#111113;color:#fff;border:none;border-radius:6px;padding:14px;font-size:16.5px;font-weight:700;cursor:pointer}#arq-email-gate button:disabled{opacity:.55}#arq-email-gate .err{color:#b3261e;font-size:14px;min-height:19px;margin:2px 0 8px}';
+      document.head.appendChild(st);
+      var gate = document.createElement('div');
+      gate.id = 'arq-email-gate';
+      gate.innerHTML = '<div class="card"><h2>Add your email</h2><p>Your account doesn\'t have an email yet. Add one — from now on you can sign in with it.</p><input id="eg-email" type="email" placeholder="Email" autocomplete="email" maxlength="254"><div class="err" id="eg-err"></div><button id="eg-go">Save email</button></div>';
+      document.body.appendChild(gate);
+      var save = function () {
+        var em = gate.querySelector('#eg-email').value.trim();
+        var errEl = gate.querySelector('#eg-err');
+        var btn = gate.querySelector('#eg-go');
+        btn.disabled = true; errEl.textContent = '';
+        fetch('/api/account', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: em }) })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (!res.ok) { errEl.textContent = res.j.error || 'Could not save — try again.'; btn.disabled = false; return; }
+            gate.remove();
+          })
+          .catch(function () { errEl.textContent = 'Network problem — check your connection and try again.'; btn.disabled = false; });
+      };
+      gate.querySelector('#eg-go').addEventListener('click', save);
+      gate.addEventListener('keydown', function (e) { if (e.key === 'Enter') save(); });
+    }).catch(function () {});
+  })();
+</script>
+<script src="game.js?v=54"></script>
 </body>
 </html>
