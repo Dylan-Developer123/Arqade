@@ -29,6 +29,8 @@
   header h1 { font-size: 26px; letter-spacing: 2px; color: #f5c542; text-transform: uppercase; font-weight: 700; text-shadow: 0 2px 16px rgba(245,197,66,.28); }
   header h1 span { color: #f5c542; }
   header p { opacity: 0.7; font-size: 14px; margin-left: auto; }
+  #header-signin { color: #eee; font-size: 15px; text-decoration: none; white-space: nowrap; }
+  #header-signin:hover { text-decoration: underline; }
   main { max-width: 1100px; margin: 0 auto; padding: 30px 18px 60px; }
   .section-title {
     font-size: 21px; font-weight: 700; letter-spacing: .4px;
@@ -73,6 +75,7 @@
   footer { text-align: center; opacity: 0.5; font-size: 13px; padding: 26px 24px; border-top: 1px solid rgba(255,255,255,.07); max-width: 1100px; margin: 0 auto; }
   @media (max-width: 560px) {
     header p { display: none; }
+    #header-signin { margin-left: auto; }
     header h1 { font-size: 21px; }
   }
 </style>
@@ -82,6 +85,7 @@
   <h1>Arqade</h1>
   <div style="font-size:12.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#f5c542;">by Meteor</div>
   <p>Free games — no downloads, just play</p>
+  <a id="header-signin" href="/miner-cat-2">Sign in</a>
 </header>
 <div id="account-bar" style="background:#1a1a2a;border-bottom:2px solid #2c2c48;padding:10px 24px;font-size:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
   <span id="account-text">Checking your account…</span>
@@ -110,6 +114,8 @@
         el.innerHTML = `👤 Signed in as <b></b><span style="color:#f5c542;font-weight:bold;"></span> — one account for every game here.`;
         el.querySelector('b').textContent = user.displayName;
         el.querySelector('span').textContent = tagText(user);
+        const hs = document.getElementById('header-signin');
+        if (hs) { hs.textContent = user.displayName; hs.href = '/games/settings'; paintNameEl(hs, user.nameColor); }
         if (user.title) el.querySelector('span').textContent += ' · ' + user.title;
         paintNameEl(el.querySelector('b'), user.nameColor);
         const bal = document.createElement('a');
@@ -123,7 +129,7 @@
         out.onclick = async () => { await fetch('/api/signout', { method: 'POST' }); location.reload(); };
         document.getElementById('account-bar').appendChild(out);
       } else {
-        el.innerHTML = '👤 One account works for every game. <a href="/miner-cat-2" style="color:#f5c542;font-weight:bold;">Sign in or create your Arqade account</a>';
+        el.innerHTML = '👤 One account works for every game.';
       }
     } catch (e) {
       el.textContent = '';
