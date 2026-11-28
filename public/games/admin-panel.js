@@ -115,14 +115,14 @@ try { arqApplyAppearance(); } catch (e) {}
     const style = document.createElement('style');
     style.textContent = `
   #arq-play-gate { position: fixed; inset: 0; z-index: 1000000; background: rgba(8,8,14,.88); display: flex; align-items: center; justify-content: center; padding: 16px; font-family: 'Segoe UI', system-ui, sans-serif; }
-  #arq-play-gate .card { background: #ffffff; color: #191920; border: none; border-radius: 16px; padding: 24px 22px; width: min(380px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
-  #arq-play-gate h2 { margin: 0 0 6px; font-size: 23px; }
-  #arq-play-gate p { margin: 0 0 14px; font-size: 14.5px; opacity: .85; line-height: 1.45; }
-  #arq-play-gate input { width: 100%; box-sizing: border-box; background: #ffffff; color: #191920; border: 1px solid #c9c9ce; border-radius: 9px; padding: 11px 12px; font-size: 16px; margin-bottom: 9px; }
-  #arq-play-gate button.go { width: 100%; background: #23232a; color: #ffffff; border: none; border-radius: 9px; padding: 12px; font-size: 16.5px; font-weight: 800; cursor: pointer; }
+  #arq-play-gate .card { background: #ffffff; color: #191920; border: none; border-radius: 12px; padding: 34px 30px 28px; width: min(400px, 94vw); box-shadow: 0 14px 44px rgba(0,0,0,.65); text-align: center; }
+  #arq-play-gate h2 { margin: 0 0 6px; font-size: 25px; font-weight: 600; color: #111113; }
+  #arq-play-gate p { margin: 0 0 18px; font-size: 14.5px; color: #6a6a72; line-height: 1.45; }
+  #arq-play-gate input { width: 100%; box-sizing: border-box; background: #ffffff; color: #191920; border: 1px solid #c9c9ce; border-radius: 6px; padding: 13px 14px; font-size: 16px; margin-bottom: 10px; }
+  #arq-play-gate button.go { width: 100%; background: #111113; color: #ffffff; border: none; border-radius: 6px; padding: 14px; font-size: 16.5px; font-weight: 700; cursor: pointer; margin-top: 6px; }
   #arq-play-gate button.go:disabled { opacity: .55; }
-  #arq-play-gate .switch { margin-top: 12px; font-size: 14px; }
-  #arq-play-gate .switch a, #arq-play-gate .back { color: #191920; cursor: pointer; text-decoration: underline; }
+  #arq-play-gate .switch { margin-top: 16px; font-size: 14px; color: #55555e; }
+  #arq-play-gate .switch a, #arq-play-gate .back { color: #55555e; cursor: pointer; text-decoration: underline; }
   #arq-play-gate .err { color: #b3261e; font-size: 14px; min-height: 19px; margin: 2px 0 8px; }
   #arq-play-gate .back { display: inline-block; margin-top: 10px; font-size: 13.5px; opacity: .85; }
   `;
@@ -131,13 +131,13 @@ try { arqApplyAppearance(); } catch (e) {}
     gate.id = 'arq-play-gate';
     gate.innerHTML = `
       <div class="card">
-        <h2>🔒 Sign in to play</h2>
-        <p>Arqade games need a free account. One account works for every game, and your scores save to the leaderboards.</p>
+        <h2>Welcome to Arqade</h2>
+        <p>One account. Every game.</p>
         <input id="pg-user" type="text" placeholder="Username" autocomplete="username" maxlength="32">
         <input id="pg-pass" type="password" placeholder="Password" autocomplete="current-password">
         <input id="pg-name" type="text" placeholder="Display name (new accounts)" maxlength="24" style="display:none">
         <div class="err" id="pg-err"></div>
-        <button class="go" id="pg-go">Sign in &amp; play</button>
+        <button class="go" id="pg-go">Sign in</button>
         <div class="switch" id="pg-switch">New here? <a id="pg-toggle">Create an account</a></div>
         <a class="back" href="/">← Back to Arqade home</a>
       </div>`;
@@ -149,7 +149,7 @@ try { arqApplyAppearance(); } catch (e) {}
     q('#pg-toggle').addEventListener('click', () => {
       mode = mode === 'signin' ? 'signup' : 'signin';
       q('#pg-name').style.display = mode === 'signup' ? 'block' : 'none';
-      q('#pg-go').textContent = mode === 'signup' ? 'Create account & play' : 'Sign in & play';
+      q('#pg-go').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
       q('#pg-switch').firstChild.textContent = mode === 'signup' ? 'Already have an account? ' : 'New here? ';
       q('#pg-toggle').textContent = mode === 'signup' ? 'Sign in' : 'Create an account';
       err('');
