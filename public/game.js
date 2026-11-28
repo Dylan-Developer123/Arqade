@@ -86,7 +86,7 @@ const api = {
     return data;
   },
   me: () => api.req('GET', '/api/me'),
-  signup: (u, p, d) => api.req('POST', '/api/signup', { username: u, password: p, displayName: d }),
+  signup: (u, p, d, em) => api.req('POST', '/api/signup', { username: u, password: p, displayName: d, email: em }),
   signin: (u, p) => api.req('POST', '/api/signin', { username: u, password: p }),
   signout: () => api.req('POST', '/api/signout'),
   getSave: () => api.req('GET', '/api/save'),
@@ -1536,6 +1536,9 @@ function setAuthMode(mode) {
   $('tab-signup').classList.toggle('active', mode === 'signup');
   $('tab-signin').classList.toggle('active', mode === 'signin');
   $('field-displayname').style.display = mode === 'signup' ? '' : 'none';
+  $('field-email').style.display = mode === 'signup' ? '' : 'none';
+  $('label-username').textContent = mode === 'signup' ? 'Username' : 'Username or email';
+  $('auth-username').placeholder = mode === 'signup' ? 'Username' : 'Username or email';
   $('auth-submit').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
   $('auth-error').classList.add('hidden');
 }
@@ -1550,7 +1553,7 @@ $('auth-form').addEventListener('submit', async (e) => {
   const password = $('auth-password').value;
   try {
     const { user } = authMode === 'signup'
-      ? await api.signup(username, password, $('auth-displayname').value.trim())
+      ? await api.signup(username, password, $('auth-displayname').value.trim(), $('auth-email').value.trim())
       : await api.signin(username, password);
     S.user = user;
     location.href = '/'; // Arqade account ready — land on the portal, not inside Mining Simulator
