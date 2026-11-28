@@ -134,6 +134,7 @@ const SCHEMA_SQLITE = `
     username      TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     display_name  TEXT NOT NULL,
+    email         TEXT,
     is_admin      INTEGER NOT NULL DEFAULT 0,
     is_owner      INTEGER NOT NULL DEFAULT 0,
     is_moderator  INTEGER NOT NULL DEFAULT 0,
@@ -203,6 +204,7 @@ const SCHEMA_PG = `
     username      TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     display_name  TEXT NOT NULL,
+    email         TEXT,
     is_admin      INTEGER NOT NULL DEFAULT 0,
     is_owner      INTEGER NOT NULL DEFAULT 0,
     is_moderator  INTEGER NOT NULL DEFAULT 0,
@@ -293,6 +295,7 @@ async function main() {
   try { await db.exec('ALTER TABLE users ADD COLUMN hide_tags INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
   try { await db.exec('ALTER TABLE scores ALTER COLUMN score TYPE DOUBLE PRECISION'); } catch (e) { /* sqlite handles big values as REAL automatically */ }
   try { await db.exec('ALTER TABLE users ADD COLUMN orbs INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* already exists */ }
+  try { await db.exec('ALTER TABLE users ADD COLUMN email TEXT'); } catch (e) { /* already exists */ }
   try { await db.exec(`CREATE TABLE IF NOT EXISTS orb_tasks (
     user_id INTEGER NOT NULL,
     task TEXT NOT NULL,
@@ -334,12 +337,13 @@ async function main() {
   // Prepared statements
   const stmtGetUserById = db.prepare('SELECT * FROM users WHERE id = ?');
   const stmtGetUserAuthByUsername = db.prepare('SELECT * FROM users WHERE username = ?');
+  const stmtGetUserAuthByEmail = db.prepare('SELECT * FROM users WHERE lower(email) = ?');
   const stmtCountUsers = db.prepare('SELECT COUNT(*) AS n FROM users');
   const stmtInsertUser = db.prepare(
-    'INSERT INTO users (username, password_hash, display_name, is_admin, is_owner, is_moderator, is_developer) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO users (username, password_hash, display_name, email, is_admin, is_owner, is_moderator, is_developer) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const stmtUpdateUserCoins = db.prepare('UPDATE users SET coins = ? WHERE id = ?');
-  const stmtUpdateAccount = db.prepare('UPDATE users SET username = ?, display_name = ? WHERE id = ?');
+  const stmtUpdateAccount = db.prepare('UPDATE users SET username = ?, display_name = ?, email = ? WHERE id = ?');
   const stmtUpdatePassword = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
   const stmtGetSave = db.prepare('SELECT save_json, updated_at FROM saves WHERE user_id = ?');
   const stmtUpsertSave = db.prepare(
@@ -366,7 +370,8 @@ async function main() {
   function sessionCookieOptions() {
     return {
       httpOnly: true,
-      sameSite: 'lax',
+      // 'none' in production so the session also works inside the Squarespace embed (a cross-site iframe, where Lax cookies are withheld); None requires Secure, which prod HTTPS provides.
+      sameSite: isProd ? 'none' : 'lax',
       secure: isProd, // hosts serve over HTTPS
       maxAge: SESSION_TTL_MS,
       path: '/',
@@ -468,6 +473,14 @@ async function main() {
   function validDisplayName(v) {
     return typeof v === 'string' && v.trim().length >= 1 && v.trim().length <= 24;
   }
+  function validEmail(v) {
+    if (typeof v !== 'string') return false;
+    const t = v.trim();
+    return t.length >= 5 && t.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t);
+  }
+  function normEmail(v) {
+    return typeof v === 'string' ? v.trim().toLowerCase() : '';
+  }
   function coinsFromSave(save) {
     const c = Number(save && save.coins);
     return Number.isFinite(c) ? Math.max(0, Math.min(1e12, Math.floor(c))) : 0;
@@ -477,24 +490,30 @@ async function main() {
   // Auth routes
   // -------------------------------------------------------------------------
   app.post('/api/signup', rateLimit(20, 10 * 60 * 1000), async (req, res) => {
-    let { username, password, displayName } = req.body || {};
+    let { username, password, displayName, email } = req.body || {};
     if (typeof username === 'string') username = username.trim();
+    email = normEmail(email);
     if (!validUsername(username)) return res.status(400).json({ error: 'Username must be 3-32 chars (letters, numbers, spaces, . _ -).' });
     if (!validPassword(password)) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     if (!validDisplayName(displayName)) return res.status(400).json({ error: 'Display name must be 1-24 characters.' });
+    if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
     if (await stmtGetUserAuthByUsername.get(username)) {
       return res.status(409).json({ error: 'That username is taken.' });
+    }
+    if (await stmtGetUserAuthByEmail.get(email)) {
+      return res.status(409).json({ error: 'That email already has an account. Try signing in.' });
     }
     const countRow = await stmtCountUsers.get();
     const isFirst = Number(countRow.n) === 0;
     const hash = bcrypt.hashSync(password, 10);
     const f = isFirst ? 1 : 0; // the first account is the owner and holds all four tags
-    await stmtInsertUser.run(username, hash, displayName.trim(), f, f, f, f);
+    await stmtInsertUser.run(username, hash, displayName.trim(), email, f, f, f, f);
     const authRow = await stmtGetUserAuthByUsername.get(username);
     const user = await stmtGetUserById.get(authRow.id);
     await createSession(res, user.id);
     await orbBump(user.id, 'login');
     const profile = publicProfile(user);
+    profile.email = user.email || '';
     profile.canGiveTags = await isOriginalOwner(user.id);
     const suCos = await orbCosmetics(user.id);
     profile.nameColor = suCos.nc;
@@ -507,15 +526,20 @@ async function main() {
     if (typeof username !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ error: 'Username and password are required.' });
     }
-    const row = await stmtGetUserAuthByUsername.get(username.trim());
+    const ident = username.trim();
+    // Sign in with the username OR the account's email (Dylan's rule 2026-11-28).
+    let row = null;
+    if (ident.includes('@')) row = await stmtGetUserAuthByEmail.get(ident.toLowerCase());
+    if (!row) row = await stmtGetUserAuthByUsername.get(ident);
     // Constant-time-ish failure path: always run a bcrypt compare.
     const ok = row ? bcrypt.compareSync(password, row.password_hash) : false;
-    if (!ok) return res.status(401).json({ error: 'Invalid username or password.' });
+    if (!ok) return res.status(401).json({ error: 'Invalid sign-in or password.' });
     if (row.banned) return res.status(403).json({ error: 'This account has been banned.' });
     await createSession(res, row.id);
     await orbBump(row.id, 'login');
     const userRow = await stmtGetUserById.get(row.id);
     const signinProfile = publicProfile(userRow);
+    signinProfile.email = userRow.email || '';
     signinProfile.canGiveTags = await isOriginalOwner(row.id);
     const siCos = await orbCosmetics(row.id);
     signinProfile.nameColor = siCos.nc;
@@ -526,13 +550,14 @@ async function main() {
   app.post('/api/signout', async (req, res) => {
     const token = req.cookies[SESSION_COOKIE];
     if (typeof token === 'string') await stmtDeleteSession.run(token);
-    res.clearCookie(SESSION_COOKIE, { path: '/' });
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
     res.json({ ok: true });
   });
 
   app.get('/api/me', async (req, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not signed in.' });
     const meProfile = publicProfile(req.user);
+    meProfile.email = req.user.email || '';
     meProfile.canGiveTags = await isOriginalOwner(req.user.id);
     const meCos = await orbCosmetics(req.user.id);
     meProfile.nameColor = meCos.nc;
@@ -1243,11 +1268,21 @@ async function main() {
   // Account settings — change username / display name / password
   // -------------------------------------------------------------------------
   app.patch('/api/account', requireAuth, async (req, res) => {
-    let { currentPassword, username, displayName, newPassword } = req.body || {};
+    let { currentPassword, username, displayName, newPassword, email } = req.body || {};
     if (typeof username === 'string') username = username.trim();
     const full = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     const nextUsername = username !== undefined ? username : full.username;
     const nextDisplay = displayName !== undefined ? displayName : full.display_name;
+    const nextEmail = email !== undefined ? normEmail(email) : (full.email || null);
+    if (email !== undefined && nextEmail !== '' && !validEmail(nextEmail)) {
+      return res.status(400).json({ error: 'Enter a valid email address.' });
+    }
+    if (nextEmail) {
+      const owner = await stmtGetUserAuthByEmail.get(nextEmail);
+      if (owner && owner.id !== req.user.id) {
+        return res.status(409).json({ error: 'That email already has an account.' });
+      }
+    }
     const changingSensitive = nextUsername !== full.username || (newPassword !== undefined && newPassword !== '');
     // Only require current password when changing username or password
     if (changingSensitive) {
@@ -1263,7 +1298,7 @@ async function main() {
     if (nextUsername !== full.username && await stmtGetUserAuthByUsername.get(nextUsername)) {
       return res.status(409).json({ error: 'That username is taken.' });
     }
-    await stmtUpdateAccount.run(nextUsername, nextDisplay.trim(), req.user.id);
+    await stmtUpdateAccount.run(nextUsername, nextDisplay.trim(), nextEmail || null, req.user.id);
     if (newPassword) {
       await stmtUpdatePassword.run(bcrypt.hashSync(newPassword, 10), req.user.id);
       await stmtDeleteUserSessions.run(req.user.id); // force re-login everywhere
@@ -1271,6 +1306,7 @@ async function main() {
     const user = await stmtGetUserById.get(req.user.id);
     if (newPassword) await createSession(res, user.id); // keep this device signed in
     const updatedProfile = publicProfile(user);
+    updatedProfile.email = user.email || '';
     updatedProfile.canGiveTags = await isOriginalOwner(user.id);
     res.json({ user: updatedProfile });
   });
