@@ -1458,6 +1458,12 @@ async function main() {
   // -------------------------------------------------------------------------
   // Static frontend
   // -------------------------------------------------------------------------
+  // Site icon: pages without their own <link rel="icon"> fall back to
+  // /favicon.ico — serve the gamepad SVG there so every tab gets the logo.
+  app.get('/favicon.ico', (req, res) => {
+    res.type('image/svg+xml');
+    res.sendFile(path.join(__dirname, 'public', 'favicon.svg'));
+  });
   app.use(express.static(path.join(__dirname, 'public'), {
     extensions: ['html'],
     setHeaders: (res, filePath) => { if (/\.(html|js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache'); }
